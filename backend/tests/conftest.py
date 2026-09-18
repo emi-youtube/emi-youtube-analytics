@@ -5,8 +5,9 @@ As variáveis de ambiente são forçadas ANTES de importar `app`, por dois motiv
    escrever no Supabase compartilhado, mesmo que o override de `get_db` falhe;
 2. o segredo do JWT e os prazos ficam fixos, então o teste não depende do .env local.
 
-O banco dos testes é SQLite em memória. Só as 3 tabelas da autenticação são criadas:
-as demais usam JSONB, que o SQLite não suporta.
+O banco dos testes é SQLite em memória, com só as tabelas que os testes exercitam
+(`TABELAS_TESTADAS`). As colunas JSONB são declaradas com `with_variant`, então
+viram JSON no SQLite e as tabelas podem ser criadas aqui.
 """
 
 import os
@@ -31,6 +32,7 @@ from app.api.deps import requer_admin
 from app.core.database import Base, get_db
 from app.main import app
 from app.models.execucao import Execucao
+from app.models.job import Job
 from app.models.modelo_analise import ModeloAnalise
 from app.models.tentativa_login import TentativaLogin
 from app.models.token_atualizacao import TokenAtualizacao
@@ -41,8 +43,8 @@ TABELAS_TESTADAS = [
     TokenAtualizacao.__table__,
     TentativaLogin.__table__,
     ModeloAnalise.__table__,
-    # Execucoes entra só para exercitar a FK que impede apagar modelo já executado.
     Execucao.__table__,
+    Job.__table__,
 ]
 
 ROTA_ADMIN = "/api/v1/_teste/somente-admin"

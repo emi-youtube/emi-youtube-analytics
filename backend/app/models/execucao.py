@@ -1,9 +1,14 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
+# UC03 não prevê execuções concorrentes do mesmo modelo. A verificação no serviço
+# dá a mensagem boa; este índice é quem garante a regra sob concorrência, porque
+# dois POST simultâneos passariam os dois pela verificação.
+_STATUS_ATIVOS_SQL = "status IN ('pendente', 'processando')"
 
 
 class Execucao(Base):
@@ -12,6 +17,13 @@ class Execucao(Base):
         CheckConstraint(
             "status IN ('pendente', 'processando', 'concluida', 'erro')",
             name="ck_execucoes_status",
+        ),
+        Index(
+            "uq_execucoes_ativa_por_modelo",
+            "id_modelo",
+            unique=True,
+            postgresql_where=text(_STATUS_ATIVOS_SQL),
+            sqlite_where=text(_STATUS_ATIVOS_SQL),
         ),
     )
 
