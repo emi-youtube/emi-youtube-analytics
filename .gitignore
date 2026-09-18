@@ -1,0 +1,55 @@
+# ─── SEGREDOS (NUNCA COMMITAR) ──────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# ─── Python / backend / ml ──────────────────────────────────
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ─── Dados e modelos (pesados, não versionar) ───────────────
+ml/dados/*.csv
+ml/dados/*.jsonl
+ml/dados/*.parquet
+ml/modelos/
+*.pt
+*.bin
+*.onnx
+*.safetensors
+!ml/dados/.gitkeep
+!ml/modelos/.gitkeep
+
+# ─── Angular / frontend ─────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/tmp/
+*.log
+npm-debug.log*
+
+# ─── Graphify (saída regenerável) ───────────────────────────
+graphify-out/
+
+# ─── Editores e SO ──────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
