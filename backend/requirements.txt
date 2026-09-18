@@ -5,3 +5,8 @@ asyncpg==0.30.0
 pydantic==2.10.4
 pydantic-settings==2.7.1
 alembic==1.14.0
+passlib[bcrypt]==1.7.4
+# passlib 1.7.4 não lê a versão do bcrypt >= 4.1 e emite erro no log; 4.0.1 evita isso
+bcrypt==4.0.1
+pyjwt==2.10.1
+email-validator==2.2.0

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -19,4 +19,6 @@ class JobDlq(Base):
     tipo: Mapped[str] = mapped_column(String(20), nullable=False)
     id_execucao: Mapped[int] = mapped_column(ForeignKey("execucoes.id_execucao"), nullable=False)
     erro: Mapped[str] = mapped_column(Text, nullable=False)
-    falhou_em: Mapped[datetime] = mapped_column(server_default=func.now())
+    falhou_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

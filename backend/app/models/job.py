@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,4 +24,6 @@ class Job(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pendente")
     tentativas: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    criado_em: Mapped[datetime] = mapped_column(server_default=func.now())
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

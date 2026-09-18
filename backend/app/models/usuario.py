@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, String, func
+from sqlalchemy import CheckConstraint, DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -17,4 +17,6 @@ class Usuario(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     papel: Mapped[str] = mapped_column(String(20), nullable=False, server_default="usuario_pme")
-    criado_em: Mapped[datetime] = mapped_column(server_default=func.now())
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

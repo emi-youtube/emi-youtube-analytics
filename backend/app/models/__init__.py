@@ -9,6 +9,8 @@ from app.models.job import Job
 from app.models.job_dlq import JobDlq
 from app.models.modelo_analise import ModeloAnalise
 from app.models.tema import Tema
+from app.models.tentativa_login import TentativaLogin
+from app.models.token_atualizacao import TokenAtualizacao
 from app.models.usuario import Usuario
 from app.models.versao_modelo import VersaoModelo
 from app.models.video import Video
@@ -23,6 +25,8 @@ __all__ = [
     "JobDlq",
     "ModeloAnalise",
     "Tema",
+    "TentativaLogin",
+    "TokenAtualizacao",
     "Usuario",
     "VersaoModelo",
     "Video",

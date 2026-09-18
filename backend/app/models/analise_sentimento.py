@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -27,4 +27,6 @@ class AnaliseSentimento(Base):
     sentimento: Mapped[str] = mapped_column(String(20), nullable=False)
     tema: Mapped[str | None] = mapped_column(String(255), nullable=True)
     justificativa: Mapped[str | None] = mapped_column(Text, nullable=True)
-    processado_em: Mapped[datetime] = mapped_column(server_default=func.now())
+    processado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

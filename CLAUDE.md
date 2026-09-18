@@ -61,7 +61,11 @@ TEMAS(id_tema PK, id_execucao FK, rotulo_tema, palavras_chave)
 COMENTARIO_TEMA(id_comentario FK, id_tema FK, peso)   -- N:N com atributo
 jobs(id_job PK, tipo CK, id_execucao FK, status CK, tentativas, payload JSONB, criado_em)
 jobs_dlq(id_job PK, tipo, id_execucao, erro, falhou_em)
+tokens_atualizacao(... refresh token revogável — sessão)
+tentativas_login(... controle de bloqueio por tentativas — segurança)
 ```
+
+**Domínio vs. infraestrutura.** As 10 primeiras são **entidades de domínio** e compõem o DER da Seção 4.2.2 do TC2. As quatro últimas (`jobs`, `jobs_dlq`, `tokens_atualizacao`, `tentativas_login`) são **tabelas de infraestrutura**: existem para viabilizar fila, sessão e segurança, não representam conceitos do negócio. Elas não entram no DER — são documentadas na Seção 4.3.2 (Banco de Dados). Ao criar tabela nova, classifique-a antes de decidir onde documentar.
 
 **Valores de CHECK:**
 - `papel`: `admin` | `usuario_pme`
@@ -101,7 +105,8 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 4. **Nunca chame `search.list` da YouTube API** — custa 100 unidades de cota contra 1 de `commentThreads.list`. Os vídeos são curados manualmente; use os IDs direto.
 5. **Ordem dos rótulos vem do `model_card.json`**, nunca hardcoded. O `ml/` exporta `{id2label, max_length, versao}` junto dos pesos; o backend lê de lá. Hardcodar causa bug silencioso (prevê "negativo", grava "neutro").
 6. **Conjunto de teste é só humano.** Nunca avalie o modelo contra rótulos gerados pela Gemini — a comparação vira circular e inválida.
-7. **`class_weight='balanced'` no treino.** O corpus é ~52% positivo / 33% neutro / 15% negativo. A métrica que importa é **F1 macro**, não acurácia.
+7. **Tabela de infraestrutura não pode crescer sem limite.** `tentativas_login` e similares precisam de limpeza (apagar registros antigos na própria escrita). O free tier do Supabase tem cota de armazenamento.
+8. **`class_weight='balanced'` no treino.** O corpus é ~52% positivo / 33% neutro / 15% negativo. A métrica que importa é **F1 macro**, não acurácia.
 
 ---
 
