@@ -11,7 +11,10 @@ app = FastAPI(title="Emi YouTube Analytics API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    # A sessão é HTTPBearer: o token vai no header Authorization, nunca em cookie.
+    # Sem credenciais o navegador não anexa cookie nem TLS client cert a estas
+    # requisições, então uma origem liberada por engano não herda sessão nenhuma.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
