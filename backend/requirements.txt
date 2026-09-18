@@ -10,3 +10,5 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 pyjwt==2.10.1
 email-validator==2.2.0
+# usado pelo worker de coleta (cliente da YouTube Data API)
+httpx==0.28.1

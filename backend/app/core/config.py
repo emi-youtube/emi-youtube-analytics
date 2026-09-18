@@ -31,7 +31,13 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:4200"
 
     worker_poll_interval_seconds: int = 5
+    # Tentativas de RETENTATIVA por job em erro transitório: as esperas são
+    # 2, 4, 8 e 16s (+ jitter), então 4 corresponde a ~30s de insistência.
     worker_max_retries: int = 4
+    # Teto por execução, alinhado ao escopo do projeto (500 a 5.000 comentários).
+    # Também segura a cota da YouTube API quando um vídeo tem centenas de páginas.
+    worker_max_comentarios_por_execucao: int = 5000
+    youtube_timeout_seconds: int = 30
 
     @property
     def cors_origins_list(self) -> list[str]:

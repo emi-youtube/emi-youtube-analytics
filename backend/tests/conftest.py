@@ -31,12 +31,15 @@ from sqlalchemy.pool import StaticPool
 from app.api.deps import requer_admin
 from app.core.database import Base, get_db
 from app.main import app
+from app.models.comentario import Comentario
 from app.models.execucao import Execucao
 from app.models.job import Job
+from app.models.job_dlq import JobDlq
 from app.models.modelo_analise import ModeloAnalise
 from app.models.tentativa_login import TentativaLogin
 from app.models.token_atualizacao import TokenAtualizacao
 from app.models.usuario import Usuario
+from app.models.video import Video
 
 TABELAS_TESTADAS = [
     Usuario.__table__,
@@ -45,6 +48,9 @@ TABELAS_TESTADAS = [
     ModeloAnalise.__table__,
     Execucao.__table__,
     Job.__table__,
+    JobDlq.__table__,
+    Video.__table__,
+    Comentario.__table__,
 ]
 
 ROTA_ADMIN = "/api/v1/_teste/somente-admin"
