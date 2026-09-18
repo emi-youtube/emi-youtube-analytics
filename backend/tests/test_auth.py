@@ -9,6 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.security import hash_token
 from app.models.tentativa_login import TentativaLogin
 from app.models.token_atualizacao import TokenAtualizacao
 from app.models.usuario import Usuario
@@ -43,9 +44,12 @@ async def registrar_e_logar(cliente: AsyncClient) -> dict:
 
 
 async def semear_falhas(sessao, email: str, instantes: list[datetime]) -> None:
-    """Insere tentativas malsucedidas com data controlada, sem esperar o relógio."""
+    """Insere tentativas malsucedidas com data controlada, sem esperar o relógio.
+
+    Recebe o e-mail em texto plano e hasheia aqui, como o serviço faz.
+    """
     for instante in instantes:
-        sessao.add(TentativaLogin(email=email, tentado_em=instante))
+        sessao.add(TentativaLogin(email_hash=hash_token(email), tentado_em=instante))
     await sessao.commit()
 
 
@@ -240,9 +244,20 @@ async def test_login_bem_sucedido_zera_o_contador(cliente, sessao):
     assert (await logar(cliente)).status_code == 200
 
     restantes = await sessao.scalars(
-        select(TentativaLogin).where(TentativaLogin.email == EMAIL)
+        select(TentativaLogin).where(TentativaLogin.email_hash == hash_token(EMAIL))
     )
     assert restantes.all() == []
+
+
+async def test_tentativa_grava_hash_e_nunca_o_email_em_texto_plano(cliente, sessao):
+    """A tabela registra tentativa de quem nem tem conta — não pode virar lista de e-mails."""
+    await registrar(cliente)
+    await logar(cliente, senha="SenhaErrada123")
+
+    linhas = (await sessao.scalars(select(TentativaLogin))).all()
+    assert len(linhas) == 1
+    assert linhas[0].email_hash == hash_token(EMAIL)
+    assert EMAIL not in str(linhas[0].__dict__)
 
 
 async def test_a_retencao_de_tentativas_e_de_24h():
@@ -260,7 +275,7 @@ async def test_nova_falha_poda_tentativas_com_mais_de_24h(cliente, sessao):
     await logar(cliente, senha="SenhaErrada123")
 
     restantes = await sessao.scalars(
-        select(TentativaLogin.tentado_em).where(TentativaLogin.email == EMAIL)
+        select(TentativaLogin.tentado_em).where(TentativaLogin.email_hash == hash_token(EMAIL))
     )
     guardadas = sorted(_as_utc(t) for t in restantes)
 
@@ -279,7 +294,9 @@ async def test_poda_nao_alcanca_outros_emails(cliente, sessao):
     await logar(cliente, senha="SenhaErrada123")
 
     outros = await sessao.scalars(
-        select(TentativaLogin).where(TentativaLogin.email == "outro@exemplo.com")
+        select(TentativaLogin).where(
+            TentativaLogin.email_hash == hash_token("outro@exemplo.com")
+        )
     )
     assert len(outros.all()) == 1
 

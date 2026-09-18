@@ -42,13 +42,19 @@ def dummy_password_hash() -> str:
     return hash_password(uuid.uuid4().hex)
 
 
-def hash_token(token: str) -> str:
-    """SHA-256 do refresh token: o banco nunca guarda o token utilizável.
+def hash_token(valor: str) -> str:
+    """SHA-256 em hexadecimal, usado no refresh token e no e-mail de `tentativas_login`.
 
-    SHA-256 (e não bcrypt) porque o token já é aleatório de alta entropia —
-    não há o que proteger contra força bruta de dicionário.
+    SHA-256 (e não bcrypt) porque o refresh token já é aleatório de alta entropia —
+    não há o que proteger contra força bruta de dicionário, e o banco nunca guarda
+    o token utilizável.
+
+    Para o e-mail o efeito é outro e menor: tira o dado pessoal em texto plano da
+    tabela e mantém a comparação por igualdade que o bloqueio precisa. Não é sigilo
+    forte — quem tiver o dump pode testar e-mails suspeitos, já que o espaço é
+    enumerável. Serve como minimização de dado, não como proteção criptográfica.
     """
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return hashlib.sha256(valor.encode("utf-8")).hexdigest()
 
 
 def create_access_token(id_usuario: int, papel: str) -> str:

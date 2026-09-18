@@ -76,12 +76,12 @@ async def register_user(db: AsyncSession, dados: UserRegister) -> Usuario:
     return usuario
 
 
-async def _bloqueado_ate(db: AsyncSession, email: str) -> datetime | None:
+async def _bloqueado_ate(db: AsyncSession, email_hash: str) -> datetime | None:
     """Instante em que o bloqueio termina, ou None se o e-mail não está bloqueado."""
     tentativas = list(
         await db.scalars(
             select(TentativaLogin.tentado_em)
-            .where(TentativaLogin.email == email)
+            .where(TentativaLogin.email_hash == email_hash)
             .order_by(TentativaLogin.tentado_em.desc())
             .limit(MAX_TENTATIVAS)
         )
@@ -99,13 +99,13 @@ async def _bloqueado_ate(db: AsyncSession, email: str) -> datetime | None:
     return fim_do_bloqueio if fim_do_bloqueio > datetime.now(UTC) else None
 
 
-async def _registrar_falha(db: AsyncSession, email: str) -> None:
+async def _registrar_falha(db: AsyncSession, email_hash: str) -> None:
     agora = datetime.now(UTC)
-    db.add(TentativaLogin(email=email, tentado_em=agora))
+    db.add(TentativaLogin(email_hash=email_hash, tentado_em=agora))
     # Poda aproveitando a escrita que já está acontecendo — evita job agendado.
     await db.execute(
         delete(TentativaLogin).where(
-            TentativaLogin.email == email,
+            TentativaLogin.email_hash == email_hash,
             TentativaLogin.tentado_em < agora - RETENCAO_TENTATIVAS,
         )
     )
@@ -114,12 +114,15 @@ async def _registrar_falha(db: AsyncSession, email: str) -> None:
 
 async def authenticate(db: AsyncSession, email: str, senha: str) -> Usuario:
     email = normalizar_email(email)
+    # Normaliza antes de hashear: senão `A@x.com` e `a@x.com` teriam hashes
+    # diferentes e cada variação ganharia seu próprio contador de bloqueio.
+    email_hash = hash_token(email)
 
     # O bloqueio é verificado ANTES de conferir a senha: senha correta não fura bloqueio.
-    bloqueado_ate = await _bloqueado_ate(db, email)
+    bloqueado_ate = await _bloqueado_ate(db, email_hash)
     if bloqueado_ate is not None:
         segundos = max(1, math.ceil((bloqueado_ate - datetime.now(UTC)).total_seconds()))
-        logger.warning("login bloqueado por excesso de tentativas email_hash=%s", hash_token(email))
+        logger.warning("login bloqueado por excesso de tentativas email_hash=%s", email_hash)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Muitas tentativas malsucedidas. Tente novamente mais tarde.",
@@ -132,14 +135,14 @@ async def authenticate(db: AsyncSession, email: str, senha: str) -> Usuario:
         # Compara contra um hash descartável só para gastar o mesmo tempo do caminho
         # normal — senão o tempo de resposta revelaria que o e-mail não existe.
         verify_password(senha, dummy_password_hash())
-        await _registrar_falha(db, email)
+        await _registrar_falha(db, email_hash)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=CREDENCIAIS_INVALIDAS)
 
     if not verify_password(senha, usuario.senha_hash):
-        await _registrar_falha(db, email)
+        await _registrar_falha(db, email_hash)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=CREDENCIAIS_INVALIDAS)
 
-    await db.execute(delete(TentativaLogin).where(TentativaLogin.email == email))
+    await db.execute(delete(TentativaLogin).where(TentativaLogin.email_hash == email_hash))
     await db.commit()
 
     logger.info("login bem-sucedido id_usuario=%s", usuario.id_usuario)
