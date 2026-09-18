@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,7 +23,11 @@ class Job(Base):
     id_execucao: Mapped[int] = mapped_column(ForeignKey("execucoes.id_execucao"), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pendente")
     tentativas: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
-    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Continua JSONB no Postgres; o variant só permite que o SQLite dos testes
+    # (que não tem JSONB) crie a tabela. Não muda o schema real.
+    payload: Mapped[dict | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -1,0 +1,26 @@
+# Configuração do ruff fixada no repositório: sem ela o conjunto de regras
+# padrão muda entre versões e o lint deixa de ser reproduzível entre máquinas.
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[lint.isort]
+# A pasta alembic/ do repositório faz o isort achar que a lib `alembic`
+# é módulo local; ela é de terceiros.
+known-third-party = ["alembic"]
+
+[lint.flake8-bugbear]
+# Depends()/Query()/etc. em default de argumento é o idioma do FastAPI,
+# não o bug que o B008 procura.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
