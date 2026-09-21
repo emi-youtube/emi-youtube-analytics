@@ -50,10 +50,10 @@ export class ModeloForm {
 
   protected readonly form = this.fb.nonNullable.group({
     nome: ['', [Validators.required, Validators.maxLength(255)]],
+    // O escopo do modelo vem daqui: `_validar_escopo` no servidor recusa o
+    // modelo sem nenhum vídeo (UC02).
     videos: ['', [Validators.required]],
-    // Obrigatório por regra do servidor: `_validar_escopo` recusa o modelo sem
-    // termo de pesquisa nem canal, e este formulário não oferece canais.
-    termo_pesquisa: ['', [Validators.required, Validators.maxLength(255)]],
+    termo_pesquisa: ['', [Validators.maxLength(255)]],
     publicado_apos: [''],
     limite_comentarios: [null as number | null, [Validators.min(1), Validators.max(LIMITE_MAXIMO)]],
   });
@@ -202,7 +202,7 @@ export class ModeloForm {
     });
   }
 
-  protected invalido(campo: 'nome' | 'videos' | 'termo_pesquisa' | 'limite_comentarios'): boolean {
+  protected invalido(campo: 'nome' | 'videos' | 'limite_comentarios'): boolean {
     const controle = this.form.controls[campo];
     return controle.invalid && controle.touched;
   }

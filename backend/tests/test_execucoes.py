@@ -24,7 +24,13 @@ INTRUSO = "intruso@exemplo.com"
 
 
 async def criar_modelo(cliente: AsyncClient, headers: dict, **campos) -> dict:
-    corpo = {"nome": "Campanha de verão", "termo_pesquisa": "tênis esportivo", **campos}
+    corpo = {
+        "nome": "Campanha de verão",
+        "termo_pesquisa": "tênis esportivo",
+        # UC02 exige ao menos um vídeo para o modelo ter escopo.
+        "filtros": {"videos": ["dQw4w9WgXcQ"]},
+        **campos,
+    }
     return (await cliente.post(ROTA_MODELOS, json=corpo, headers=headers)).json()
 
 

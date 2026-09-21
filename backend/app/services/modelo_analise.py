@@ -21,24 +21,31 @@ from app.schemas.modelo_analise import ModeloAnaliseCreate, ModeloAnaliseUpdate
 
 logger = logging.getLogger(__name__)
 
-ESCOPO_INSUFICIENTE = (
-    "Informe um termo de pesquisa ou ao menos um canal nos filtros: "
-    "sem os dois a coleta seria genérica demais."
+ESCOPO_SEM_VIDEO = (
+    "Informe ao menos um ID de vídeo nos filtros: a coleta busca comentários "
+    "de vídeos curados manualmente."
 )
 
 
-def _validar_escopo(termo_pesquisa: str, filtros: dict | None) -> None:
-    """UC02: recusa o modelo quando não há termo de pesquisa NEM canal."""
-    tem_canal = bool((filtros or {}).get("canais"))
-    if not termo_pesquisa.strip() and not tem_canal:
+def _validar_escopo(filtros: dict | None) -> None:
+    """UC02: o modelo só tem escopo com pelo menos um vídeo em `filtros.videos`.
+
+    São os vídeos que definem o que coletar — `commentThreads.list` parte de um
+    ID de vídeo, e descobrir vídeos por texto exigiria `search.list`, proibido
+    pelo CLAUDE.md (regra 4) por custar 100 unidades de cota contra 1.
+
+    O termo de pesquisa é opcional: ele descreve a campanha e viaja congelado no
+    payload do job, mas não delimita a coleta sozinho.
+    """
+    if not (filtros or {}).get("videos"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=ESCOPO_INSUFICIENTE
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=ESCOPO_SEM_VIDEO
         )
 
 
 async def create(db: AsyncSession, usuario: Usuario, dados: ModeloAnaliseCreate) -> ModeloAnalise:
     filtros = dados.filtros.model_dump() if dados.filtros is not None else None
-    _validar_escopo(dados.termo_pesquisa, filtros)
+    _validar_escopo(filtros)
 
     modelo = ModeloAnalise(
         id_usuario=usuario.id_usuario,
@@ -94,10 +101,7 @@ async def update(
 
     # Revalida o estado final: sem isso um PATCH conseguiria deixar o registro na
     # mesma situação que o POST recusa.
-    _validar_escopo(
-        alteracoes.get("termo_pesquisa", modelo.termo_pesquisa),
-        alteracoes.get("filtros", modelo.filtros),
-    )
+    _validar_escopo(alteracoes.get("filtros", modelo.filtros))
 
     for campo, valor in alteracoes.items():
         setattr(modelo, campo, valor)

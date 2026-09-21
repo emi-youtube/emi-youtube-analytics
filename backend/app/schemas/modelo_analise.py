@@ -12,15 +12,18 @@ class FiltrosModelo(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
+    # Os vídeos são curados manualmente (CLAUDE.md regra 4): são eles que
+    # definem o escopo da coleta, e o worker lê exatamente esta chave.
+    videos: list[str] = Field(default_factory=list)
     canais: list[str] = Field(default_factory=list)
 
-    @field_validator("canais")
+    @field_validator("videos", "canais")
     @classmethod
-    def limpar_canais(cls, valor: list[str]) -> list[str]:
-        """Descarta entradas em branco — senão `canais: [""]` passaria pela regra
-        do UC02 como se um canal tivesse sido informado.
+    def limpar_lista(cls, valor: list[str]) -> list[str]:
+        """Descarta entradas em branco — senão `videos: [""]` passaria pela regra
+        do UC02 como se um vídeo tivesse sido informado.
         """
-        return [canal.strip() for canal in valor if canal.strip()]
+        return [item.strip() for item in valor if item.strip()]
 
 
 def _validar_nome(valor: str) -> str:
