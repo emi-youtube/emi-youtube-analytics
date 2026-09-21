@@ -15,14 +15,29 @@ DONO = "dona@exemplo.com"
 INTRUSO = "intruso@exemplo.com"
 
 
+# IDs no formato do YouTube (11 caracteres); o conteúdo não importa aqui.
+VIDEO_A = "dQw4w9WgXcQ"
+VIDEO_B = "kJQP7kiw5Fk"
+
+
 async def criar_modelo(cliente: AsyncClient, headers: dict, **campos):
-    corpo = {"nome": "Campanha de verão", "termo_pesquisa": "tênis esportivo", **campos}
+    corpo = {
+        "nome": "Campanha de verão",
+        "termo_pesquisa": "tênis esportivo",
+        # UC02: é o vídeo que dá escopo ao modelo, então todo modelo válido tem um.
+        "filtros": {"videos": [VIDEO_A]},
+        **campos,
+    }
     return await cliente.post(ROTA, json=corpo, headers=headers)
 
 
 @pytest.fixture
 def modelo_valido() -> dict:
-    return {"nome": "Campanha de verão", "termo_pesquisa": "tênis esportivo"}
+    return {
+        "nome": "Campanha de verão",
+        "termo_pesquisa": "tênis esportivo",
+        "filtros": {"videos": [VIDEO_A]},
+    }
 
 
 # --------------------------------------------------------------------------- autenticação
@@ -88,7 +103,7 @@ async def test_criar_com_nome_em_branco_retorna_422(cliente):
 
 async def test_criar_persiste_filtros_jsonb(cliente):
     headers = await autenticar(cliente, DONO)
-    filtros = {"canais": ["UCabc123"], "idioma": "pt-BR"}
+    filtros = {"videos": [VIDEO_A], "canais": ["UCabc123"], "idioma": "pt-BR"}
 
     corpo = (await criar_modelo(cliente, headers, filtros=filtros)).json()
 
@@ -100,43 +115,54 @@ async def test_criar_persiste_filtros_jsonb(cliente):
 # --------------------------------------------------------------- regra de escopo do UC02
 
 
-async def test_recusa_sem_termo_e_sem_canal(cliente):
-    """UC02: os dois vazios gerariam coleta genérica demais."""
+async def test_recusa_sem_video(cliente):
+    """UC02: sem vídeo a coleta não tem de onde buscar comentário."""
     headers = await autenticar(cliente, DONO)
 
-    resposta = await criar_modelo(cliente, headers, termo_pesquisa="", filtros={"canais": []})
+    resposta = await criar_modelo(cliente, headers, filtros={"videos": []})
 
     assert resposta.status_code == 422
 
 
-async def test_recusa_sem_termo_e_sem_filtros(cliente):
+async def test_recusa_sem_filtros(cliente):
+    headers = await autenticar(cliente, DONO)
+
+    resposta = await criar_modelo(cliente, headers, filtros=None)
+
+    assert resposta.status_code == 422
+
+
+async def test_recusa_video_em_branco_como_se_fosse_video(cliente):
+    """`videos: ["  "]` não pode driblar a regra."""
+    headers = await autenticar(cliente, DONO)
+
+    resposta = await criar_modelo(cliente, headers, filtros={"videos": ["  "]})
+
+    assert resposta.status_code == 422
+
+
+async def test_recusa_so_com_termo(cliente):
+    """Termo sozinho não define escopo: achar vídeo por texto exigiria search.list."""
+    headers = await autenticar(cliente, DONO)
+
+    resposta = await criar_modelo(
+        cliente, headers, termo_pesquisa="tênis", filtros={"canais": ["UCabc123"]}
+    )
+
+    assert resposta.status_code == 422
+
+
+async def test_aceita_video_sem_termo(cliente):
+    """Termo de pesquisa é opcional a partir da Sprint 1."""
     headers = await autenticar(cliente, DONO)
 
     resposta = await criar_modelo(cliente, headers, termo_pesquisa="")
 
-    assert resposta.status_code == 422
-
-
-async def test_recusa_canal_em_branco_como_se_fosse_canal(cliente):
-    """`canais: ["  "]` não pode driblar a regra."""
-    headers = await autenticar(cliente, DONO)
-
-    resposta = await criar_modelo(cliente, headers, termo_pesquisa="", filtros={"canais": ["  "]})
-
-    assert resposta.status_code == 422
-
-
-async def test_aceita_so_com_canal(cliente):
-    headers = await autenticar(cliente, DONO)
-
-    resposta = await criar_modelo(
-        cliente, headers, termo_pesquisa="", filtros={"canais": ["UCabc123"]}
-    )
-
     assert resposta.status_code == 201
+    assert resposta.json()["termo_pesquisa"] == ""
 
 
-async def test_aceita_so_com_termo(cliente):
+async def test_aceita_video_com_termo(cliente):
     headers = await autenticar(cliente, DONO)
 
     resposta = await criar_modelo(cliente, headers, termo_pesquisa="tênis")
@@ -231,7 +257,7 @@ async def test_atualizar_modelo_proprio(cliente):
 async def test_patch_parcial_preserva_os_demais_campos(cliente):
     headers = await autenticar(cliente, DONO)
     criado = (
-        await criar_modelo(cliente, headers, filtros={"canais": ["UCabc123"]})
+        await criar_modelo(cliente, headers, filtros={"videos": [VIDEO_A], "canais": ["UCabc123"]})
     ).json()
 
     atualizado = (
@@ -245,29 +271,29 @@ async def test_patch_parcial_preserva_os_demais_campos(cliente):
     assert atualizado["filtros"] == criado["filtros"]
 
 
-async def test_patch_nao_pode_deixar_o_modelo_sem_termo_e_sem_canal(cliente):
+async def test_patch_nao_pode_deixar_o_modelo_sem_video(cliente):
     """A regra do UC02 vale no PATCH, senão dava para contorná-la em dois passos."""
     headers = await autenticar(cliente, DONO)
-    id_modelo = (await criar_modelo(cliente, headers, termo_pesquisa="tênis")).json()["id_modelo"]
+    id_modelo = (await criar_modelo(cliente, headers)).json()["id_modelo"]
 
     resposta = await cliente.patch(
-        f"{ROTA}/{id_modelo}", json={"termo_pesquisa": ""}, headers=headers
+        f"{ROTA}/{id_modelo}", json={"filtros": {"videos": []}}, headers=headers
     )
 
     assert resposta.status_code == 422
 
 
-async def test_patch_aceita_esvaziar_termo_se_houver_canal(cliente):
+async def test_patch_aceita_esvaziar_o_termo(cliente):
+    """O termo é opcional: esvaziá-lo não mexe no escopo, que vem dos vídeos."""
     headers = await autenticar(cliente, DONO)
     id_modelo = (await criar_modelo(cliente, headers)).json()["id_modelo"]
 
     resposta = await cliente.patch(
-        f"{ROTA}/{id_modelo}",
-        json={"termo_pesquisa": "", "filtros": {"canais": ["UCabc123"]}},
-        headers=headers,
+        f"{ROTA}/{id_modelo}", json={"termo_pesquisa": ""}, headers=headers
     )
 
     assert resposta.status_code == 200
+    assert resposta.json()["termo_pesquisa"] == ""
 
 
 async def test_patch_ignora_troca_de_dono(cliente, sessao):
