@@ -1,0 +1,177 @@
+/* ==========================================================================
+   Design tokens — frontend/design/DESIGN.md
+   Único lugar onde valor bruto de cor, raio ou fonte pode aparecer.
+   Componente nenhum escreve hexadecimal: sempre var(--token).
+   ========================================================================== */
+
+:root {
+  /* --- Tipografia (DESIGN.md) --- */
+  --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* --- Cores (DESIGN.md) --- */
+  --ground: #f7f6f2;
+  --surface: #ffffff;
+  --ink: #1c1b19;
+  --ink-muted: #6b665c;
+  --border: #e3e0d8;
+  --accent: #b4471f;
+  --positivo: #2f6f4e;
+  --neutro: #8a8579;
+  --negativo: #a93226;
+
+  /* --- Raios (DESIGN.md: 8px em botão/campo, 12px em cartão) --- */
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-pill: 999px;
+
+  /* --- Nav lateral (DESIGN.md: fixa de 232px, fundo --ink) --- */
+  --nav-width: 232px;
+
+  /* --- Derivados ---
+     Não estão no DESIGN.md: saem das referências em design/*.png. Ficam aqui,
+     e não espalhados pelos componentes, para a banca conseguir auditar de onde
+     veio cada tom. */
+  --accent-hover: #9c3c1a;
+  --accent-active: #863316;
+  --accent-soft: #f6ece7;
+  --ink-soft: #2a2724; /* item ativo da nav e cartão de destaque */
+  --ink-on-dark: #f7f6f2; /* texto sobre --ink */
+  --ink-on-dark-muted: #a8a299;
+  --surface-muted: #efede6; /* avisos e faixas dentro de cartão */
+  --focus-ring: rgba(180, 71, 31, 0.28);
+  --shadow-card: 0 1px 2px rgba(28, 27, 25, 0.04);
+
+  /* --- Espaçamento --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  color-scheme: light;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* DESIGN.md: títulos em Newsreader; números grandes também (classe .numeral). */
+h1,
+h2,
+h3,
+.numeral {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 34px;
+}
+h2 {
+  font-size: 22px;
+  font-weight: 600;
+}
+h3 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Utilitários compartilhados pelas telas
+   ========================================================================== */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.muted {
+  color: var(--ink-muted);
+}
+
+/* DESIGN.md: badge de status é pill com bolinha colorida à esquerda. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+
+.badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge--positivo {
+  color: var(--positivo);
+}
+.badge--neutro {
+  color: var(--neutro);
+}
+.badge--negativo {
+  color: var(--negativo);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

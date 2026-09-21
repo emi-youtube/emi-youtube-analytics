@@ -1,0 +1,46 @@
+<div class="shell">
+  <nav class="nav" aria-label="Navegação principal">
+    <a class="marca" routerLink="/inicio">
+      <svg class="marca__icone" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 15v5M9.33 10v10M14.67 13v7M20 4v16" />
+      </svg>
+      <span class="marca__texto">Emi Analytics</span>
+    </a>
+
+    <ul class="nav__lista">
+      @for (item of itens; track item.rota) {
+        <li>
+          <a
+            class="nav__item"
+            [routerLink]="item.rota"
+            routerLinkActive="nav__item--ativo"
+            #link="routerLinkActive"
+            [attr.aria-current]="link.isActive ? 'page' : null"
+          >
+            <svg class="nav__icone" viewBox="0 0 24 24" aria-hidden="true">
+              <path [attr.d]="item.icone" />
+            </svg>
+            {{ item.rotulo }}
+          </a>
+        </li>
+      }
+    </ul>
+
+    <div class="conta">
+      @if (usuario(); as u) {
+        <div class="conta__linha">
+          <span class="conta__avatar" aria-hidden="true">{{ iniciais() }}</span>
+          <span class="conta__dados">
+            <span class="conta__nome">{{ u.nome }}</span>
+            <span class="conta__papel">{{ papel() }}</span>
+          </span>
+        </div>
+      }
+      <button type="button" class="conta__sair" (click)="sair()">Sair</button>
+    </div>
+  </nav>
+
+  <main class="conteudo">
+    <router-outlet />
+  </main>
+</div>

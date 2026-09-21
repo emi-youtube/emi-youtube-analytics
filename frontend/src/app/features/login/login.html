@@ -1,0 +1,85 @@
+<div class="login">
+  <!-- Painel esquerdo: apresentação da plataforma (design/Main.png). -->
+  <section class="vitrine">
+    <div class="vitrine__marca">
+      <svg class="vitrine__icone" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 15v5M9.33 10v10M14.67 13v7M20 4v16" />
+      </svg>
+      <span>Emi YouTube Analytics</span>
+    </div>
+
+    <div class="vitrine__discurso">
+      <h1 class="vitrine__titulo">O que o público realmente achou da sua campanha.</h1>
+      <p class="vitrine__texto">
+        Colete os comentários dos seus vídeos publicitários, veja a divisão entre positivo, negativo
+        e neutro, e descubra os temas que mais se repetem.
+      </p>
+    </div>
+
+    <div class="vitrine__rodape">
+      <p class="vitrine__escala">
+        <span class="numeral vitrine__numero">500</span> a 5.000 comentários por execução
+      </p>
+      <p class="vitrine__lgpd">
+        A identidade de quem comenta nunca é armazenada — apenas um código irreversível, em
+        conformidade com a LGPD.
+      </p>
+    </div>
+  </section>
+
+  <!-- Painel direito: formulário. -->
+  <section class="acesso">
+    <form class="form" [formGroup]="form" (ngSubmit)="enviar()" novalidate>
+      <h2 class="form__titulo">Entrar na plataforma</h2>
+
+      @if (erro(); as mensagem) {
+        <p class="form__erro" role="alert">{{ mensagem }}</p>
+      }
+
+      <div class="campo">
+        <label class="campo__rotulo" for="email">E-mail</label>
+        <input
+          id="email"
+          class="campo__entrada"
+          type="email"
+          formControlName="email"
+          placeholder="voce@suaempresa.com.br"
+          autocomplete="username"
+          [class.campo__entrada--invalido]="invalido('email')"
+        />
+        @if (invalido('email')) {
+          <p class="campo__ajuda">Informe um e-mail válido.</p>
+        }
+      </div>
+
+      <div class="campo">
+        <label class="campo__rotulo" for="senha">Senha</label>
+        <input
+          id="senha"
+          class="campo__entrada"
+          type="password"
+          formControlName="senha"
+          autocomplete="current-password"
+          [class.campo__entrada--invalido]="invalido('senha')"
+        />
+        @if (invalido('senha')) {
+          <p class="campo__ajuda">Informe sua senha.</p>
+        }
+      </div>
+
+      <button class="botao" type="submit" [disabled]="enviando()">
+        {{ enviando() ? 'Entrando…' : 'Entrar' }}
+      </button>
+
+      <aside class="aviso">
+        <svg class="aviso__icone" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 10.5h12v9H6zM8.75 10.5V7a3.25 3.25 0 0 1 6.5 0v3.5" />
+        </svg>
+        <p>
+          A sessão expira em 15 minutos de inatividade e é renovada automaticamente enquanto você
+          estiver usando.
+        </p>
+      </aside>
+    </form>
+  </section>
+</div>

@@ -1,0 +1,211 @@
+.login {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
+}
+
+/* --- Painel esquerdo --- */
+.vitrine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  background: var(--ink);
+  color: var(--ink-on-dark);
+  padding: var(--space-7) clamp(var(--space-5), 5vw, 64px);
+}
+
+.vitrine__marca {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 19px;
+}
+
+.vitrine__icone {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.vitrine__discurso {
+  margin-top: auto;
+}
+
+.vitrine__titulo {
+  color: var(--ink-on-dark);
+  font-size: clamp(32px, 4vw, 46px);
+  letter-spacing: -0.01em;
+  max-width: 15ch;
+}
+
+.vitrine__texto {
+  margin-top: var(--space-5);
+  max-width: 44ch;
+  color: var(--ink-on-dark-muted);
+}
+
+.vitrine__rodape {
+  margin-top: auto;
+  padding-top: var(--space-5);
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.vitrine__escala {
+  color: var(--ink-on-dark);
+}
+
+.vitrine__numero {
+  color: var(--accent);
+  font-size: 28px;
+  margin-right: var(--space-2);
+}
+
+.vitrine__lgpd {
+  margin-top: var(--space-3);
+  font-size: 13px;
+  color: var(--ink-on-dark-muted);
+}
+
+/* --- Painel direito --- */
+.acesso {
+  display: grid;
+  place-items: center;
+  padding: var(--space-7) var(--space-5);
+}
+
+.form {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.form__titulo {
+  font-size: 30px;
+  font-weight: 500;
+  margin-bottom: var(--space-2);
+}
+
+.form__erro {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--negativo);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  color: var(--negativo);
+  font-size: 14px;
+}
+
+/* --- Campos (raio de 8px, DESIGN.md) --- */
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.campo__rotulo {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.campo__entrada {
+  width: 100%;
+  padding: 13px var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.campo__entrada::placeholder {
+  color: var(--ink-muted);
+}
+
+.campo__entrada:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.campo__entrada--invalido {
+  border-color: var(--negativo);
+}
+
+.campo__ajuda {
+  font-size: 13px;
+  color: var(--negativo);
+}
+
+/* --- Botão primário --- */
+.botao {
+  padding: 14px var(--space-4);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.botao:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.botao:active:not(:disabled) {
+  background: var(--accent-active);
+}
+
+.botao:disabled {
+  opacity: 0.65;
+  cursor: progress;
+}
+
+/* --- Aviso de sessão --- */
+.aviso {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.aviso__icone {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 860px) {
+  .login {
+    grid-template-columns: 1fr;
+  }
+
+  .vitrine {
+    gap: var(--space-5);
+    padding: var(--space-5) var(--space-4);
+  }
+
+  .vitrine__discurso,
+  .vitrine__rodape {
+    margin-top: 0;
+  }
+
+  .acesso {
+    padding: var(--space-6) var(--space-4);
+  }
+}
