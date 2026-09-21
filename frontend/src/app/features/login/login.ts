@@ -1,16 +1,18 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { AuthService } from '../../core/auth/auth.service';
 import { mensagemDeErro } from '../../core/http/api-error';
+import { Vitrine } from '../acesso/vitrine';
 
 /** UC01 — autenticação. Consome `POST /api/v1/auth/login`. */
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink, Vitrine],
   templateUrl: './login.html',
-  styleUrl: './login.css',
+  // Layout e formulário são compartilhados com o cadastro (UC02).
+  styleUrl: '../acesso/acesso.css',
 })
 export class Login {
   private readonly fb = inject(FormBuilder);

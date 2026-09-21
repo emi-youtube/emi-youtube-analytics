@@ -1,0 +1,176 @@
+/* --- Filtros --- */
+.filtros {
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.filtros__linha {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.filtros__busca {
+  min-width: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.chips__rotulo {
+  margin-right: var(--space-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chip {
+  padding: 7px var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.chip:hover {
+  background: var(--surface-muted);
+}
+
+.chip--positivo {
+  color: var(--positivo);
+}
+.chip--neutro {
+  color: var(--ink-muted);
+}
+.chip--negativo {
+  color: var(--negativo);
+}
+
+/* O chip ativo inverte: fundo escuro, como no design. */
+.chip--ativo {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
+}
+
+.chip--ativo:hover {
+  background: var(--ink-soft);
+}
+
+/* --- Lista de comentários --- */
+.comentarios {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.comentario {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-5);
+  padding: var(--space-5);
+}
+
+.comentario__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.comentario__origem {
+  font-size: 14px;
+}
+
+.comentario__texto {
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.revisao {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--processando-soft);
+  color: var(--processando);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.revisao__icone {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.comentario .etiquetas {
+  margin-top: var(--space-4);
+}
+
+/* --- Justificativa --- */
+.justificativa {
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.justificativa--revisao {
+  background: var(--processando-soft);
+}
+
+.justificativa__rotulo {
+  margin-bottom: var(--space-2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* --- Paginação --- */
+.paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.paginacao__botoes {
+  display: flex;
+  gap: var(--space-2);
+}
+
+@media (max-width: 900px) {
+  .filtros__linha {
+    grid-template-columns: 1fr;
+  }
+
+  .comentario {
+    grid-template-columns: 1fr;
+  }
+}

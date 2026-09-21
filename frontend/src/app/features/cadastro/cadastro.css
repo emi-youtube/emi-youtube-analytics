@@ -1,0 +1,10 @@
+/* Só o que é específico do cadastro; o resto vem de ../acesso/acesso.css. */
+
+/* O link de saída do aviso "conta criada, mas sem sessão" precisa se destacar
+   do texto vermelho da caixa de erro. */
+.form__erro a {
+  display: inline-block;
+  margin-top: var(--space-2);
+  color: inherit;
+  font-weight: 600;
+}

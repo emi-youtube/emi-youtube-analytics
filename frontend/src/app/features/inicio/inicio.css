@@ -1,0 +1,226 @@
+/* --- Cartão escuro do topo (design/Home.png) --- */
+.destaque {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-6);
+  border-radius: var(--radius-card);
+  background: var(--ink);
+  color: var(--ink-on-dark);
+  text-decoration: none;
+}
+
+.destaque:hover {
+  background: var(--ink-soft);
+}
+
+.destaque__selo {
+  display: inline-block;
+  margin-bottom: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--positivo-soft);
+  color: var(--positivo);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.destaque__titulo {
+  color: var(--ink-on-dark);
+  font-size: 30px;
+}
+
+.destaque__meta {
+  margin-top: var(--space-2);
+  color: var(--ink-on-dark-muted);
+}
+
+.destaque__direita {
+  width: min(340px, 34vw);
+}
+
+.destaque__legenda {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: 13px;
+  color: var(--ink-on-dark-muted);
+}
+
+.destaque__seta {
+  font-size: 26px;
+  color: var(--ink-on-dark-muted);
+}
+
+/* --- Duas colunas --- */
+.grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: var(--space-5);
+}
+
+.coluna {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.secao__cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.secao__titulo {
+  font-size: 20px;
+}
+
+/* --- Lista de modelos --- */
+.modelos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.modelo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.modelo:last-child {
+  border-bottom: 0;
+}
+
+.modelo__nome {
+  font-weight: 600;
+}
+
+.modelo__meta {
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.modelo__falha {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--negativo);
+}
+
+/* --- Cartões da coluna direita --- */
+.bloco {
+  padding: var(--space-5);
+}
+
+.bloco__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.bloco__icone {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: var(--processando);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.bloco__nota {
+  margin-top: var(--space-4);
+  font-size: 14px;
+}
+
+.bloco--modelo {
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.bloco--modelo .bloco__titulo {
+  margin-bottom: var(--space-3);
+  color: var(--ink);
+  font-size: 16px;
+}
+
+/* --- Totais --- */
+.totais {
+  margin: 0;
+}
+
+.totais__linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+}
+
+.totais__linha dt {
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.totais__linha dd {
+  margin: 0;
+  font-size: 26px;
+}
+
+/* --- Barra de cota --- */
+.cota__trilho {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--neutro-soft);
+  overflow: hidden;
+}
+
+.cota__preenchido {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.cota__numeros {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: 14px;
+}
+
+@media (max-width: 1000px) {
+  .grade {
+    grid-template-columns: 1fr;
+  }
+
+  .destaque {
+    grid-template-columns: 1fr;
+  }
+
+  .destaque__direita {
+    width: 100%;
+  }
+
+  .destaque__seta {
+    display: none;
+  }
+}

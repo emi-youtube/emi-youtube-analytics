@@ -1,0 +1,251 @@
+<app-selo-demo />
+
+<a class="voltar" routerLink="/execucoes">‹ Voltar às execuções</a>
+
+@if (falha(); as mensagem) {
+  <div class="falha" role="alert">
+    <span>{{ mensagem }}</span>
+    <a class="botao botao--secundario botao--pequeno" routerLink="/resultados">Ver resultados</a>
+  </div>
+}
+
+@if (carregando()) {
+  <div class="card estado"><p class="muted">Carregando os resultados…</p></div>
+} @else if (resultado(); as r) {
+  <header class="cabecalho">
+    <div class="cabecalho__texto">
+      <h1>{{ r.nome_modelo_analise }}</h1>
+      <p class="muted">
+        {{ numero(r.distribuicao.total) }} comentários de {{ r.videos.length }} vídeos · coletados
+        em {{ dataHoraLegivel(r.concluido_em) }}
+      </p>
+    </div>
+
+    <!-- Sem endpoint de relatório ainda; ver README. -->
+    <button
+      class="botao botao--secundario"
+      type="button"
+      disabled
+      title="O relatório em arquivo depende de um endpoint que ainda não existe."
+    >
+      Baixar relatório
+    </button>
+  </header>
+
+  <!-- Resumo + alcance -->
+  <div class="topo">
+    <section class="card painel">
+      <div class="painel__cabecalho">
+        <h2 class="painel__titulo">Como o público reagiu</h2>
+        <span class="muted">{{ numero(r.distribuicao.total) }} comentários</span>
+      </div>
+
+      <app-barra-sentimento [distribuicao]="r.distribuicao" [rotulos]="true" />
+
+      <dl class="contagens">
+        <div class="contagens__item">
+          <dt><span class="ponto ponto--positivo"></span> Positivo</dt>
+          <dd class="numeral">{{ numero(r.distribuicao.positivo) }}</dd>
+        </div>
+        <div class="contagens__item">
+          <dt><span class="ponto ponto--neutro"></span> Neutro</dt>
+          <dd class="numeral">{{ numero(r.distribuicao.neutro) }}</dd>
+        </div>
+        <div class="contagens__item">
+          <dt><span class="ponto ponto--negativo"></span> Negativo</dt>
+          <dd class="numeral">{{ numero(r.distribuicao.negativo) }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="card painel">
+      <h2 class="painel__titulo">Alcance</h2>
+      <dl class="alcance">
+        <div class="alcance__linha">
+          <dt>Visualizações</dt>
+          <dd class="numeral">{{ abreviar(r.alcance.visualizacoes) }}</dd>
+        </div>
+        <div class="alcance__linha">
+          <dt>Curtidas</dt>
+          <dd class="numeral">{{ numero(r.alcance.curtidas) }}</dd>
+        </div>
+        <div class="alcance__linha">
+          <dt>Comentários</dt>
+          <dd class="numeral">{{ numero(r.alcance.comentarios) }}</dd>
+        </div>
+        <div class="alcance__linha alcance__linha--destacada">
+          <dt>Comentários por mil views</dt>
+          <dd class="numeral">
+            {{ r.alcance.comentarios_por_mil_views.toFixed(1).replace('.', ',') }}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  </div>
+
+  <!-- Vídeo a vídeo -->
+  <section class="card painel">
+    <div class="painel__cabecalho">
+      <h2 class="painel__titulo">Vídeo a vídeo</h2>
+      <span class="muted">{{ r.videos.length }} vídeos</span>
+    </div>
+
+    <div class="tabela__caixa">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th scope="col">Vídeo</th>
+            <th scope="col" class="tabela--numero">Views</th>
+            <th scope="col" class="tabela--numero">Comentários</th>
+            <th scope="col">Sentimento</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of r.videos; track item.video.id_video) {
+            <tr [class.linha--atencao]="foraDaCurva(item)">
+              <td>
+                <a
+                  class="tabela__nome"
+                  [routerLink]="['/resultados', r.id_execucao, 'comentarios']"
+                  [queryParams]="{ video: item.video.id_video }"
+                >
+                  {{ item.video.titulo }}
+                </a>
+                <span class="tabela__sub muted">
+                  {{ item.video.canal }}
+                  @if (foraDaCurva(item)) {
+                    <span class="tabela__alerta">· {{ rotuloForaDaCurva(item) }}</span>
+                  }
+                </span>
+              </td>
+              <td class="tabela--numero">{{ abreviar(item.video.visualizacoes) }}</td>
+              <td class="tabela--numero">{{ numero(item.distribuicao.total) }}</td>
+              <td class="tabela__barra">
+                <app-barra-sentimento [distribuicao]="item.distribuicao" />
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Temas -->
+  <section class="card painel">
+    <div class="painel__cabecalho">
+      <h2 class="painel__titulo">Sobre o que estão falando</h2>
+      <span class="muted">{{ r.temas.length }} temas · agrupados automaticamente</span>
+    </div>
+
+    <ul class="temas">
+      @for (item of r.temas; track item.tema.id_tema) {
+        <li class="tema">
+          <a
+            class="tema__identificacao"
+            [routerLink]="['/resultados', r.id_execucao, 'comentarios']"
+            [queryParams]="{ tema: item.tema.id_tema }"
+          >
+            <span class="tema__rotulo">{{ item.tema.rotulo_tema }}</span>
+            @if (item.tema.palavras_chave; as palavras) {
+              <span class="tema__palavras muted">{{ palavras.join(' · ') }}</span>
+            }
+          </a>
+          <div class="tema__barra">
+            <app-barra-sentimento [distribuicao]="item.distribuicao" />
+          </div>
+          <span class="tema__total">{{ numero(item.distribuicao.total) }}</span>
+        </li>
+      }
+    </ul>
+
+    <div class="temas__rodape">
+      <p class="legenda">
+        <span><span class="ponto ponto--positivo"></span> Positivo</span>
+        <span><span class="ponto ponto--neutro"></span> Neutro</span>
+        <span><span class="ponto ponto--negativo"></span> Negativo</span>
+      </p>
+      <a class="temas__link" [routerLink]="['/resultados', r.id_execucao, 'comentarios']">
+        Ver os {{ r.temas.length }} temas e os comentários
+      </a>
+    </div>
+  </section>
+
+  <!-- Comentários representativos -->
+  @if (r.comentarios_representativos.length > 0) {
+    <section class="card painel">
+      <div class="painel__cabecalho">
+        <h2 class="painel__titulo">Comentários representativos</h2>
+        <a [routerLink]="['/resultados', r.id_execucao, 'comentarios']">Ver todos</a>
+      </div>
+
+      <div class="representativos">
+        @for (item of r.comentarios_representativos; track item.comentario.id_comentario) {
+          <article class="representativo">
+            <span class="badge badge--{{ item.analise.sentimento }}">
+              {{ rotuloSentimento(item.analise.sentimento) }}
+            </span>
+            <p class="representativo__texto">“{{ item.comentario.texto }}”</p>
+
+            @if (item.analise.justificativa; as justificativa) {
+              <div class="representativo__porque">
+                <p class="representativo__rotulo muted">Por que foi classificado assim</p>
+                <p class="muted">{{ justificativa }}</p>
+              </div>
+            }
+
+            @if (item.temas.length > 0) {
+              <p class="etiquetas">
+                @for (tema of item.temas; track tema.id_tema) {
+                  <span class="etiqueta">{{ tema.rotulo_tema }}</span>
+                }
+              </p>
+            }
+          </article>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- Atenção + procedência -->
+  <div class="rodape">
+    @if (r.ponto_de_atencao; as atencao) {
+      <section class="painel painel--atencao">
+        <h2 class="painel__titulo">O que merece atenção</h2>
+        <p>{{ atencao.texto }}</p>
+        <a
+          class="botao botao--secundario botao--pequeno"
+          [routerLink]="['/resultados', r.id_execucao, 'comentarios']"
+          [queryParams]="{ tema: atencao.id_tema }"
+        >
+          Ver comentários de {{ atencao.rotulo_tema }}
+        </a>
+      </section>
+    }
+
+    <section class="card painel">
+      <h2 class="painel__titulo">Como estes números foram obtidos</h2>
+      <dl class="procedencia">
+        <div class="procedencia__linha">
+          <dt>Modelo</dt>
+          <dd>{{ r.versao_modelo.nome_modelo }} {{ r.versao_modelo.versao }}</dd>
+        </div>
+        @if (r.versao_modelo.metricas_avaliacao; as m) {
+          <div class="procedencia__linha">
+            <dt>F1 macro (validação)</dt>
+            <dd>{{ m.f1_macro.toFixed(2).replace('.', ',') }}</dd>
+          </div>
+          @if (m.exemplos_teste) {
+            <div class="procedencia__linha">
+              <dt>Conjunto de teste</dt>
+              <dd>{{ numero(m.exemplos_teste) }} exemplos humanos</dd>
+            </div>
+          }
+        }
+      </dl>
+      <p class="painel__nota muted">
+        A classificação é automática e tem margem de erro. O conjunto de teste é rotulado por
+        pessoas, nunca pelo próprio modelo.
+      </p>
+    </section>
+  </div>
+}

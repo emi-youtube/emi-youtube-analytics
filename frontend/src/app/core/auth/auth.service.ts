@@ -14,7 +14,13 @@ import {
 
 import { environment } from '../../../environments/environment';
 import { skipAuth } from './auth.context';
-import { AccessTokenResponse, LoginRequest, TokenPairResponse, UserResponse } from './auth.models';
+import {
+  AccessTokenResponse,
+  LoginRequest,
+  RegisterRequest,
+  TokenPairResponse,
+  UserResponse,
+} from './auth.models';
 import { TokenStorage } from './token-storage';
 
 /**
@@ -24,6 +30,19 @@ import { TokenStorage } from './token-storage';
  * mais, e a sessão é reconstruída a partir do refresh token persistido —
  * é o que `ensureSession()` faz, chamado pelo `authGuard`.
  */
+/**
+ * A conta foi criada, mas o login automático logo depois falhou.
+ *
+ * Precisa ser distinguível de uma falha do cadastro em si: o usuário já tem
+ * conta e não deve tentar de novo — na segunda tentativa tomaria 409.
+ */
+export class ContaCriadaSemSessao extends Error {
+  constructor(readonly causa: unknown) {
+    super('Conta criada, mas o login automático falhou.');
+    this.name = 'ContaCriadaSemSessao';
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
@@ -47,6 +66,26 @@ export class AuthService {
 
   hasPersistedSession(): boolean {
     return this.storage.read() !== null;
+  }
+
+  /**
+   * UC02 — cria a conta e já entra com ela.
+   *
+   * `POST /auth/registrar` devolve o usuário, não tokens; a sessão vem do
+   * login encadeado. Se esse login falhar, o erro sai como
+   * `ContaCriadaSemSessao` para a tela não dizer que o cadastro deu errado —
+   * a conta existe.
+   */
+  registrar(dados: RegisterRequest): Observable<UserResponse> {
+    return this.http
+      .post<UserResponse>(`${this.baseUrl}/registrar`, dados, { context: skipAuth() })
+      .pipe(
+        switchMap(() =>
+          this.login({ email: dados.email, senha: dados.senha }).pipe(
+            catchError((erro: unknown) => throwError(() => new ContaCriadaSemSessao(erro))),
+          ),
+        ),
+      );
   }
 
   login(credenciais: LoginRequest): Observable<UserResponse> {

@@ -1,0 +1,93 @@
+/* ==========================================================================
+   Layout e formulário das telas de acesso (login e cadastro).
+   design/Main.png: painel escuro à esquerda, formulário à direita.
+
+   Importado pelos dois componentes via `styleUrls`. A encapsulação do Angular
+   reescreve os seletores por componente, então as classes daqui não vazam
+   para o resto da aplicação.
+   ========================================================================== */
+
+.acesso {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
+}
+
+.acesso__painel {
+  display: grid;
+  place-items: center;
+  padding: var(--space-7) var(--space-5);
+}
+
+/* --- Formulário --- */
+.form {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.form__titulo {
+  font-size: 30px;
+  font-weight: 500;
+}
+
+/* "Não tem conta? Criar acesso" — colado no título, como no Main.png. */
+.form__alternativa {
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-2);
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.form__erro {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--negativo);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  color: var(--negativo);
+  font-size: 14px;
+}
+
+/* Campos e botões são utilitários globais (src/styles.css): as telas de
+   acesso usam os mesmos do formulário de modelo de análise.
+   O botão aqui ocupa a largura toda da coluna. */
+.botao {
+  width: 100%;
+}
+
+.botao:disabled {
+  cursor: progress;
+}
+
+/* --- Aviso ao pé do formulário --- */
+.aviso {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.aviso__icone {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 860px) {
+  .acesso {
+    grid-template-columns: 1fr;
+  }
+
+  .acesso__painel {
+    padding: var(--space-6) var(--space-4);
+  }
+}

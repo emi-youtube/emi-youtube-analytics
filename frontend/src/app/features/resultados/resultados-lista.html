@@ -1,0 +1,47 @@
+<app-selo-demo />
+
+<header class="cabecalho">
+  <div class="cabecalho__texto">
+    <h1>Resultados</h1>
+    <p class="muted">
+      Cada execução concluída vira um painel com o sentimento, os temas e os comentários daquela
+      coleta.
+    </p>
+  </div>
+</header>
+
+@if (falha(); as mensagem) {
+  <div class="falha" role="alert">
+    <span>{{ mensagem }}</span>
+    <button class="botao botao--secundario botao--pequeno" type="button" (click)="carregar()">
+      Tentar de novo
+    </button>
+  </div>
+}
+
+@if (carregando()) {
+  <div class="card estado"><p class="muted">Carregando os resultados…</p></div>
+} @else if (disponiveis().length === 0 && !falha()) {
+  <div class="card estado">
+    <p class="estado__titulo">Nenhuma execução concluída</p>
+    <p class="muted">Assim que uma execução terminar, o painel dela aparece aqui.</p>
+    <a class="botao" routerLink="/execucoes">Ir para execuções</a>
+  </div>
+} @else {
+  <ul class="lista">
+    @for (item of disponiveis(); track item.id_execucao) {
+      <li class="card item">
+        <a class="item__link" [routerLink]="['/resultados', item.id_execucao]">
+          <span class="item__nome">{{ item.nome_modelo_analise }}</span>
+          <span class="item__meta muted">
+            {{ numero(item.distribuicao.total) }} comentários · {{ item.total_videos }} vídeos ·
+            {{ item.total_temas }} temas · {{ dataHoraLegivel(item.concluido_em) }}
+          </span>
+        </a>
+        <div class="item__barra">
+          <app-barra-sentimento [distribuicao]="item.distribuicao" />
+        </div>
+      </li>
+    }
+  </ul>
+}

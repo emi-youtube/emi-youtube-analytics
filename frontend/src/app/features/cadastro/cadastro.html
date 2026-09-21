@@ -1,0 +1,101 @@
+<div class="acesso">
+  <!-- Painel esquerdo: o mesmo do login (design/Main.png). -->
+  <app-vitrine />
+
+  <!-- Painel direito: formulário. -->
+  <section class="acesso__painel">
+    <form class="form" [formGroup]="form" (ngSubmit)="enviar()" novalidate>
+      <h2 class="form__titulo">Criar acesso</h2>
+      <p class="form__alternativa">Já tem conta? <a routerLink="/login">Entrar</a></p>
+
+      @if (erro(); as mensagem) {
+        <p class="form__erro" role="alert">
+          {{ mensagem }}
+          @if (contaCriada()) {
+            <a routerLink="/login">Ir para a entrada</a>
+          }
+        </p>
+      }
+
+      <div class="campo">
+        <label class="campo__rotulo" for="nome">Nome</label>
+        <input
+          id="nome"
+          class="campo__entrada"
+          type="text"
+          formControlName="nome"
+          placeholder="Como devemos chamar você"
+          autocomplete="name"
+          [class.campo__entrada--invalido]="invalido('nome')"
+        />
+        @if (invalido('nome')) {
+          <p class="campo__ajuda">Informe seu nome.</p>
+        }
+      </div>
+
+      <div class="campo">
+        <label class="campo__rotulo" for="email">E-mail</label>
+        <input
+          id="email"
+          class="campo__entrada"
+          type="email"
+          formControlName="email"
+          placeholder="voce@suaempresa.com.br"
+          autocomplete="username"
+          [class.campo__entrada--invalido]="invalido('email')"
+        />
+        @if (invalido('email')) {
+          <p class="campo__ajuda">Informe um e-mail válido.</p>
+        }
+      </div>
+
+      <div class="campo">
+        <label class="campo__rotulo" for="senha">Senha</label>
+        <input
+          id="senha"
+          class="campo__entrada"
+          type="password"
+          formControlName="senha"
+          autocomplete="new-password"
+          [class.campo__entrada--invalido]="invalido('senha')"
+        />
+        @if (invalido('senha')) {
+          <p class="campo__ajuda">A senha deve ter ao menos {{ senhaMinima }} caracteres.</p>
+        } @else {
+          <p class="campo__dica">Ao menos {{ senhaMinima }} caracteres.</p>
+        }
+      </div>
+
+      <div class="campo">
+        <label class="campo__rotulo" for="confirmacao">Confirme a senha</label>
+        <input
+          id="confirmacao"
+          class="campo__entrada"
+          type="password"
+          formControlName="confirmacao"
+          autocomplete="new-password"
+          [class.campo__entrada--invalido]="invalido('confirmacao') || senhasDiferentes()"
+        />
+        @if (invalido('confirmacao')) {
+          <p class="campo__ajuda">Repita a senha.</p>
+        } @else if (senhasDiferentes()) {
+          <p class="campo__ajuda">As senhas não são iguais.</p>
+        }
+      </div>
+
+      <button class="botao" type="submit" [disabled]="enviando() || contaCriada()">
+        {{ enviando() ? 'Criando conta…' : 'Criar conta' }}
+      </button>
+
+      <aside class="aviso">
+        <svg class="aviso__icone" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 10.5h12v9H6zM8.75 10.5V7a3.25 3.25 0 0 1 6.5 0v3.5" />
+        </svg>
+        <p>
+          Sua senha é guardada apenas como hash — nem a equipe do projeto consegue lê-la. Não há
+          recuperação automática, então escolha uma senha que você lembre.
+        </p>
+      </aside>
+    </form>
+  </section>
+</div>

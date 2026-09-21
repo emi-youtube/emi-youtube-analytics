@@ -1,0 +1,92 @@
+<header class="cabecalho">
+  <div class="cabecalho__texto">
+    <h1>Modelos de análise</h1>
+    <p class="muted">
+      Um modelo guarda quais vídeos analisar. Depois de salvo, você pode executá-lo quantas vezes
+      quiser.
+    </p>
+  </div>
+
+  <a class="botao" routerLink="/modelos/novo">Novo modelo</a>
+</header>
+
+@if (falha(); as mensagem) {
+  <div class="falha" role="alert">
+    <span>{{ mensagem }}</span>
+    <button class="botao botao--secundario botao--pequeno" type="button" (click)="carregar()">
+      Tentar de novo
+    </button>
+  </div>
+}
+
+@if (carregando()) {
+  <div class="card estado">
+    <p class="muted">Carregando seus modelos…</p>
+  </div>
+} @else if (modelos().length === 0 && !falha()) {
+  <div class="card estado">
+    <p class="estado__titulo">Nenhum modelo ainda</p>
+    <p class="muted">
+      Crie o primeiro modelo com os IDs dos vídeos da campanha que você quer acompanhar.
+    </p>
+    <a class="botao" routerLink="/modelos/novo">Criar o primeiro modelo</a>
+  </div>
+} @else {
+  <ul class="lista">
+    @for (modelo of modelos(); track modelo.id_modelo) {
+      <li class="card modelo">
+        <div class="modelo__info">
+          <h2 class="modelo__nome">{{ modelo.nome }}</h2>
+          <p class="modelo__meta muted">
+            <span>{{ totalDeVideos(modelo) }} vídeo(s)</span>
+            @if (modelo.termo_pesquisa) {
+              <span>·</span>
+              <span>termo: “{{ modelo.termo_pesquisa }}”</span>
+            }
+            <span>·</span>
+            <span>criado em {{ dataLegivel(modelo.criado_em) }}</span>
+          </p>
+        </div>
+
+        <div class="modelo__acoes">
+          @if (confirmando() === modelo.id_modelo) {
+            <span class="modelo__pergunta">Excluir “{{ modelo.nome }}”?</span>
+            <button
+              class="botao botao--perigo botao--pequeno"
+              type="button"
+              [disabled]="removendo() === modelo.id_modelo"
+              (click)="excluir(modelo)"
+            >
+              {{ removendo() === modelo.id_modelo ? 'Excluindo…' : 'Confirmar exclusão' }}
+            </button>
+            <button
+              class="botao botao--secundario botao--pequeno"
+              type="button"
+              (click)="cancelarExclusao()"
+            >
+              Cancelar
+            </button>
+          } @else {
+            <a
+              class="botao botao--secundario botao--pequeno"
+              [routerLink]="['/modelos', modelo.id_modelo, 'editar']"
+            >
+              Editar
+            </a>
+            <button
+              class="botao botao--perigo botao--pequeno"
+              type="button"
+              (click)="pedirConfirmacao(modelo.id_modelo)"
+            >
+              Excluir
+            </button>
+          }
+        </div>
+
+        @if (erroDeExclusao()[modelo.id_modelo]; as mensagem) {
+          <p class="modelo__erro" role="alert">{{ mensagem }}</p>
+        }
+      </li>
+    }
+  </ul>
+}

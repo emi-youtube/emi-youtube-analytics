@@ -1,0 +1,138 @@
+<header class="cabecalho">
+  <div class="cabecalho__texto">
+    <h1>Execuções</h1>
+    <p class="muted">
+      Cada execução coleta e classifica os comentários de um modelo. O processamento roda em segundo
+      plano.
+    </p>
+  </div>
+
+  <button class="botao" type="button" (click)="alternarPainel()">
+    {{ painelAberto() ? 'Cancelar' : '+ Nova execução' }}
+  </button>
+</header>
+
+@if (falha(); as mensagem) {
+  <div class="falha" role="alert">
+    <span>{{ mensagem }}</span>
+    <button class="botao botao--secundario botao--pequeno" type="button" (click)="carregar()">
+      Tentar de novo
+    </button>
+  </div>
+}
+
+@if (painelAberto()) {
+  <section class="card disparo">
+    <h2 class="disparo__titulo">Nova execução</h2>
+
+    @if (modelos().length === 0) {
+      <p class="muted">
+        Você ainda não tem modelos. <a routerLink="/modelos/novo">Crie um modelo</a> para poder
+        executá-lo.
+      </p>
+    } @else {
+      <div class="disparo__linha">
+        <div class="campo disparo__campo">
+          <label class="campo__rotulo" for="modelo">Modelo de análise</label>
+          <select
+            id="modelo"
+            class="campo__entrada"
+            [(ngModel)]="modeloEscolhido"
+            [disabled]="disparando()"
+          >
+            <option [ngValue]="null">Escolha um modelo…</option>
+            @for (modelo of modelos(); track modelo.id_modelo) {
+              <option
+                [ngValue]="modelo.id_modelo"
+                [disabled]="modelosOcupados().has(modelo.id_modelo)"
+              >
+                {{ modelo.nome }}
+                {{ modelosOcupados().has(modelo.id_modelo) ? '— já em andamento' : '' }}
+              </option>
+            }
+          </select>
+        </div>
+
+        <button
+          class="botao"
+          type="button"
+          [disabled]="!modeloEscolhido || disparando()"
+          (click)="disparar()"
+        >
+          {{ disparando() ? 'Enviando…' : 'Executar agora' }}
+        </button>
+      </div>
+    }
+
+    @if (erroDisparo(); as mensagem) {
+      <p class="disparo__erro" role="alert">{{ mensagem }}</p>
+    }
+  </section>
+}
+
+<section class="resumo" aria-label="Resumo das execuções">
+  <div class="card resumo__cartao">
+    <p class="resumo__rotulo muted">Processando</p>
+    <p class="numeral resumo__numero">{{ resumo().processando }}</p>
+  </div>
+  <div class="card resumo__cartao">
+    <p class="resumo__rotulo muted">Na fila</p>
+    <p class="numeral resumo__numero">{{ resumo().pendente }}</p>
+  </div>
+  <div class="card resumo__cartao">
+    <p class="resumo__rotulo muted">Concluídas</p>
+    <p class="numeral resumo__numero">{{ resumo().concluida }}</p>
+  </div>
+  <div class="card resumo__cartao">
+    <p class="resumo__rotulo muted">Com erro</p>
+    <p class="numeral resumo__numero">{{ resumo().erro }}</p>
+  </div>
+</section>
+
+@if (carregando()) {
+  <div class="card estado"><p class="muted">Carregando as execuções…</p></div>
+} @else if (execucoes().length === 0 && !falha()) {
+  <div class="card estado">
+    <p class="estado__titulo">Nenhuma execução ainda</p>
+    <p class="muted">Dispare a primeira execução a partir de um dos seus modelos de análise.</p>
+  </div>
+} @else {
+  <div class="card tabela__caixa">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th scope="col">Modelo de análise</th>
+          <th scope="col">Status</th>
+          <th scope="col">Iniciada</th>
+          <th scope="col">Concluída</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (execucao of execucoes(); track execucao.id_execucao) {
+          <tr>
+            <td>
+              <span class="tabela__nome">{{ nomeDoModelo(execucao.id_modelo) }}</span>
+              <span class="tabela__id muted">execução #{{ execucao.id_execucao }}</span>
+            </td>
+            <td>
+              <span [class]="classeDoBadge(execucao.status)">{{ rotulos[execucao.status] }}</span>
+            </td>
+            <td class="tabela__data">{{ dataHoraLegivel(execucao.iniciado_em) }}</td>
+            <td class="tabela__data">{{ dataHoraLegivel(execucao.concluido_em) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<aside class="nota">
+  <svg class="nota__icone" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5.5M12 7.75v.5" />
+  </svg>
+  <p>
+    Um mesmo modelo não pode ter duas execuções ativas ao mesmo tempo. Espere a atual concluir para
+    disparar outra.
+  </p>
+</aside>

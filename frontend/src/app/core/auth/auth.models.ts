@@ -12,6 +12,18 @@ export interface LoginRequest {
   senha: string;
 }
 
+/**
+ * Corpo de `POST /auth/registrar`.
+ *
+ * Não tem `papel`: o backend sempre grava `usuario_pme`. Aceitar o campo aqui
+ * sugeriria que o cliente escolhe, e ele não escolhe.
+ */
+export interface RegisterRequest {
+  nome: string;
+  email: string;
+  senha: string;
+}
+
 export interface TokenPairResponse {
   access_token: string;
   refresh_token: string;

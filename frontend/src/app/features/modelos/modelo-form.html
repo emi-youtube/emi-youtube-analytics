@@ -1,0 +1,188 @@
+<a class="voltar" routerLink="/modelos">‹ Voltar aos modelos</a>
+
+<header class="cabecalho">
+  <div class="cabecalho__texto">
+    <h1>{{ edicao ? 'Editar modelo de análise' : 'Novo modelo de análise' }}</h1>
+    <p class="muted">
+      Um modelo guarda quais vídeos analisar. Depois de salvo, você pode executá-lo quantas vezes
+      quiser.
+    </p>
+  </div>
+</header>
+
+@if (falha(); as mensagem) {
+  <div class="falha" role="alert">
+    <span>{{ mensagem }}</span>
+  </div>
+}
+
+@if (conflitoDeExecucao()) {
+  <div class="falha" role="alert">
+    <span>
+      O modelo foi salvo, mas ele já tem uma execução em andamento — só é possível uma por vez.
+    </span>
+    <a class="botao botao--secundario botao--pequeno" routerLink="/execucoes">Ver execuções</a>
+  </div>
+}
+
+@if (carregando()) {
+  <div class="card estado"><p class="muted">Carregando o modelo…</p></div>
+} @else {
+  <div class="pagina">
+    <form class="card formulario" [formGroup]="form" novalidate>
+      <div class="campo">
+        <label class="campo__rotulo" for="nome">Nome do modelo</label>
+        <input
+          id="nome"
+          class="campo__entrada"
+          type="text"
+          formControlName="nome"
+          placeholder="Campanha Verão — linha esportiva"
+          [class.campo__entrada--invalido]="invalido('nome')"
+        />
+        @if (invalido('nome')) {
+          <p class="campo__ajuda">Informe um nome.</p>
+        } @else {
+          <p class="campo__dica">Só para você identificar depois na lista.</p>
+        }
+      </div>
+
+      <div class="campo">
+        <label class="campo__rotulo" for="videos">IDs dos vídeos</label>
+        <textarea
+          id="videos"
+          class="campo__entrada campo__entrada--codigo"
+          formControlName="videos"
+          rows="6"
+          spellcheck="false"
+          placeholder="dQw4w9WgXcQ&#10;kJQP7kiw5Fk"
+          [class.campo__entrada--invalido]="invalido('videos') || linhasInvalidas().length > 0"
+        ></textarea>
+
+        @if (linhasInvalidas().length > 0) {
+          <p class="campo__ajuda">
+            Não reconheci
+            {{ linhasInvalidas().length === 1 ? 'esta linha' : 'estas linhas' }}:
+            {{ linhasInvalidas().join(', ') }}. O ID tem 11 caracteres.
+          </p>
+        } @else if (invalido('videos')) {
+          <p class="campo__ajuda">Informe ao menos um vídeo.</p>
+        } @else {
+          <p class="campo__dica">
+            Um por linha. O ID é o trecho depois de <code>watch?v=</code> no endereço do vídeo —
+            colar o endereço inteiro também funciona.
+          </p>
+        }
+      </div>
+
+      <div class="campo">
+        <label class="campo__rotulo" for="termo">Termo de pesquisa</label>
+        <input
+          id="termo"
+          class="campo__entrada"
+          type="text"
+          formControlName="termo_pesquisa"
+          placeholder="tênis de corrida"
+          [class.campo__entrada--invalido]="invalido('termo_pesquisa')"
+        />
+        @if (invalido('termo_pesquisa')) {
+          <p class="campo__ajuda">Informe o termo que delimita esta análise.</p>
+        } @else {
+          <p class="campo__dica">
+            Descreve o assunto da campanha. O servidor exige um termo para o modelo não ficar sem
+            escopo definido.
+          </p>
+        }
+      </div>
+
+      <div class="dupla">
+        <div class="campo">
+          <label class="campo__rotulo" for="desde">
+            Comentários a partir de <span class="campo__opcional">(opcional)</span>
+          </label>
+          <input id="desde" class="campo__entrada" type="date" formControlName="publicado_apos" />
+        </div>
+
+        <div class="campo">
+          <label class="campo__rotulo" for="limite">
+            Limite de comentários <span class="campo__opcional">(opcional)</span>
+          </label>
+          <input
+            id="limite"
+            class="campo__entrada"
+            type="number"
+            inputmode="numeric"
+            min="1"
+            [max]="limiteMaximo"
+            formControlName="limite_comentarios"
+            placeholder="5000"
+            [class.campo__entrada--invalido]="invalido('limite_comentarios')"
+          />
+          @if (invalido('limite_comentarios')) {
+            <p class="campo__ajuda">Informe um número entre 1 e {{ limiteMaximo }}.</p>
+          }
+        </div>
+      </div>
+
+      <div class="acoes">
+        <button class="botao" type="button" [disabled]="ocupado()" (click)="salvar(true)">
+          {{ salvando() === 'executar' ? 'Salvando…' : 'Salvar e executar agora' }}
+        </button>
+        <button
+          class="botao botao--secundario"
+          type="button"
+          [disabled]="ocupado()"
+          (click)="salvar(false)"
+        >
+          {{
+            salvando() === 'salvar'
+              ? 'Salvando…'
+              : edicao
+                ? 'Salvar alterações'
+                : 'Salvar sem executar'
+          }}
+        </button>
+      </div>
+    </form>
+
+    <aside class="apoio">
+      <section class="card apoio__bloco">
+        <h2 class="apoio__titulo">O que acontece ao executar</h2>
+        <ol class="apoio__passos">
+          <li>Os comentários dos vídeos são coletados.</li>
+          <li>Cada um é classificado em positivo, negativo ou neutro.</li>
+          <li>Os temas recorrentes são agrupados.</li>
+        </ol>
+        <p class="apoio__nota muted">
+          Leva alguns minutos. Você pode fechar a página — o processamento continua.
+        </p>
+      </section>
+
+      <section class="apoio__bloco apoio__bloco--atencao">
+        <h2 class="apoio__titulo">
+          <svg class="apoio__icone" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 4.5 2.5 20h19zM12 10v4.5M12 17v.5" />
+          </svg>
+          Escolha vídeos de campanha
+        </h2>
+        <p>
+          A análise foi feita para anúncios e conteúdo de marca. Vídeos orgânicos funcionam, mas os
+          temas ficam menos úteis para decisão.
+        </p>
+      </section>
+
+      <section class="card apoio__bloco">
+        <h2 class="apoio__titulo">
+          <svg class="apoio__icone apoio__icone--ok" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 10.5h12v9H6zM8.75 10.5V7a3.25 3.25 0 0 1 6.5 0v3.5" />
+          </svg>
+          Privacidade
+        </h2>
+        <p>
+          Nenhum nome ou perfil de quem comentou é guardado. Só o texto do comentário e um código
+          irreversível.
+        </p>
+      </section>
+    </aside>
+  </div>
+}

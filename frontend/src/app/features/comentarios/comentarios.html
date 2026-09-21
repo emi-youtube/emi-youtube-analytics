@@ -1,0 +1,195 @@
+<app-selo-demo />
+
+<a class="voltar" [routerLink]="['/resultados', idExecucao]">‹ Voltar aos resultados</a>
+
+<header class="cabecalho">
+  <div class="cabecalho__texto">
+    <h1>Comentários</h1>
+    <p class="muted">
+      @if (resultado(); as r) {
+        {{ r.nome_modelo_analise }} ·
+      }
+      @if (pagina(); as p) {
+        <!-- Total do tema/vídeo, não o da aba de sentimento: o subtítulo
+             descreve o recorte, e trocar de aba não muda o recorte. -->
+        {{ p.contagem_por_sentimento.total.toLocaleString('pt-BR') }} comentários
+      }
+      @if (temaSelecionado(); as tema) {
+        no tema <strong>{{ tema.rotulo_tema }}</strong>
+      }
+    </p>
+  </div>
+</header>
+
+<!-- Filtros -->
+<section class="card filtros">
+  <div class="filtros__linha">
+    <div class="campo filtros__busca">
+      <label class="campo__rotulo" for="busca">Buscar no texto</label>
+      <input
+        id="busca"
+        class="campo__entrada"
+        type="search"
+        [ngModel]="texto"
+        (ngModelChange)="aoDigitar($event)"
+        placeholder="ex.: parcela, frete, banhado"
+      />
+    </div>
+
+    <div class="campo">
+      <label class="campo__rotulo" for="tema">Tema</label>
+      <select
+        id="tema"
+        class="campo__entrada"
+        [ngModel]="filtro().id_tema ?? ''"
+        (ngModelChange)="escolherTema($event)"
+      >
+        <option value="">Todos os temas</option>
+        @for (item of resultado()?.temas ?? []; track item.tema.id_tema) {
+          <option [value]="item.tema.id_tema">{{ item.tema.rotulo_tema }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="campo">
+      <label class="campo__rotulo" for="video">Vídeo</label>
+      <select
+        id="video"
+        class="campo__entrada"
+        [ngModel]="filtro().id_video ?? ''"
+        (ngModelChange)="escolherVideo($event)"
+      >
+        <option value="">Todos os vídeos</option>
+        @for (item of resultado()?.videos ?? []; track item.video.id_video) {
+          <option [value]="item.video.id_video">{{ item.video.titulo }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  @if (pagina(); as p) {
+    <div class="chips">
+      <span class="chips__rotulo">Sentimento:</span>
+
+      <button
+        type="button"
+        class="chip"
+        [class.chip--ativo]="!filtro().sentimento"
+        (click)="escolherSentimento(null)"
+      >
+        Todos · {{ p.contagem_por_sentimento.total }}
+      </button>
+
+      @for (sentimento of sentimentos; track sentimento) {
+        <button
+          type="button"
+          class="chip chip--{{ sentimento }}"
+          [class.chip--ativo]="filtro().sentimento === sentimento"
+          (click)="escolherSentimento(sentimento)"
+        >
+          {{ rotuloSentimento(sentimento) }} · {{ p.contagem_por_sentimento[sentimento] }}
+        </button>
+      }
+    </div>
+  }
+</section>
+
+@if (falha(); as mensagem) {
+  <div class="falha" role="alert">
+    <span>{{ mensagem }}</span>
+  </div>
+}
+
+@if (carregando()) {
+  <div class="card estado"><p class="muted">Carregando os comentários…</p></div>
+} @else if (pagina(); as p) {
+  @if (p.itens.length === 0) {
+    <div class="card estado">
+      <p class="estado__titulo">Nenhum comentário com estes filtros</p>
+      <p class="muted">Tente limpar a busca ou escolher outro tema.</p>
+    </div>
+  } @else {
+    <ul class="comentarios">
+      @for (item of p.itens; track item.comentario.id_comentario) {
+        <li class="card comentario">
+          <div class="comentario__principal">
+            <p class="comentario__topo">
+              <span class="badge badge--{{ item.analise.sentimento }}">
+                {{ rotuloSentimento(item.analise.sentimento) }}
+              </span>
+              <span class="comentario__origem muted">
+                {{ item.video.titulo }} · {{ dataLegivel(item.comentario.publicado_em) }}
+              </span>
+              @if (revisaoSugerida(item.analise.confianca)) {
+                <span class="revisao">
+                  <svg class="revisao__icone" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7.5v5M12 15.75v.5" />
+                  </svg>
+                  Revisão sugerida
+                </span>
+              }
+            </p>
+
+            <p class="comentario__texto">“{{ item.comentario.texto }}”</p>
+
+            @if (item.temas.length > 0) {
+              <p class="etiquetas">
+                @for (tema of item.temas; track tema.id_tema) {
+                  <span class="etiqueta">{{ tema.rotulo_tema }} · {{ peso(tema.peso) }}</span>
+                }
+              </p>
+            }
+          </div>
+
+          @if (item.analise.justificativa; as justificativa) {
+            <aside
+              class="justificativa"
+              [class.justificativa--revisao]="revisaoSugerida(item.analise.confianca)"
+            >
+              <p class="justificativa__rotulo">Justificativa</p>
+              <p>{{ justificativa }}</p>
+            </aside>
+          }
+        </li>
+      }
+    </ul>
+
+    <div class="paginacao">
+      <p class="muted">
+        Mostrando {{ primeiroDaPagina() }}–{{ ultimoDaPagina() }} de
+        {{ p.total.toLocaleString('pt-BR') }} comentários
+      </p>
+
+      <div class="paginacao__botoes">
+        <button
+          class="botao botao--secundario botao--pequeno"
+          type="button"
+          [disabled]="p.pagina <= 1"
+          (click)="irPara(p.pagina - 1)"
+        >
+          Anterior
+        </button>
+        <button
+          class="botao botao--secundario botao--pequeno"
+          type="button"
+          [disabled]="p.pagina >= totalPaginas()"
+          (click)="irPara(p.pagina + 1)"
+        >
+          Próximos
+        </button>
+      </div>
+    </div>
+  }
+}
+
+<aside class="nota">
+  <svg class="nota__icone" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M6 10.5h12v9H6zM8.75 10.5V7a3.25 3.25 0 0 1 6.5 0v3.5" />
+  </svg>
+  <p>
+    Quem escreveu cada comentário não é identificável aqui. O sistema guarda apenas o texto e um
+    código irreversível, que serve só para reconhecer comentários da mesma pessoa dentro de uma
+    execução.
+  </p>
+</aside>

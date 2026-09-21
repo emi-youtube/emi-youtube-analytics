@@ -1,36 +1,12 @@
-<div class="login">
+<div class="acesso">
   <!-- Painel esquerdo: apresentação da plataforma (design/Main.png). -->
-  <section class="vitrine">
-    <div class="vitrine__marca">
-      <svg class="vitrine__icone" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 15v5M9.33 10v10M14.67 13v7M20 4v16" />
-      </svg>
-      <span>Emi YouTube Analytics</span>
-    </div>
-
-    <div class="vitrine__discurso">
-      <h1 class="vitrine__titulo">O que o público realmente achou da sua campanha.</h1>
-      <p class="vitrine__texto">
-        Colete os comentários dos seus vídeos publicitários, veja a divisão entre positivo, negativo
-        e neutro, e descubra os temas que mais se repetem.
-      </p>
-    </div>
-
-    <div class="vitrine__rodape">
-      <p class="vitrine__escala">
-        <span class="numeral vitrine__numero">500</span> a 5.000 comentários por execução
-      </p>
-      <p class="vitrine__lgpd">
-        A identidade de quem comenta nunca é armazenada — apenas um código irreversível, em
-        conformidade com a LGPD.
-      </p>
-    </div>
-  </section>
+  <app-vitrine />
 
   <!-- Painel direito: formulário. -->
-  <section class="acesso">
+  <section class="acesso__painel">
     <form class="form" [formGroup]="form" (ngSubmit)="enviar()" novalidate>
       <h2 class="form__titulo">Entrar na plataforma</h2>
+      <p class="form__alternativa">Não tem conta? <a routerLink="/cadastro">Criar acesso</a></p>
 
       @if (erro(); as mensagem) {
         <p class="form__erro" role="alert">{{ mensagem }}</p>

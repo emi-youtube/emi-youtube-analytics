@@ -1,0 +1,171 @@
+<app-selo-demo />
+
+<header class="cabecalho">
+  <div class="cabecalho__texto">
+    <h1>{{ saudacao() }}</h1>
+    <p class="muted">{{ recado() }}</p>
+  </div>
+
+  <a class="botao" routerLink="/modelos/novo">+ Novo modelo</a>
+</header>
+
+@if (falha(); as mensagem) {
+  <div class="falha" role="alert">
+    <span>{{ mensagem }}</span>
+    <button class="botao botao--secundario botao--pequeno" type="button" (click)="carregar()">
+      Tentar de novo
+    </button>
+  </div>
+}
+
+@if (carregando()) {
+  <div class="card estado"><p class="muted">Carregando seu resumo…</p></div>
+} @else if (resumo(); as dados) {
+  <!-- Destaque: última execução concluída. -->
+  @if (dados.destaque; as destaque) {
+    <a class="destaque" [routerLink]="['/resultados', destaque.id_execucao]">
+      <div class="destaque__esquerda">
+        <span class="destaque__selo">Pronto agora</span>
+        <h2 class="destaque__titulo">{{ destaque.nome_modelo_analise }}</h2>
+        <p class="destaque__meta">
+          {{ destaque.total_comentarios.toLocaleString('pt-BR') }} comentários de
+          {{ destaque.total_videos }} vídeos · {{ destaque.total_temas }} temas identificados
+        </p>
+      </div>
+
+      <div class="destaque__direita">
+        <app-barra-sentimento [distribuicao]="destaque.distribuicao" />
+        @if (percentuaisDestaque(); as p) {
+          <p class="destaque__legenda">
+            <span>{{ p.positivo }}% positivo</span>
+            <span>{{ p.neutro }}% neutro</span>
+            <span>{{ p.negativo }}% negativo</span>
+          </p>
+        }
+      </div>
+
+      <span class="destaque__seta" aria-hidden="true">›</span>
+    </a>
+  }
+
+  <div class="grade">
+    <section class="coluna">
+      <div class="secao__cabecalho">
+        <h2 class="secao__titulo">Seus modelos</h2>
+        <a routerLink="/modelos">Ver todos</a>
+      </div>
+
+      @if (dados.modelos.length === 0) {
+        <div class="card estado">
+          <p class="muted">Nenhum modelo ainda.</p>
+          <a class="botao" routerLink="/modelos/novo">Criar o primeiro modelo</a>
+        </div>
+      } @else {
+        <ul class="card modelos">
+          @for (modelo of dados.modelos; track modelo.id_modelo) {
+            <li class="modelo">
+              <div class="modelo__info">
+                <p class="modelo__nome">{{ modelo.nome }}</p>
+                <p class="modelo__meta muted">
+                  {{ modelo.total_videos }} vídeos
+                  @switch (modelo.status_ultima_execucao) {
+                    @case ('processando') {
+                      · executando agora
+                    }
+                    @case ('pendente') {
+                      · aguardando na fila
+                    }
+                    @case ('concluida') {
+                      · última coleta {{ dataLegivel(modelo.ultima_execucao_em) }}
+                    }
+                    @case (null) {
+                      · nunca executado
+                    }
+                  }
+                </p>
+                @if (modelo.motivo_da_falha; as motivo) {
+                  <p class="modelo__falha">Última execução falhou: {{ motivo }}</p>
+                }
+              </div>
+
+              @if (
+                modelo.status_ultima_execucao === 'processando' ||
+                modelo.status_ultima_execucao === 'pendente'
+              ) {
+                <span class="badge badge--{{ modelo.status_ultima_execucao }}">
+                  {{ modelo.status_ultima_execucao === 'processando' ? 'Processando' : 'Pendente' }}
+                </span>
+              } @else if (modelo.id_execucao_concluida !== null) {
+                <a
+                  class="botao botao--secundario botao--pequeno"
+                  [routerLink]="['/resultados', modelo.id_execucao_concluida]"
+                >
+                  Ver resultados
+                </a>
+              } @else {
+                <a class="botao botao--secundario botao--pequeno" routerLink="/execucoes">
+                  {{ modelo.status_ultima_execucao === 'erro' ? 'Reenviar' : 'Executar' }}
+                </a>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <aside class="coluna">
+      <section class="card bloco">
+        <h2 class="bloco__titulo">No total</h2>
+        <dl class="totais">
+          <div class="totais__linha">
+            <dt>Comentários analisados</dt>
+            <dd class="numeral">
+              {{ dados.totais.comentarios_analisados.toLocaleString('pt-BR') }}
+            </dd>
+          </div>
+          <div class="totais__linha">
+            <dt>Execuções concluídas</dt>
+            <dd class="numeral">{{ dados.totais.execucoes_concluidas }}</dd>
+          </div>
+          <div class="totais__linha">
+            <dt>Vídeos acompanhados</dt>
+            <dd class="numeral">{{ dados.totais.videos_acompanhados }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      @if (dados.cota_youtube; as cota) {
+        <section class="card bloco">
+          <h2 class="bloco__titulo">Cota do YouTube hoje</h2>
+          <div class="cota__trilho">
+            <span class="cota__preenchido" [style.width.%]="cotaUsada() * 100"></span>
+          </div>
+          <p class="cota__numeros">
+            <span class="muted">
+              {{ cota.unidades_usadas.toLocaleString('pt-BR') }} de
+              {{ cota.unidades_limite.toLocaleString('pt-BR') }} unidades
+            </span>
+            <span class="muted">renova à 0h</span>
+          </p>
+          <p class="bloco__nota muted">
+            Cada execução consome cota conforme o número de vídeos e comentários.
+          </p>
+        </section>
+      }
+
+      @if (dados.versao_modelo) {
+        <section class="bloco bloco--modelo">
+          <h2 class="bloco__titulo">
+            <svg class="bloco__icone" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"
+              />
+            </svg>
+            Modelo de classificação
+          </h2>
+          <p>{{ descricaoDoModelo() }}</p>
+        </section>
+      }
+    </aside>
+  </div>
+}

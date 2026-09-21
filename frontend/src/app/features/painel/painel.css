@@ -1,0 +1,167 @@
+/* ==========================================================================
+   Estruturas comuns às telas internas (design/Modelos.png, design/Execucoes.png).
+   Campos e botões vêm de src/styles.css; aqui fica só o que é de página.
+   ========================================================================== */
+
+/* --- Cabeçalho da página --- */
+.cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.cabecalho__texto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 72ch;
+}
+
+.voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.voltar:hover {
+  text-decoration: underline;
+}
+
+/* --- Estados de carga: carregando, vazio, falha --- */
+.estado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  text-align: left;
+}
+
+.estado__titulo {
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+/* --- Faixa de erro da página --- */
+.falha {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+  border: 1px solid var(--negativo);
+  border-radius: var(--radius-control);
+  background: var(--negativo-soft);
+  color: var(--negativo);
+  font-size: 14px;
+}
+
+/* --- Nota de rodapé explicando uma regra do servidor --- */
+.nota {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.nota__icone {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+/* --- Painel: cartão de seção das telas de análise --- */
+.painel {
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-5);
+}
+
+.painel__cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.painel__titulo {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.painel__nota {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+/* --- Legenda de sentimento (quadradinho colorido) --- */
+.ponto {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  display: inline-block;
+  border-radius: 2px;
+}
+
+.ponto--positivo {
+  background: var(--positivo);
+}
+.ponto--neutro {
+  background: var(--neutro);
+}
+.ponto--negativo {
+  background: var(--negativo);
+}
+
+.legenda {
+  display: flex;
+  gap: var(--space-4);
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* --- Etiqueta de tema --- */
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.etiqueta {
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .cabecalho {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

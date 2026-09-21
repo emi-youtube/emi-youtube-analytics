@@ -1,0 +1,89 @@
+/* design/Modelos.png: formulário à esquerda, coluna de apoio à direita. */
+.pagina {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: var(--space-5);
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.dupla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+/* --- Coluna de apoio --- */
+.apoio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.apoio__bloco {
+  padding: var(--space-5);
+  font-size: 14px;
+}
+
+.apoio__bloco--atencao {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+}
+
+.apoio__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.apoio__icone {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+
+.apoio__icone--ok {
+  stroke: var(--positivo);
+}
+
+.apoio__passos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.apoio__nota {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 1000px) {
+  .pagina {
+    grid-template-columns: 1fr;
+  }
+}
