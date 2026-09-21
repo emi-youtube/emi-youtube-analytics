@@ -76,23 +76,19 @@
       </div>
 
       <div class="campo">
-        <label class="campo__rotulo" for="termo">Termo de pesquisa</label>
+        <label class="campo__rotulo" for="termo">
+          Termo de pesquisa <span class="campo__opcional">(opcional)</span>
+        </label>
         <input
           id="termo"
           class="campo__entrada"
           type="text"
           formControlName="termo_pesquisa"
           placeholder="tênis de corrida"
-          [class.campo__entrada--invalido]="invalido('termo_pesquisa')"
         />
-        @if (invalido('termo_pesquisa')) {
-          <p class="campo__ajuda">Informe o termo que delimita esta análise.</p>
-        } @else {
-          <p class="campo__dica">
-            Descreve o assunto da campanha. O servidor exige um termo para o modelo não ficar sem
-            escopo definido.
-          </p>
-        }
+        <p class="campo__dica">
+          Filtra os comentários que contenham este termo. Deixe em branco para analisar todos.
+        </p>
       </div>
 
       <div class="dupla">
