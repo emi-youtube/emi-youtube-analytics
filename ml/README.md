@@ -29,7 +29,28 @@ python -m ml.exportacao.exportar_corpus --id-execucao <N>
 
 # 2. medicao: distribuicao de comprimento em tokens e perda de emoji
 python -m ml.medicao.medir_tokens
+
+# 3. rotulagem fraca com a Gemini (OFFLINE, exige ml/.env)
+python -m ml.rotulagem.rotular_fraco --id-execucao <N> --limite 50   # ensaio
+python -m ml.rotulagem.rotular_fraco --id-execucao <N>               # corpus todo
+
+# 4. amostra humana (gabarito): Cochran + estratificacao pelo rotulo fraco
+python -m ml.amostra.sortear_amostra_humana --id-execucao <N>
+
+# 5. planilhas dos avaliadores (as cegas, uma ordem por avaliador)
+python -m ml.amostra.gerar_planilhas_avaliadores --id-execucao <N>
 ```
+
+O passo 3 exige `ml/.env` com a `GEMINI_API_KEY` — **nunca** no `.env` da raiz
+(CLAUDE.md regra 3: o backend de produção não pode ter chave de LLM nem por
+acidente). Copie de `ml/env.example`.
+
+### Checkpoint da rotulagem fraca
+
+O passo 3 termina imprimindo a distribuição das três classes e **sai com erro** se
+alguma passar de 85% ou ficar abaixo de 5%. Distribuição assim quase sempre é
+prompt ruim, não corpus desbalanceado — o prompt precisa de revisão (crie
+`prompt_v2.md`) antes de qualquer treino.
 
 ## Decisões que valem registro
 
@@ -94,6 +115,9 @@ da metade das letras é latina — "não", "coração" e "über" passam.
 |---|---|---|
 | `ml/curadoria/` | planilha de curadoria dos vídeos — **entrada** | **sim** |
 | `ml/dados/` | corpus e derivados — **saída gerada** | não (`.gitignore`) |
+| `ml/rotulagem/prompt_v*.md` | prompt versionado — vai para o TCC | **sim** |
+| `ml/rotulagem/metadados_rotulagem.json` | modelo, data, temperatura, nº de chamadas | **sim** |
+| `ml/amostra/planilhas/` | planilhas dos avaliadores (texto de terceiros) | não (`.gitignore`) |
 
 `ml/curadoria/curadoria_videos_sprint1.xlsx` é a **proveniência do corpus**: registra
 quais vídeos entraram, por quê, e permite a qualquer pessoa recoletar exatamente o

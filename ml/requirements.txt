@@ -11,6 +11,11 @@ asyncpg==0.30.0
 # torch NÃO entra aqui — medir comprimento não exige carregar os pesos do modelo.
 transformers==4.46.3
 
+# Planilhas dos avaliadores humanos. xlsx (e nao CSV) para poder embutir validacao
+# por lista nas tres classes: avaliador que digita "Positivo" ou "pos" quebraria o
+# calculo do Kappa em silencio.
+openpyxl==3.1.5
+
 # Pre-processamento COMPARTILHADO com o backend (raiz do repo, pacote proprio).
 # Instalado em modo editavel para que uma mudanca no mapa de emoji valha nos dois
 # ambientes sem reinstalar:
