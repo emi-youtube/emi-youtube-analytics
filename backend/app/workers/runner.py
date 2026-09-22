@@ -45,6 +45,12 @@ async def main() -> None:
         level=settings.log_level,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    # Segunda camada da proteção da chave: em INFO o httpx loga a URL completa de
+    # cada requisição. Hoje a chave vai no cabeçalho (workers/youtube.py), então a
+    # URL já não a contém — mas qualquer parâmetro sensível que venha a entrar na
+    # query cairia no log de novo. WARNING mantém erro de rede visível e cala o resto.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     parar = asyncio.Event()
     laco = asyncio.get_running_loop()

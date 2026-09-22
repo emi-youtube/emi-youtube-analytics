@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 
 API_BASE = "https://www.googleapis.com/youtube/v3"
 
+# A chave viaja no cabeçalho, NUNCA na query string. Na query ela entra na URL, e a
+# URL vaza em toda parte: log do httpx em INFO, log de proxy, mensagem de exceção,
+# APM. O Google aceita os dois formatos e documenta este como o preferido.
+CABECALHO_CHAVE = "X-Goog-Api-Key"
+
 # videos.list aceita no máximo 50 IDs por chamada.
 MAX_IDS_POR_CHAMADA = 50
 # commentThreads.list aceita no máximo 100 resultados por página.
@@ -107,7 +112,9 @@ class ClienteYouTube:
 
         try:
             resposta = await self._http.get(
-                f"{API_BASE}/{recurso}", params={**params, "key": self._api_key}
+                f"{API_BASE}/{recurso}",
+                params=params,
+                headers={CABECALHO_CHAVE: self._api_key},
             )
         except httpx.TimeoutException as erro:
             raise ErroTransitorio(f"timeout em {recurso}: {erro}") from erro
