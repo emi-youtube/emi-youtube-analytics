@@ -5,9 +5,11 @@ por id, lote completo), a sincronia entre o prompt do código e o arquivo versio
 e a garantia de que a chave não vai para a URL.
 """
 
+import asyncio
 import json
 import re
 
+import asyncpg
 import pytest
 
 from ml.config import CLASSES
@@ -29,6 +31,7 @@ from ml.rotulagem.rotular_fraco import (
     escolher_modelo,
     extrair_json,
     montar_prompt,
+    reconectar_se_caiu,
     validar_lote,
 )
 
@@ -568,3 +571,54 @@ def test_backoff_para_de_dobrar_no_teto(monkeypatch):
 
     assert esperas == [4, 8, 16, 32, 64, 64, 64]
     assert max(esperas) == gemini.BACKOFF_MAXIMO
+
+
+# ------------------------------------------ conexao que morre de ocio
+
+
+class _ConexaoFalsa:
+    """Conexao que o servidor derrubou: `is_closed()` mente, o `SELECT 1` denuncia."""
+
+    def __init__(self, viva: bool) -> None:
+        self.viva = viva
+        self.fechada = False
+
+    def is_closed(self) -> bool:
+        return False
+
+    async def fetchval(self, _sql):
+        if self.viva:
+            return 1
+        raise asyncpg.exceptions.ConnectionDoesNotExistError(
+            "connection was closed in the middle of operation"
+        )
+
+    async def close(self) -> None:
+        self.fechada = True
+
+
+def test_conexao_viva_e_reaproveitada():
+    conexao = _ConexaoFalsa(viva=True)
+    assert asyncio.run(reconectar_se_caiu(conexao)) is conexao
+    assert not conexao.fechada
+
+
+def test_conexao_derrubada_no_ocio_e_substituida(monkeypatch):
+    """Surto de 503 deixa o banco ocioso por dezenas de minutos; o Supabase desliga.
+
+    Sem isto, a gravacao do lote seguinte morria levando rotulos que a Gemini ja
+    havia devolvido — cota gasta, nada gravado.
+    """
+    morta = _ConexaoFalsa(viva=False)
+    nova = _ConexaoFalsa(viva=True)
+
+    async def falso_connect(_dsn):
+        return nova
+
+    monkeypatch.setattr("ml.rotulagem.rotular_fraco.asyncpg.connect", falso_connect, raising=True)
+    monkeypatch.setattr(
+        "ml.rotulagem.rotular_fraco.dsn_postgres", lambda: "postgresql://x", raising=True
+    )
+
+    assert asyncio.run(reconectar_se_caiu(morta)) is nova
+    assert morta.fechada

@@ -31,6 +31,7 @@ Uso:
 
 import argparse
 import asyncio
+import contextlib
 import json
 import logging
 import re
@@ -274,6 +275,30 @@ async def gravar_rotulos(conexao: asyncpg.Connection, rotulos: dict[int, str]) -
         list(rotulos.items()),
     )
     return len(rotulos)
+
+
+async def reconectar_se_caiu(conexao: asyncpg.Connection) -> asyncpg.Connection:
+    """Devolve uma conexão viva, abrindo outra se a anterior morreu de ócio.
+
+    A rodada espera até `MAX_TENTATIVAS_LOTE` chamadas por lote quando o free tier
+    está em surto de 503 — dezenas de minutos sem tocar no banco. O Postgres do
+    Supabase fecha a conexão ociosa nesse intervalo, e a gravação do lote seguinte
+    morria com `ConnectionDoesNotExistError` levando consigo rótulos que a Gemini já
+    tinha devolvido (cota gasta, nada gravado).
+
+    O `SELECT 1` é a única forma confiável de saber: `is_closed()` só conhece o lado
+    de cá e devolve False para uma conexão que o servidor já derrubou.
+    """
+    if not conexao.is_closed():
+        try:
+            await conexao.fetchval("SELECT 1")
+            return conexao
+        except (asyncpg.PostgresConnectionError, asyncpg.InterfaceError, OSError) as erro:
+            logger.warning("conexao com o banco caiu (%s); reconectando", type(erro).__name__)
+
+    with contextlib.suppress(Exception):
+        await conexao.close()
+    return await asyncpg.connect(dsn_postgres())
 
 
 async def distribuicao(conexao: asyncpg.Connection, id_execucao: int) -> Counter:
@@ -554,6 +579,8 @@ async def rotular(id_execucao: int, limite: int | None) -> Counter:
                 except ErroGemini:
                     raise
 
+            # A espera pelo lote pode ter durado mais que o ocio que o Supabase tolera.
+            conexao = await reconectar_se_caiu(conexao)
             await gravar_rotulos(conexao, rotulos)
             total_rotulado += len(rotulos)
             logger.info(
@@ -567,6 +594,7 @@ async def rotular(id_execucao: int, limite: int | None) -> Counter:
         gravar_metadados(
             escolha, total_rotulado, lotes, DIRETORIO_ML / "rotulagem" / "metadados_rotulagem.json"
         )
+        conexao = await reconectar_se_caiu(conexao)
         return await distribuicao(conexao, id_execucao)
     finally:
         await conexao.close()
