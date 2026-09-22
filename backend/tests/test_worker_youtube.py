@@ -10,6 +10,7 @@ import pytest
 from app.core.security import hash_token
 from app.workers.youtube import (
     API_BASE,
+    CABECALHO_CHAVE,
     ClienteYouTube,
     ComentariosDesabilitados,
     ErroPermanente,
@@ -225,10 +226,42 @@ async def test_comentarios_desabilitados_tem_excecao_propria():
         await cliente.listar_comentarios(VIDEO_ID, limite=10)
 
 
-async def test_a_chave_vai_na_query_de_toda_chamada():
+async def test_a_chave_vai_no_cabecalho_de_toda_chamada():
     cliente, chamadas = cliente_com(lambda _: httpx.Response(200, json={"items": []}))
 
     await cliente.listar_videos([VIDEO_ID])
 
-    assert chamadas[0].url.params["key"] == CHAVE
+    assert chamadas[0].headers[CABECALHO_CHAVE] == CHAVE
     assert str(chamadas[0].url).startswith(API_BASE)
+
+
+async def test_a_chave_nunca_aparece_na_url():
+    """A chave na query string vaza em log do httpx, de proxy e em traceback.
+
+    Cobre os dois endpoints e a paginação: basta UMA chamada montada à mão com
+    `key=` para a chave voltar a circular em texto claro nos logs.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "videos" in request.url.path:
+            return httpx.Response(200, json={"items": [{"id": VIDEO_ID, "snippet": {}}]})
+        pagina = request.url.params.get("pageToken")
+        return httpx.Response(
+            200,
+            json=resposta_comentarios(
+                itens=[item_comentario("c1")],
+                proxima_pagina=None if pagina else "p2",
+            ),
+        )
+
+    cliente, chamadas = cliente_com(handler)
+
+    await cliente.listar_videos([VIDEO_ID])
+    await cliente.listar_comentarios(VIDEO_ID, limite=200)
+
+    assert len(chamadas) == 3, "esperado 1 videos.list + 2 páginas de commentThreads"
+    for chamada in chamadas:
+        url = str(chamada.url)
+        assert "key=" not in url, f"chave vazou na URL: {url}"
+        assert CHAVE not in url, f"chave vazou na URL: {url}"
+        assert "key" not in chamada.url.params

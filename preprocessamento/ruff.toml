@@ -1,0 +1,13 @@
+# Mesmas regras do resto do repositorio. Config proprio porque este pacote e
+# independente dos outros dois e precisa lintar sozinho.
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[lint.per-file-ignores]
+# Este pacote existe para lidar com caracteres ambiguos; nos testes o literal `´`
+# (ACUTE ACCENT) e justamente o dado sob teste, escrito como o usuario digitou.
+# RUF001 avisaria em toda linha que exercita a substituicao.
+"tests/test_preprocessamento.py" = ["RUF001"]

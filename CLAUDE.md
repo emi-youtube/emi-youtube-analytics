@@ -36,13 +36,18 @@ Não sugira trocar. Cada uma tem justificativa registrada no documento acadêmic
 ## 3. Estrutura do repositório
 
 ```
-backend/    FastAPI: API REST, autenticação, workers
-frontend/   Angular SSR
-ml/         pipeline de IA (coleta, rotulagem, treino, avaliação)
-docs/       documento acadêmico TCC + diagramas
+backend/           FastAPI: API REST, autenticação, workers
+frontend/          Angular SSR
+ml/                pipeline de IA (exportação, rotulagem, treino, avaliação)
+preprocessamento/  pacote compartilhado: preparar_texto (layout src/, stdlib pura)
+docs/              documento acadêmico TCC + diagramas
 ```
 
 O `ml/` produz o modelo; o `backend/` o consome. **Não misture:** nada de `ml/` importa de `backend/` e vice-versa — a comunicação é por artefato (arquivo de modelo + `model_card.json`).
+
+**Exceção por desenho, não por quebra de regra:** o que os dois lados precisam executar de forma idêntica mora em `preprocessamento/`, um terceiro pacote que ambos importam. Hoje é só `preparar_texto`. Se treino e inferência pré-processassem diferente, o modelo receberia em produção um texto que nunca viu no treino.
+
+**Quem vê qual texto:** o pré-processamento existe por limitação do tokenizer do BERTimbau (não tem nenhum emoji no vocabulário). Por isso ele se aplica **só na entrada do BERTimbau** — no treino e no worker de inferência. Avaliadores humanos e a Gemini leem o texto **original**. O banco guarda o original; o texto pré-processado é derivado, nunca canônico.
 
 ---
 
@@ -103,8 +108,8 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 2. **Anonimizar autor de comentário.** Nunca persista nome/ID do autor — só `autor_hash` (SHA-256). Exigência de LGPD, documentada e defendida na banca.
 3. **A Gemini NÃO roda em produção.** Ela só aparece em `ml/rotulagem/`, offline. O backend em produção não tem chave de LLM.
 4. **Nunca chame `search.list` da YouTube API** — custa 100 unidades de cota contra 1 de `commentThreads.list`. Os vídeos são curados manualmente; use os IDs direto.
-5. **Ordem dos rótulos vem do `model_card.json`**, nunca hardcoded. O `ml/` exporta `{id2label, max_length, versao}` junto dos pesos; o backend lê de lá. Hardcodar causa bug silencioso (prevê "negativo", grava "neutro").
-6. **Conjunto de teste é só humano.** Nunca avalie o modelo contra rótulos gerados pela Gemini — a comparação vira circular e inválida.
+5. **Ordem dos rótulos vem do `model_card.json`**, nunca hardcoded. O `ml/` exporta `{id2label, max_length, versao, versao_preprocessamento}` junto dos pesos; o backend lê de lá. Hardcodar causa bug silencioso (prevê "negativo", grava "neutro"). Se a `versao_preprocessamento` do card divergir da instalada, o worker de inferência deve recusar o modelo.
+6. **Conjunto de teste é só humano.** Nunca avalie o modelo contra rótulos gerados pela Gemini — a comparação vira circular e inválida. `exemplos_treinamento.split` nasce NULO e só é atribuído depois da rotulagem fraca: a amostra humana é sorteada estratificada pelo rótulo fraco (que os avaliadores não veem) e vira `teste`; o restante vai 85/15 para treino e validação.
 7. **Tabela de infraestrutura não pode crescer sem limite.** `tentativas_login` e similares precisam de limpeza (apagar registros antigos na própria escrita). O free tier do Supabase tem cota de armazenamento.
 8. **`class_weight='balanced'` no treino.** O corpus é ~52% positivo / 33% neutro / 15% negativo. A métrica que importa é **F1 macro**, não acurácia.
 
@@ -149,3 +154,5 @@ Como o repositório ainda está quase vazio, o grafo tem pouco valor agora. **Re
 - Não adicione Redis, Celery, RabbitMQ, Docker Compose com 6 serviços. A fila é uma tabela. Complexidade extra não cabe no prazo nem no crédito do Azure.
 - Não processe coleta ou inferência dentro de uma requisição HTTP.
 - Não crie o `TESTE.PY` da raiz como padrão — código solto na raiz não entra no repositório final.
+- Não "limpe" os `chr(0xFE0F)` de `preprocessamento/` de volta para literais: são caracteres invisíveis, e o `ruff format` reescreve o escape `"\ufe0f"` para o literal na primeira formatação.
+- Não expanda gíria no pré-processamento ("q" → "que"): é normalização semântica que os avaliadores humanos não fazem. Normalização tipográfica (`…` → `...`) pode.

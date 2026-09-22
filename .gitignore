@@ -36,6 +36,11 @@ ml/modelos/
 !ml/dados/.gitkeep
 !ml/modelos/.gitkeep
 
+# Planilhas dos avaliadores: contem o TEXTO dos comentarios (terceiros) e o
+# repositorio e publico. Sao regeneraveis a partir do banco.
+ml/amostra/planilhas/
+ml/amostra/respostas/
+
 # ─── Angular / frontend ─────────────────────────────────────
 node_modules/
 frontend/dist/
