@@ -1,0 +1,18 @@
+# Dependências do pipeline de IA (ml/).
+#
+# Deliberadamente separado de backend/requirements.txt: o ml/ não importa nada do
+# backend (CLAUDE.md Seção 3) e o backend de produção não carrega transformers
+# para rodar a API.
+
+# Acesso ao Postgres para ler COMENTARIOS e popular EXEMPLOS_TREINAMENTO.
+asyncpg==0.30.0
+
+# Tokenizer do BERTimbau. `tokenizers` é o backend rápido usado pelo AutoTokenizer;
+# torch NÃO entra aqui — medir comprimento não exige carregar os pesos do modelo.
+transformers==4.46.3
+
+# Pre-processamento COMPARTILHADO com o backend (raiz do repo, pacote proprio).
+# Instalado em modo editavel para que uma mudanca no mapa de emoji valha nos dois
+# ambientes sem reinstalar:
+#   ml/.venv/Scripts/python.exe -m pip install -e ./preprocessamento
+-e ./preprocessamento

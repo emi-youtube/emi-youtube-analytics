@@ -1,0 +1,28 @@
+# Pacote COMUM ao ml/ e ao backend/.
+#
+# Existe como terceiro pacote, e não dentro de um dos dois, por causa do CLAUDE.md
+# Seção 3: nada de ml/ importa de backend/ e vice-versa. O pré-processamento de
+# texto precisa ser LITERALMENTE o mesmo no treino e na inferência — se as duas
+# metades tivessem cada uma a sua cópia, elas divergiriam, e o modelo passaria a
+# receber em produção um texto diferente do que viu no treino (train/serving skew).
+#
+# Instalação (nos dois ambientes):
+#   backend/.venv/Scripts/python.exe -m pip install -e ./preprocessamento
+#   ml/.venv/Scripts/python.exe      -m pip install -e ./preprocessamento
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "preprocessamento"
+version = "1.1.0"
+description = "Pre-processamento de texto compartilhado entre treino (ml/) e inferencia (backend/)"
+requires-python = ">=3.11"
+# Sem dependências de propósito: só a stdlib. Este pacote entra no ambiente de
+# produção do backend, que não pode carregar peso de biblioteca de ML.
+dependencies = []
+
+# Layout src/: sem ele, rodar da raiz do repositorio faz o DIRETORIO
+# preprocessamento/ virar um namespace package vazio e sombrear o pacote instalado.
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -12,3 +12,10 @@ pyjwt==2.10.1
 email-validator==2.2.0
 # usado pelo worker de coleta (cliente da YouTube Data API)
 httpx==0.28.1
+
+# Pre-processamento COMPARTILHADO com o ml/ (pacote proprio na raiz do repo).
+# O worker de inferencia precisa aplicar ao comentario que chega EXATAMENTE a mesma
+# transformacao que o corpus de treino sofreu; por isso o codigo e um so, e nao uma
+# copia de cada lado (CLAUDE.md Secao 3 proibe ml/ e backend/ se importarem).
+# Sem dependencias proprias: e stdlib pura, nao pesa no ambiente de producao.
+-e ./preprocessamento

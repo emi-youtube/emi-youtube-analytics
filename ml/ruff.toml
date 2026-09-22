@@ -1,0 +1,8 @@
+# Mesmo conjunto de regras do backend/ruff.toml, repetido aqui de propósito: o ml/
+# é um pacote independente (não importa nada de backend/) e precisa lintar sozinho,
+# sem depender de um config que mora na outra metade do repositório.
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
