@@ -85,6 +85,32 @@ refazê-lo: `listar_modelos` dá os candidatos estáveis, e um `escolher_modelo(
 cada nome no `ml/.env` dá disponibilidade e nota de calibração de cada um — a sonda
 é exatamente o experimento.
 
+### Se o Kappa ficar abaixo de 0,60
+
+A Seção 9 do manual manda reescrever a régua e refazer a medição com uma amostra
+**nova**. "Nova" precisa significar comentários que nenhum avaliador viu: reapresentar
+os mesmos faria o segundo Kappa medir a memória dos avaliadores, não o manual
+reescrito.
+
+Por isso o sorteio só enxerga quem está **sem partição** (`split IS NULL`), e existe
+uma segunda passada explícita:
+
+```bash
+# 1a rodada
+python -m ml.amostra.sortear_amostra_humana --id-execucao <N>
+
+# Kappa < 0,60 → manual_rotulagem_v2.md → 2a rodada, preservando a amostra anterior
+python -m ml.amostra.sortear_amostra_humana --id-execucao <N> --nova-rodada
+```
+
+`--nova-rodada` mantém a amostra anterior marcada (ninguém rotula o mesmo comentário
+duas vezes) e sorteia entre os que sobraram. `--refazer` é outra coisa: descarta a
+amostra anterior, e só serve para erro de operação, antes de qualquer avaliador abrir
+planilha. Os dois juntos são recusados.
+
+O `n` de Cochran continua sendo calculado sobre o corpus rotulado inteiro — a precisão
+declarada é sobre o corpus, que não encolheu porque uma rodada gastou parte dele.
+
 ### Checkpoint da rotulagem fraca
 
 O passo 3 termina imprimindo a distribuição das três classes e **sai com erro** se

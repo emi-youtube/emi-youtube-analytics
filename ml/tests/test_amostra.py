@@ -4,13 +4,21 @@ Nada toca o banco: a lógica que importa (Cochran, estratificação, embaralhame
 montagem da planilha) é pura e testável com dados sintéticos.
 """
 
+import asyncio
+import inspect
 import random
 
 import pytest
 from openpyxl import load_workbook
 
 from ml.amostra.gerar_planilhas_avaliadores import AVALIADORES, CABECALHO, montar_planilha
-from ml.amostra.sortear_amostra_humana import alocar_por_estrato, tamanho_cochran
+from ml.amostra.sortear_amostra_humana import (
+    alocar_por_estrato,
+    carregar_sorteaveis,
+    contar_rotulados,
+    sortear,
+    tamanho_cochran,
+)
 from ml.config import CLASSES, SEMENTE
 
 # ------------------------------------------------------------------- Cochran
@@ -152,3 +160,31 @@ def test_planilha_tem_aba_de_instrucoes(planilha):
     )
     assert "NAO consulte os outros avaliadores" in texto
     assert "id_comentario" in texto
+
+
+# ------------------------------- pool do sorteio (Secao 9 do manual)
+
+
+def test_o_sorteio_so_enxerga_quem_esta_sem_particao():
+    """A regra da Secao 9 mora no SQL: amostra nova = comentario que ninguem viu.
+
+    Sem o `split IS NULL`, uma segunda rodada (Kappa < 0,60) devolveria parte dos
+    mesmos comentarios e o novo Kappa mediria a memoria dos avaliadores, nao o
+    manual reescrito.
+    """
+    sql = inspect.getsource(carregar_sorteaveis)
+    assert "e.split IS NULL" in sql
+    assert "e.rotulo_fraco IS NOT NULL" in sql
+
+
+def test_a_populacao_de_cochran_ignora_a_particao():
+    """N e o corpus rotulado inteiro: ele nao encolhe porque uma rodada ja gastou parte."""
+    sql = inspect.getsource(contar_rotulados)
+    assert "e.rotulo_fraco IS NOT NULL" in sql
+    assert "split" not in sql.split('"""')[2]
+
+
+def test_refazer_e_nova_rodada_nao_convivem():
+    """Um descarta a amostra anterior, o outro a preserva. Juntos, nao querem dizer nada."""
+    with pytest.raises(SystemExit, match="opostos"):
+        asyncio.run(sortear(id_execucao=1, refazer=True, nova_rodada=True))
