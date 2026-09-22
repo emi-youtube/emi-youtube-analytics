@@ -13,6 +13,13 @@ de ser independente — exatamente a circularidade que o CLAUDE.md regra 6 proí
 O texto é o **ORIGINAL**, com emoji. É o mesmo que foi para a Gemini: régua igual
 dos dois lados é o que torna a comparação honesta.
 
+A régua dos dois lados é o **`ml/rotulagem/manual_rotulagem_v1.md`**. O avaliador lê
+o manual inteiro; a Gemini recebe o espelho condensado dele que está em
+`prompt_v1.md`. A aba de instruções aponta para o manual, nunca para o prompt:
+mandar o avaliador ler o prompt seria dar a ele a versão resumida de uma regra que
+existe completa noutro arquivo — e as duas metades do Kappa deixariam de usar a
+mesma régua.
+
 Uso:
     python -m ml.amostra.gerar_planilhas_avaliadores --id-execucao 4
 """
@@ -36,6 +43,10 @@ logger = logging.getLogger("planilhas_avaliadores")
 AVALIADORES = ("avaliador_1", "avaliador_2", "avaliador_3")
 
 CABECALHO = ("id_comentario", "texto", "rotulo", "duvida", "observacao")
+
+# Fonte unica dos criterios de rotulagem. O `prompt_v1.md` e um espelho condensado
+# dela, dirigido a Gemini — o avaliador humano le o manual.
+MANUAL = "ml/rotulagem/manual_rotulagem_v1.md"
 
 DIRETORIO_SAIDA = DIRETORIO_ML / "amostra" / "planilhas"
 
@@ -107,13 +118,21 @@ def montar_planilha(linhas: list[tuple[int, str]], avaliador: str):
         [
             f"Planilha de rotulagem — {avaliador}",
             "",
-            "Leia o manual antes de comecar: ml/rotulagem/prompt_v1.md (secao 'Criterios').",
+            f"LEIA O MANUAL INTEIRO ANTES DE COMECAR: {MANUAL}",
+            "Ele e a fonte unica dos criterios. Na duvida, vale o manual, nao a sua opiniao.",
+            "Faca o exercicio de calibracao (Secao 8) antes desta planilha.",
             "",
-            "1. Classifique o sentimento SOBRE A CAMPANHA, O PRODUTO OU A MARCA anunciada.",
+            "1. Classifique o sentimento SOBRE A CAMPANHA, O PRODUTO OU A MARCA anunciada",
+            "   (manual, Secao 4). Entrega, atendimento e preco contam como marca.",
             "2. Use a coluna 'rotulo': positivo, negativo ou neutro (lista suspensa).",
-            "3. Marque 'duvida' = sim quando ficar na duvida; sera discutido no consenso.",
-            "4. Use 'observacao' para justificar casos dificeis.",
-            "5. NAO consulte os outros avaliadores enquanto rotula.",
+            "3. 'neutro' NAO e o lugar da duvida: e ausencia de avaliacao (manual, Secao 3).",
+            "   Caso dificil entre positivo e negativo se resolve pela Secao 5, nao com neutro.",
+            "4. Marque 'duvida' = sim quando hesitar, mesmo tendo escolhido uma classe.",
+            "5. Use 'observacao' para dizer por que hesitou, em poucas palavras.",
+            "6. NAO consulte os outros avaliadores enquanto rotula, e NAO consulte nenhuma IA.",
+            "7. Nao pule linhas: linha vazia quebra o calculo do Kappa.",
+            "",
+            "Trabalhe em blocos de no maximo 50 comentarios, com pausa entre eles.",
             "",
             "A ordem dos comentarios e diferente em cada planilha, de proposito.",
             "Nao compare por numero de linha — o que identifica o comentario e o id_comentario.",

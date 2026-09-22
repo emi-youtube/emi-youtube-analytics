@@ -31,6 +31,7 @@ python -m ml.exportacao.exportar_corpus --id-execucao <N>
 python -m ml.medicao.medir_tokens
 
 # 3. rotulagem fraca com a Gemini (OFFLINE, exige ml/.env)
+python -m ml.rotulagem.listar_modelos                                # antes de tudo
 python -m ml.rotulagem.rotular_fraco --id-execucao <N> --limite 50   # ensaio
 python -m ml.rotulagem.rotular_fraco --id-execucao <N>               # corpus todo
 
@@ -44,6 +45,45 @@ python -m ml.amostra.gerar_planilhas_avaliadores --id-execucao <N>
 O passo 3 exige `ml/.env` com a `GEMINI_API_KEY` — **nunca** no `.env` da raiz
 (CLAUDE.md regra 3: o backend de produção não pode ter chave de LLM nem por
 acidente). Copie de `ml/env.example`.
+
+### Escolher o modelo antes de rodar
+
+`GEMINI_MODELO` **não tem valor padrão** e a rotulagem recusa rodar sem ele. O
+catálogo da Gemini muda: o padrão anterior deste repositório, `gemini-2.0-flash`,
+já não existe para a chave do projeto. Rode `python -m ml.rotulagem.listar_modelos`,
+copie um nome marcado com `*` e escreva em `ml/.env`.
+
+O `*` exclui preview, experimental e os apelidos `-latest`. Apelido é o pior dos
+três para o TCC: ele continua funcionando depois que o Google troca o alvo, então o
+`metadados_rotulagem.json` registraria um nome que não descreve mais o modelo que
+rotulou o corpus.
+
+Estar na listagem não basta. O `ListModels` mostra também modelos **fechados para
+chaves novas** — a família `gemini-2.5-*` aparece na listagem desta chave e devolve
+HTTP 404 (*"no longer available to new users"*) na hora de gerar — e não diz nada
+sobre demanda: nesta chave, toda a linha `-flash` acima da `-flash-lite` responde
+HTTP 503.
+
+Por isso `escolher_modelo()` tem três portões, do mais barato ao mais caro:
+
+1. `GEMINI_MODELO` preenchido em `ml/.env` (sem valor padrão);
+2. o `ListModels` conhece o nome, ele faz `generateContent` e é estável;
+3. **uma chamada real** com os 12 casos do exercício de calibração (Seção 8 do
+   manual), antes do primeiro lote.
+
+O terceiro portão é o que fecha o buraco: numa chamada só ele confirma que o modelo
+responde para esta chave, que o modo JSON funciona, que a categoria fechada é
+obedecida e que o modelo acerta a mesma régua dos avaliadores. O corte é o do
+manual — errar mais de 3 dos 12 reprova, para a Gemini como para o humano. O
+resultado vai para o `metadados_rotulagem.json` da rodada, medido na própria sessão.
+
+### Por que o modelo atual, e não os outros
+
+O comparativo que fechou a escolha está em `ESCOLHA_DO_MODELO`
+(`ml/rotulagem/rotular_fraco.py`) e é copiado para o metadado de cada rodada. Para
+refazê-lo: `listar_modelos` dá os candidatos estáveis, e um `escolher_modelo()` com
+cada nome no `ml/.env` dá disponibilidade e nota de calibração de cada um — a sonda
+é exatamente o experimento.
 
 ### Checkpoint da rotulagem fraca
 
@@ -115,8 +155,9 @@ da metade das letras é latina — "não", "coração" e "über" passam.
 |---|---|---|
 | `ml/curadoria/` | planilha de curadoria dos vídeos — **entrada** | **sim** |
 | `ml/dados/` | corpus e derivados — **saída gerada** | não (`.gitignore`) |
-| `ml/rotulagem/prompt_v*.md` | prompt versionado — vai para o TCC | **sim** |
-| `ml/rotulagem/metadados_rotulagem.json` | modelo, data, temperatura, nº de chamadas | **sim** |
+| `ml/rotulagem/manual_rotulagem_v*.md` | **fonte única dos critérios** — vai para o TCC | **sim** |
+| `ml/rotulagem/prompt_v*.md` | espelho condensado do manual, dirigido à Gemini | **sim** |
+| `ml/rotulagem/metadados_rotulagem.json` | modelo, data, temperatura, nº de chamadas, nota da calibração, comparativo dos candidatos | **sim** |
 | `ml/amostra/planilhas/` | planilhas dos avaliadores (texto de terceiros) | não (`.gitignore`) |
 
 `ml/curadoria/curadoria_videos_sprint1.xlsx` é a **proveniência do corpus**: registra
@@ -129,10 +170,26 @@ aprovados + 1 reprovado).
 público e o corpus são textos de terceiros. O corpus é regenerável a partir da
 execução mais a planilha de curadoria.
 
+### Uma régua só, dos dois lados
+
+`manual_rotulagem_v1.md` é a **fonte única dos critérios**. O avaliador humano lê o
+manual inteiro; a Gemini recebe o espelho condensado das Seções 3, 4, 5 e 6 que está
+em `prompt_v1.md`. A aba de instruções das planilhas aponta para o **manual**.
+
+Se as duas réguas divergirem, o Kappa entre a Gemini e os humanos mede a diferença
+entre as réguas, não a qualidade da rotulagem fraca — e o número perde o sentido que
+o TCC atribui a ele. `ml/tests/test_rotulagem.py` trava isso: o prompt do código tem
+que bater com o do arquivo, e as regras-chave do manual (a do "mas", "neutro não é o
+lugar da dúvida", ironia, spam, pergunta com pressuposição) têm que aparecer no
+texto que a Gemini de fato recebe.
+
+Ao mudar um critério, **suba as duas versões juntas** (`manual_rotulagem_v2.md` e
+`prompt_v2.md`). Editar a v1 depois de rotular o corpus deixaria os rótulos gravados
+órfãos da régua que os produziu.
+
 ## O que ainda não existe
 
-`rotulagem/` (rotulagem fraca via Gemini, offline), `treino/` e `avaliacao/`.
-Duas regras do `CLAUDE.md` que valem para quando entrarem:
+`treino/` e `avaliacao/`. Duas regras do `CLAUDE.md` que valem para quando entrarem:
 
 - a Gemini **não** roda em produção, só aqui, offline;
 - o conjunto de **teste é só humano** — avaliar contra rótulo da Gemini seria circular.
