@@ -17,8 +17,20 @@ planilhas saem sem a coluna (`gerar_planilhas_avaliadores.py`).
 Essas linhas viram `split = 'teste'`; o restante continua NULO até a partição
 treino/validação ser atribuída. CLAUDE.md regra 6: o conjunto de teste é só humano.
 
+**O sorteio só enxerga quem ainda está sem partição** (`split IS NULL`). É o que
+torna possível a regra da Seção 9 do manual: se o Kappa ficar abaixo de 0,60, a
+equipe reescreve o manual e sorteia uma amostra NOVA — e "nova" tem que significar
+comentários que nenhum avaliador viu. Sortear de novo do corpus inteiro devolveria
+parte dos mesmos comentários, e o segundo Kappa mediria memória do primeiro, não a
+régua reescrita.
+
+O `n` de Cochran continua calculado sobre o corpus rotulado inteiro: a precisão
+declarada (95%, e=5%) é sobre o corpus, que não mudou de tamanho porque uma rodada
+anterior gastou parte dele.
+
 Uso:
     python -m ml.amostra.sortear_amostra_humana --id-execucao 4
+    python -m ml.amostra.sortear_amostra_humana --id-execucao 4 --nova-rodada
     python -m ml.amostra.sortear_amostra_humana --id-execucao 4 --refazer
 """
 
@@ -91,22 +103,65 @@ def alocar_por_estrato(tamanho: int, disponivel: dict[str, int]) -> dict[str, in
     return alocado
 
 
-async def carregar_rotulados(conexao: asyncpg.Connection, id_execucao: int) -> list[asyncpg.Record]:
+async def contar_rotulados(conexao: asyncpg.Connection, id_execucao: int) -> int:
+    """População do `n` de Cochran: o corpus rotulado inteiro, com partição ou sem.
+
+    Não é o mesmo que o pool sorteável. Uma rodada anterior pode já ter consumido
+    parte do corpus, mas a precisão declarada (95%, e=5%) é sobre o corpus — que não
+    encolheu porque alguém já foi avaliado.
+    """
+    return await conexao.fetchval(
+        """
+        SELECT count(*)
+        FROM exemplos_treinamento e
+        JOIN comentarios c ON c.id_comentario = e.id_comentario
+        JOIN videos v ON v.id_video = c.id_video
+        WHERE v.id_execucao = $1 AND e.rotulo_fraco IS NOT NULL
+        """,
+        id_execucao,
+    )
+
+
+async def carregar_sorteaveis(
+    conexao: asyncpg.Connection, id_execucao: int
+) -> list[asyncpg.Record]:
+    """Quem pode ser sorteado: rotulado pela Gemini e **ainda sem partição**.
+
+    O `split IS NULL` é a regra da Seção 9 do manual em SQL. Sem ele, uma segunda
+    rodada (Kappa < 0,60) devolveria comentários que os avaliadores já tinham visto,
+    e o novo Kappa mediria a memória deles, não o manual reescrito.
+    """
     return await conexao.fetch(
         """
         SELECT e.id_exemplo, e.id_comentario, e.rotulo_fraco, e.split
         FROM exemplos_treinamento e
         JOIN comentarios c ON c.id_comentario = e.id_comentario
         JOIN videos v ON v.id_video = c.id_video
-        WHERE v.id_execucao = $1 AND e.rotulo_fraco IS NOT NULL
+        WHERE v.id_execucao = $1 AND e.rotulo_fraco IS NOT NULL AND e.split IS NULL
         ORDER BY e.id_comentario
         """,
         id_execucao,
     )
 
 
-async def sortear(id_execucao: int, refazer: bool) -> dict[str, int]:
+async def sortear(id_execucao: int, refazer: bool, nova_rodada: bool = False) -> dict[str, int]:
+    """Sorteia a amostra humana.
+
+    `refazer` descarta a amostra anterior (ela volta para NULL e pode ser sorteada de
+    novo) — serve para o erro de operação, antes de qualquer avaliador abrir planilha.
+
+    `nova_rodada` é o caso da Seção 9 do manual: o Kappa ficou abaixo de 0,60, o
+    manual foi reescrito e a equipe precisa de uma amostra NOVA. A anterior continua
+    marcada — ninguém rotula duas vezes o mesmo comentário — e o sorteio sai só de
+    quem ainda está sem partição.
+    """
     sorteio = random.Random(SEMENTE)
+
+    if refazer and nova_rodada:
+        raise SystemExit(
+            "--refazer e --nova-rodada sao opostos: um descarta a amostra anterior, o "
+            "outro a preserva justamente para nao reapresenta-la a ninguem. Escolha um."
+        )
 
     conexao = await asyncpg.connect(dsn_postgres())
     try:
@@ -120,10 +175,11 @@ async def sortear(id_execucao: int, refazer: bool) -> dict[str, int]:
             id_execucao,
             SPLIT_TESTE,
         )
-        if ja_teste and not refazer:
+        if ja_teste and not (refazer or nova_rodada):
             raise SystemExit(
-                f"{ja_teste} exemplo(s) ja estao com split='teste'. Use --refazer para "
-                "sortear de novo (isso descarta a amostra anterior)."
+                f"{ja_teste} exemplo(s) ja estao com split='teste'. Use --nova-rodada para "
+                "sortear outra amostra entre os que ainda nao tem particao (Kappa < 0,60, "
+                "manual reescrito), ou --refazer para descartar a anterior."
             )
         if ja_teste and refazer:
             # Volta para NULL antes de sortear: manter o teste antigo somado ao novo
@@ -139,15 +195,24 @@ async def sortear(id_execucao: int, refazer: bool) -> dict[str, int]:
                 SPLIT_TESTE,
             )
             logger.warning("amostra anterior desfeita (%s linhas voltaram para NULL)", ja_teste)
+        if ja_teste and nova_rodada:
+            logger.warning(
+                "amostra anterior PRESERVADA (%s linhas seguem com split='teste'); "
+                "a nova sai so de quem esta sem particao",
+                ja_teste,
+            )
 
-        registros = await carregar_rotulados(conexao, id_execucao)
+        registros = await carregar_sorteaveis(conexao, id_execucao)
         if not registros:
             raise SystemExit(
-                "Nenhum exemplo com rotulo_fraco. Rode antes: "
+                "Nenhum exemplo rotulado e sem particao para sortear. Rode antes: "
                 "python -m ml.rotulagem.rotular_fraco --id-execucao <N>"
             )
 
-        populacao = len(registros)
+        # N de Cochran: o corpus rotulado inteiro. O pool sorteavel pode ser menor
+        # (uma rodada anterior consumiu parte dele), mas a precisao declarada e sobre
+        # o corpus, nao sobre o que sobrou.
+        populacao = await contar_rotulados(conexao, id_execucao)
         tamanho = tamanho_cochran(populacao)
 
         por_classe: dict[str, list[int]] = defaultdict(list)
@@ -175,6 +240,7 @@ async def sortear(id_execucao: int, refazer: bool) -> dict[str, int]:
         logger.info("AMOSTRA HUMANA (gabarito)")
         logger.info("=" * 62)
         logger.info("  populacao rotulada (N) ..... %5d", populacao)
+        logger.info("  sorteaveis (sem particao) .. %5d", len(registros))
         logger.info("  n de Cochran (95%%, e=5%%) ... %5d", tamanho)
         logger.info("  semente .................... %5d", SEMENTE)
         logger.info("-" * 62)
@@ -202,10 +268,15 @@ def main() -> None:
     parser.add_argument(
         "--refazer", action="store_true", help="descarta a amostra anterior e sorteia de novo"
     )
+    parser.add_argument(
+        "--nova-rodada",
+        action="store_true",
+        help="Kappa < 0,60: preserva a amostra anterior e sorteia outra entre os sem particao",
+    )
     argumentos = parser.parse_args()
 
     logging.basicConfig(level="INFO", format="%(message)s", stream=sys.stdout)
-    asyncio.run(sortear(argumentos.id_execucao, argumentos.refazer))
+    asyncio.run(sortear(argumentos.id_execucao, argumentos.refazer, argumentos.nova_rodada))
 
 
 if __name__ == "__main__":

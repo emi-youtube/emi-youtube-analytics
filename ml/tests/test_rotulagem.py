@@ -431,7 +431,7 @@ def test_modelo_sobrecarregado_e_recusado_depois_de_insistir(catalogo, sonda):
     recusar de primeira faria a rodada se negar a comecar por um surto de minutos.
     """
     sonda(erro=ErroTransitorio("HTTP 503: experiencing high demand"))
-    with pytest.raises(ValueError, match="nao atendeu em .* tentativas"):
+    with pytest.raises(ValueError, match=r"nao atendeu em .* tentativas"):
         escolher_modelo({"GEMINI_MODELO": "gemini-3.5-flash"}, "chave")
 
 

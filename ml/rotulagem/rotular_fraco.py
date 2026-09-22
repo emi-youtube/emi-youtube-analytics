@@ -494,20 +494,37 @@ def escolher_modelo(
     return ModeloEscolhido(cliente=cliente, acertos_calibracao=acertos, erros_calibracao=erros)
 
 
-def gravar_metadados(escolha: ModeloEscolhido, total_rotulado: int, lotes: int, caminho) -> None:
-    """Sem isto, "rotulado com Gemini" não é reproduzível nem defensável."""
+def gravar_metadados(
+    escolha: ModeloEscolhido,
+    total_rotulado: int,
+    lotes: int,
+    caminho,
+    id_execucao: int,
+    total_na_execucao: int,
+) -> None:
+    """Sem isto, "rotulado com Gemini" não é reproduzível nem defensável.
+
+    Os números vêm em dois pares de propósito. A rodada é retomável, então uma
+    queda no meio parte o corpus em várias rodadas: registrar só a última diria
+    "409 exemplos" sobre um corpus de 2.534, e a banca leria um número que não
+    descreve o que existe no banco.
+    """
     cliente = escolha.cliente
     metadados = {
         "modelo": cliente.modelo,
+        "id_execucao": id_execucao,
         "data_utc": datetime.now(UTC).isoformat(),
         "versao_prompt": VERSAO_PROMPT,
         "arquivo_prompt": ARQUIVO_PROMPT,
         "arquivo_manual": ARQUIVO_MANUAL,
         "temperatura": TEMPERATURA,
         "tamanho_lote": TAMANHO_LOTE,
-        "chamadas_api": cliente.chamadas,
-        "lotes": lotes,
-        "exemplos_rotulados": total_rotulado,
+        # Esta rodada:
+        "chamadas_api_nesta_rodada": cliente.chamadas,
+        "lotes_nesta_rodada": lotes,
+        "exemplos_rotulados_nesta_rodada": total_rotulado,
+        # O corpus inteiro, somando todas as rodadas que a retomada precisou:
+        "exemplos_com_rotulo_fraco_na_execucao": total_na_execucao,
         "texto_enviado": "original (coluna texto), nunca texto_modelo",
         "classes": list(CLASSES),
         # Medido nesta sessao, pela sonda, antes do primeiro lote — nao e um numero
@@ -549,7 +566,18 @@ async def rotular(id_execucao: int, limite: int | None) -> Counter:
         pendentes = await carregar_pendentes(conexao, id_execucao, limite)
         if not pendentes:
             logger.info("nada pendente: todos os exemplos ja tem rotulo_fraco")
-            return await distribuicao(conexao, id_execucao)
+            dist = await distribuicao(conexao, id_execucao)
+            # Regrava o metadado mesmo sem rotular nada: e assim que o arquivo passa
+            # a descrever o corpus inteiro depois de uma rodada partida em varias.
+            gravar_metadados(
+                escolha,
+                0,
+                0,
+                DIRETORIO_ML / "rotulagem" / "metadados_rotulagem.json",
+                id_execucao,
+                sum(n for rotulo, n in dist.items() if rotulo is not None),
+            )
+            return dist
 
         logger.info("pendentes=%s", len(pendentes))
 
@@ -591,11 +619,17 @@ async def rotular(id_execucao: int, limite: int | None) -> Counter:
                 len(pendentes),
             )
 
-        gravar_metadados(
-            escolha, total_rotulado, lotes, DIRETORIO_ML / "rotulagem" / "metadados_rotulagem.json"
-        )
         conexao = await reconectar_se_caiu(conexao)
-        return await distribuicao(conexao, id_execucao)
+        dist = await distribuicao(conexao, id_execucao)
+        gravar_metadados(
+            escolha,
+            total_rotulado,
+            lotes,
+            DIRETORIO_ML / "rotulagem" / "metadados_rotulagem.json",
+            id_execucao,
+            sum(n for rotulo, n in dist.items() if rotulo is not None),
+        )
+        return dist
     finally:
         await conexao.close()
 
