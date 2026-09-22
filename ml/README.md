@@ -88,8 +88,22 @@ O modelo é português; um comentário em coreano não tem como ser rotulado pel
 e vira `[UNK]` puro. O corte é por script Unicode e só derruba o texto em que menos
 da metade das letras é latina — "não", "coração" e "über" passam.
 
-`ml/dados/*.csv` está no `.gitignore`: o corpus não é versionado, é regenerável a
-partir da execução.
+## Dados: o que versiona e o que não
+
+| pasta | conteúdo | versionado? |
+|---|---|---|
+| `ml/curadoria/` | planilha de curadoria dos vídeos — **entrada** | **sim** |
+| `ml/dados/` | corpus e derivados — **saída gerada** | não (`.gitignore`) |
+
+`ml/curadoria/curadoria_videos_sprint1.xlsx` é a **proveniência do corpus**: registra
+quais vídeos entraram, por quê, e permite a qualquer pessoa recoletar exatamente o
+mesmo conjunto. É evidência metodológica do TCC, não dado pesado — por isso versiona.
+O status na planilha tem que bater com o corpus que foi de fato usado (hoje: 14
+aprovados + 1 reprovado).
+
+`ml/dados/*.csv` está no `.gitignore` e **não pode sair disso**: o repositório é
+público e o corpus são textos de terceiros. O corpus é regenerável a partir da
+execução mais a planilha de curadoria.
 
 ## O que ainda não existe
 
