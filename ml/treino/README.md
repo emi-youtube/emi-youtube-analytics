@@ -22,6 +22,29 @@ reimplementa nada**: clona o repositório e chama estes módulos. Notebook com c
 próprio diverge do repositório na primeira correção, e aí o modelo publicado deixa de
 ser o que o repositório descreve.
 
+### O ambiente do Colab tem duas armadilhas
+
+As duas já custaram uma sessão:
+
+- **instalação editável não vale no kernel que já está rodando.** `pip install -e`
+  registra um `.pth` que o interpretador lê ao iniciar; num kernel vivo, o pacote só
+  aparece depois de *Reiniciar ambiente de execução*. Por isso o notebook reinstala o
+  `preprocessamento` **sem `-e`** depois dos requirements. O `ml/requirements.txt`
+  continua editável de propósito — é o que faz uma mudança no mapa de emoji valer nos
+  dois ambientes locais sem reinstalar;
+- **`!pip` que falha não interrompe o notebook.** O erro rola para fora da tela e a
+  célula seguinte quebra com um `ModuleNotFoundError` que não tem nada a ver com a
+  causa: foi assim que uma instalação incompleta apareceu como "No module named
+  'asyncpg'" três células adiante. O `asyncpg` está nos requisitos desde sempre — e o
+  `pip install --dry-run` a partir da raiz do repositório resolve ele e o
+  `preprocessamento` sem erro; o que faltou foi a instalação inteira ter dado certo no
+  Colab. A célula de verificação importa tudo logo após a instalação, para o erro
+  aparecer onde ele nasce.
+
+`ml/tests/test_ambiente_colab.py` protege as duas coisas. Ele lê os comandos **do
+próprio notebook** — copiar a lista de pacotes para o teste criaria uma segunda fonte
+de verdade, que é o tipo de divergência que ele deveria detectar.
+
 ---
 
 ## Estas métricas não vão para o Capítulo 5
@@ -128,6 +151,27 @@ Duas decisões de método que mudaram o resultado quando foram corrigidas:
 Além do F1, o relatório traz a **divergência de previsão** — quantos comentários mudam
 de rótulo. O F1 pode empatar com os erros trocando de lugar, e aí o int8 acerta *outros*
 comentários, não os mesmos. Acima de 2% isso vira aviso (não é portão: o portão é o F1).
+
+## Testes
+
+`ml/tests/test_treino.py` cobre partição, pesos de classe e `model_card.json` — sem
+`torch` e sem banco, para rodar na máquina de quem só mexe na API (que é justamente
+quem quebra o contrato do cartão sem perceber). O laço de treino em si é exercitado
+pelo teste de fumaça acima, que roda de verdade contra o modelo de verdade.
+
+`ml/tests/test_ambiente_colab.py` tem dois níveis. O estático roda sempre e confere
+que a célula de instalação do notebook cobre cada import de terceiros de `ml/treino`.
+O real cria um ambiente virtual limpo, roda os comandos de instalação do notebook e
+importa todos os módulos lá dentro — é o único que reproduz o Colab, e por isso só
+roda sob demanda:
+
+```bash
+TESTE_AMBIENTE=1 ml/.venv/Scripts/python.exe -m pytest ml/tests/test_ambiente_colab.py
+```
+
+Rode-o antes de mexer no notebook ou nos requirements. O teste de fumaça **não** pega
+esse tipo de erro: ele roda no `ml/.venv`, que já tem tudo instalado desde a
+exportação do corpus.
 
 ## Custo de tempo
 
