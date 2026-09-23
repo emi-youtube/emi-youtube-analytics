@@ -21,3 +21,7 @@ openpyxl==3.1.5
 # ambientes sem reinstalar:
 #   ml/.venv/Scripts/python.exe -m pip install -e ./preprocessamento
 -e ./preprocessamento
+
+# Figuras do Capitulo 5 (ml/avaliacao/graficos.py). Entra no ml/ e so nele: o
+# backend de producao nao desenha grafico -- o dashboard e do Angular.
+matplotlib==3.9.4
