@@ -1,0 +1,13 @@
+# Dependencias de DESENVOLVIMENTO do ml/. Nao entram em nenhuma execucao do
+# pipeline: quem so roda os scripts instala apenas requirements.txt.
+-r requirements.txt
+
+pytest==8.3.4
+ruff==0.16.8
+
+# Conferencia independente das metricas (ml/tests/test_avaliacao.py). As formulas
+# sao escritas a mao em ml/avaliacao/metricas.py -- e a banca pode pedir a conta de
+# qualquer celula --, e o scikit-learn entra so para provar que a conta a mao bate
+# com a biblioteca, em cem conjuntos sorteados. Mesma estrategia do Kappa, conferido
+# contra os valores publicados de Fleiss (1971).
+scikit-learn==1.5.2

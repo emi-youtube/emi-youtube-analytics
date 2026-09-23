@@ -41,6 +41,11 @@ ml/modelos/
 ml/amostra/planilhas/
 ml/amostra/respostas/
 
+# SentiLex-PT02: recurso de terceiros (CC-BY 4.0), 6,9 MB, baixado conforme o
+# ml/lexico/README.md. Fica fora do repositorio pelo mesmo motivo do corpus -- e
+# dado, nao codigo. O sha256 do arquivo usado vai no metadados_lexico.json.
+ml/lexico/dados/
+
 # ─── Angular / frontend ─────────────────────────────────────
 node_modules/
 frontend/dist/

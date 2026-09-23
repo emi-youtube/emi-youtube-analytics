@@ -18,6 +18,11 @@ ao worker de inferência. Não duplique essa lógica dentro do `ml/`.
 `torch` não está aqui de propósito — medir o corpus não exige carregar pesos. Ele
 entra só no treino, que roda no Colab.
 
+Para rodar os testes: `pip install -r ml/requirements-dev.txt`. Ele acrescenta o
+`pytest`, o `ruff` e o `scikit-learn` — este último **só** para conferir, nos testes,
+as métricas escritas à mão em `ml/avaliacao/metricas.py`. Nenhum script do pipeline
+importa `sklearn`.
+
 ## Ordem de execução (Sprint 1)
 
 Rodar sempre da **raiz do repositório**:
@@ -45,7 +50,18 @@ python -m ml.amostra.gerar_planilhas_avaliadores --id-execucao <N>
 #    le ml/amostra/respostas/avaliador_{1,2,3}.xlsx — nao grava nada sem --gravar
 python -m ml.concordancia.calcular_concordancia
 python -m ml.concordancia.calcular_concordancia --gravar
+
+# 7. linha de base lexica (nao depende do gabarito: roda antes dele voltar)
+python -m ml.lexico.classificar_teste --id-execucao <N>
+
+# 8. Capitulo 5: compara os metodos contra o rotulo_humano e gera tabelas e figuras
+python -m ml.avaliacao.avaliar --id-execucao <N> \
+    --previsoes lexico=ml/dados/previsoes_lexico.csv --gemini
 ```
+
+Os passos 7 e 8 sao independentes entre si: o 7 so precisa da amostra sorteada (passo
+4) e pode rodar enquanto os avaliadores preenchem as planilhas; o 8 precisa do
+gabarito gravado no passo 6, mas aceita `--gabarito <csv>` para ensaiar antes disso.
 
 O passo 3 exige `ml/.env` com a `GEMINI_API_KEY` — **nunca** no `.env` da raiz
 (CLAUDE.md regra 3: o backend de produção não pode ter chave de LLM nem por
@@ -228,6 +244,9 @@ da metade das letras é latina — "não", "coração" e "über" passam.
 | `ml/amostra/planilhas/` | planilhas dos avaliadores (texto de terceiros) | não (`.gitignore`) |
 | `ml/amostra/respostas/` | planilhas preenchidas + `desempate.xlsx` (texto de terceiros) | não (`.gitignore`) |
 | `ml/concordancia/resultado_kappa.json` | Kappas, matrizes e contagens — **só agregados e ids** | **sim** |
+| `ml/lexico/dados/` | SentiLex-PT02 — **entrada de terceiros**, 6,9 MB, CC-BY 4.0 | não (`.gitignore`) |
+| `ml/lexico/metadados_lexico.json` | recurso, sha256, regra, distribuição e cobertura da linha de base | **sim** |
+| `ml/avaliacao/saida/` | tabelas, figuras e métricas do Capítulo 5 — **só agregados** | **sim** |
 
 `ml/curadoria/curadoria_videos_sprint1.xlsx` é a **proveniência do corpus**: registra
 quais vídeos entraram, por quê, e permite a qualquer pessoa recoletar exatamente o
@@ -256,9 +275,32 @@ Ao mudar um critério, **suba as duas versões juntas** (`manual_rotulagem_v2.md
 `prompt_v2.md`). Editar a v1 depois de rotular o corpus deixaria os rótulos gravados
 órfãos da régua que os produziu.
 
+### Linha de base e avaliação
+
+`ml/lexico/` é o **piso** do Capítulo 5: SentiLex-PT02 com soma de polaridade, sem
+nenhuma heurística, lendo o mesmo `texto_modelo` que o BERTimbau vai ler — é o que
+isola o método na comparação. `ml/avaliacao/` compara **qualquer** conjunto de
+previsões contra o `rotulo_humano` e produz tabelas, figuras e intervalos de
+confiança. As duas pastas têm README próprio com as decisões e as medições que as
+sustentam.
+
+Três coisas que valem repetir aqui:
+
+- **o gabarito é humano, a Gemini é um método avaliado.** O `rotulo_fraco` dos 334
+  entra como coluna de previsão e é medido contra o gabarito — nunca o contrário
+  (regra 6);
+- **nada é gravado no banco** por nenhum dos dois: o léxico lê os comentários e
+  escreve CSV; a avaliação lê os rótulos e escreve tabelas;
+- **o F1 macro é a métrica** (regra 8), e ele vem com IC 95% por bootstrap. Com 334
+  comentários, intervalos que se sobrepõem não demonstram diferença entre métodos.
+
 ## O que ainda não existe
 
-`treino/` e `avaliacao/`. Duas regras do `CLAUDE.md` que valem para quando entrarem:
+`treino/`. Duas regras do `CLAUDE.md` que valem para quando ele entrar:
 
 - a Gemini **não** roda em produção, só aqui, offline;
 - o conjunto de **teste é só humano** — avaliar contra rótulo da Gemini seria circular.
+
+O BERTimbau entra na comparação sem tocar em código nenhum: o notebook do Colab
+exporta um CSV com `id_comentario` e `previsto`, e ele vira mais um `--previsoes` do
+passo 8.
