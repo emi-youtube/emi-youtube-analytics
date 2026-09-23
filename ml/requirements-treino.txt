@@ -1,0 +1,23 @@
+# Dependencias do TREINO (ml/treino/). Separadas de requirements.txt de proposito:
+# exportar corpus, medir tokens, rotular e avaliar nao precisam de torch, e quem so
+# roda esses passos nao deve baixar 200 MB de wheel para isso.
+#
+# No Colab: pip install -r ml/requirements-treino.txt
+# Local (CPU, para o teste de fumaca):
+#   ml/.venv/Scripts/python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+-r requirements.txt
+
+# Fine-tuning. No Colab o torch ja vem com CUDA; localmente, a roda de CPU basta --
+# o teste de fumaca roda em CPU e o treino inteiro roda na T4.
+torch==2.5.1
+
+# Exportacao e quantizacao dinamica int8. `onnx` escreve o grafo, `onnxruntime` o
+# executa e traz o quantize_dynamic; e o mesmo runtime que o backend vai carregar --
+# medir com um e servir com outro nao provaria nada sobre a instancia B1.
+onnx==1.17.0
+onnxruntime==1.20.1
+
+# RSS do processo, para responder se o modelo cabe em 1,75 GB. E o numero que o
+# sistema operacional cobra: tracemalloc nao enxerga o buffer nativo do torch nem o
+# do onnxruntime, que e justamente onde o peso do modelo mora.
+psutil==6.1.0
