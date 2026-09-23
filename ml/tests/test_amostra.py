@@ -55,7 +55,7 @@ def test_alocacao_divide_em_tercos_quando_ha_folga():
 
 
 def test_estrato_pequeno_leva_todos_e_a_sobra_e_redistribuida():
-    """Negativo e ~15% do corpus; se tiver menos que a cota, a amostra nao encolhe."""
+    """Estrato menor que a cota leva todos, e a sobra vai para os outros: n nao encolhe."""
     cotas = alocar_por_estrato(334, {"positivo": 1500, "negativo": 40, "neutro": 900})
     assert cotas["negativo"] == 40
     assert sum(cotas.values()) == 334

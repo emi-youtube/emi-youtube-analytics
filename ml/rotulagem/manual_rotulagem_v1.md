@@ -20,7 +20,7 @@ Essa discordância é medida pelo **Kappa de Cohen**. A meta é **κ ≥ 0,60** 
 
 ## 2. Como a rotulagem funciona
 
-Cada avaliador recebe uma planilha com cerca de 334 comentários e marca **uma única classe** por linha. A amostra é estratificada: tem aproximadamente a mesma quantidade de positivos, neutros e negativos.
+Cada avaliador recebe uma planilha com 334 comentários e marca **uma única classe** por linha. Não existe proporção esperada entre as classes: decida cada comentário sozinho, sem tentar equilibrar a contagem.
 
 1. **Rotule às cegas.** Você não vê o rótulo que a Gemini atribuiu nem o dos outros dois avaliadores. Ver qualquer um deles contamina o seu.
 2. **Não converse sobre comentários específicos** com os colegas antes de terminar. Discutir casos gera concordância artificial, e o Kappa deixa de medir o critério.
@@ -32,7 +32,7 @@ Cada avaliador recebe uma planilha com cerca de 334 comentários e marca **uma �
 | --- | --- |
 | id_comentario | Já vem preenchido — não altere |
 | texto | Já vem preenchido — não corrija erros de digitação |
-| rotulo | positivo, negativo ou neutro (lista suspensa) |
+| rotulo | positivo, negativo ou neutro (lista da célula) |
 | duvida | Marque "sim" se hesitou |
 | observacao | Opcional: por que hesitou, em poucas palavras |
 

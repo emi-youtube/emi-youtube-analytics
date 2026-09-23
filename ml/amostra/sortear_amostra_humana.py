@@ -10,7 +10,7 @@ a proporção real de antemão.
 
 **O rótulo fraco serve só para sortear.** Estratificar por ele garante que as três
 classes apareçam na amostra em volume parecido; se o sorteio fosse simples, a classe
-minoritária (negativo, ~15% do corpus segundo o CLAUDE.md) apareceria pouco demais
+minoritária (negativo, 27,2% do corpus da Sprint 1) apareceria pouco demais
 para dizer qualquer coisa sobre ela. O avaliador humano NÃO vê esse rótulo — as
 planilhas saem sem a coluna (`gerar_planilhas_avaliadores.py`).
 

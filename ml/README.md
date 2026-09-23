@@ -40,6 +40,11 @@ python -m ml.amostra.sortear_amostra_humana --id-execucao <N>
 
 # 5. planilhas dos avaliadores (as cegas, uma ordem por avaliador)
 python -m ml.amostra.gerar_planilhas_avaliadores --id-execucao <N>
+
+# 6. concordancia: Fleiss (principal) + Cohen par a par, e o gabarito
+#    le ml/amostra/respostas/avaliador_{1,2,3}.xlsx — nao grava nada sem --gravar
+python -m ml.concordancia.calcular_concordancia
+python -m ml.concordancia.calcular_concordancia --gravar
 ```
 
 O passo 3 exige `ml/.env` com a `GEMINI_API_KEY` — **nunca** no `.env` da raiz
@@ -84,6 +89,42 @@ O comparativo que fechou a escolha está em `ESCOLHA_DO_MODELO`
 refazê-lo: `listar_modelos` dá os candidatos estáveis, e um `escolher_modelo()` com
 cada nome no `ml/.env` dá disponibilidade e nota de calibração de cada um — a sonda
 é exatamente o experimento.
+
+### Concordância entre avaliadores — dois Kappas, não um
+
+O manual e o TC2 (Seção 4.1.2) falam em "Kappa de Cohen", mas **Cohen é definido para
+dois avaliadores** e o projeto tem três. O passo 6 reporta os dois:
+
+| número | o que responde |
+|---|---|
+| **Fleiss** (principal) | a régua do manual produz rótulo consistente entre os três? |
+| **Cohen par a par** (1×2, 1×3, 2×3) + média | algum avaliador está destoando dos outros dois? |
+| Fleiss por classe (um-contra-resto) | **onde** a régua falha — ex.: `neutro` × `negativo` |
+
+O Fleiss é um número só: ele não distingue "os três discordam um pouco em tudo" de
+"dois combinam e o terceiro está noutro critério". Por isso o Cohen par a par entra
+ao lado dele, e não no lugar. **O documento acadêmico precisa ser ajustado**: citar
+Cohen com três avaliadores é um erro metodológico que a banca pega.
+
+As fórmulas são escritas à mão em `ml/concordancia/kappa.py` (sem `sklearn` nem
+`statsmodels`) e conferidas nos testes contra os valores publicados de Fleiss (1971)
+e o exemplo 2×2 clássico de Cohen — dá para mostrar a conta na banca.
+
+**A validação falha alto e de uma vez só.** Antes de calcular qualquer coisa, o script
+confere que as três planilhas cobrem os mesmos `id_comentario`, que não há rótulo
+vazio e que nenhum valor está fora das três classes. Lista **todos** os problemas com
+arquivo, linha e id, e não calcula nada. `"Positivo "` com maiúscula ou espaço é
+recusado por padrão — `--normalizar` aceita, registrando cada correção no relatório.
+
+**Nada vai para o banco por acidente.** Sem `--gravar` a execução só relata; com
+`--gravar` e κ < 0,60 ela **recusa** (abaixo da meta a amostra vai ser refeita, então
+gravar `rotulo_humano` carimbaria como verdade um conjunto já descartado). `--forcar`
+existe para a equipe registrar uma decisão contrária, não para contornar o portão.
+
+O gabarito sai por **voto majoritário**: 3-0 e 2-1 viram `rotulo_humano`; o empate
+1-1-1 fica NULO e vai para a reunião de consenso, junto com os comentários que 2+
+avaliadores marcaram com dúvida (Seção 9 do manual). Essa pauta sai como
+`desempate.xlsx`, com os três votos lado a lado.
 
 ### Se o Kappa ficar abaixo de 0,60
 
@@ -185,6 +226,8 @@ da metade das letras é latina — "não", "coração" e "über" passam.
 | `ml/rotulagem/prompt_v*.md` | espelho condensado do manual, dirigido à Gemini | **sim** |
 | `ml/rotulagem/metadados_rotulagem.json` | modelo, data, temperatura, nº de chamadas, nota da calibração, comparativo dos candidatos | **sim** |
 | `ml/amostra/planilhas/` | planilhas dos avaliadores (texto de terceiros) | não (`.gitignore`) |
+| `ml/amostra/respostas/` | planilhas preenchidas + `desempate.xlsx` (texto de terceiros) | não (`.gitignore`) |
+| `ml/concordancia/resultado_kappa.json` | Kappas, matrizes e contagens — **só agregados e ids** | **sim** |
 
 `ml/curadoria/curadoria_videos_sprint1.xlsx` é a **proveniência do corpus**: registra
 quais vídeos entraram, por quê, e permite a qualquer pessoa recoletar exatamente o

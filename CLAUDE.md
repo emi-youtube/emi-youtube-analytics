@@ -111,7 +111,7 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 5. **Ordem dos rótulos vem do `model_card.json`**, nunca hardcoded. O `ml/` exporta `{id2label, max_length, versao, versao_preprocessamento}` junto dos pesos; o backend lê de lá. Hardcodar causa bug silencioso (prevê "negativo", grava "neutro"). Se a `versao_preprocessamento` do card divergir da instalada, o worker de inferência deve recusar o modelo.
 6. **Conjunto de teste é só humano.** Nunca avalie o modelo contra rótulos gerados pela Gemini — a comparação vira circular e inválida. `exemplos_treinamento.split` nasce NULO e só é atribuído depois da rotulagem fraca: a amostra humana é sorteada estratificada pelo rótulo fraco (que os avaliadores não veem) e vira `teste`; o restante vai 85/15 para treino e validação.
 7. **Tabela de infraestrutura não pode crescer sem limite.** `tentativas_login` e similares precisam de limpeza (apagar registros antigos na própria escrita). O free tier do Supabase tem cota de armazenamento.
-8. **`class_weight='balanced'` no treino.** O corpus é ~52% positivo / 33% neutro / 15% negativo. A métrica que importa é **F1 macro**, não acurácia.
+8. **`class_weight='balanced'` no treino.** O corpus da Sprint 1 (2.534 comentários, rótulo fraco) é 42,6% positivo / 30,1% neutro / 27,2% negativo — o negativo veio quase o dobro dos ~15% da literatura, puxado por Claro NET e Burger King. A métrica que importa é **F1 macro**, não acurácia.
 
 ---
 
@@ -141,11 +141,16 @@ Backlog completo no Trello (board "Emi YouTube Analytics", uma lista por sprint)
 
 ## 9. Graphify
 
-O projeto usa **Graphify** para dar contexto estrutural do código. Antes de sair lendo arquivos ou fazendo grep, consulte `graphify-out/GRAPH_REPORT.md` — ele mapeia a estrutura e economiza contexto.
+O projeto usa **Graphify** para dar contexto estrutural do código. **Antes de sair lendo arquivos ou fazendo grep, consulte `graphify-out/GRAPH_REPORT.md`** — ele mapeia módulos, dependências e pontos de entrada, e economiza contexto.
 
-Como o repositório ainda está quase vazio, o grafo tem pouco valor agora. **Regenere com `/graphify .` ao final de cada sprint**, quando houver código novo relevante. A pasta `graphify-out/` é regenerável e está no `.gitignore`.
+O repositório já tem backend (API, workers, migrations), frontend (Angular), `ml/` e `preprocessamento/`. O grafo é útil agora.
 
----
+**Quando regenerar (`/graphify .`):**
+- ao fim de cada sprint;
+- depois de merge de PR que crie módulo novo ou mude a estrutura de pastas;
+- se o `GRAPH_REPORT.md` citar arquivo que não existe mais.
+
+Se o relatório estiver desatualizado em relação ao que você encontrar no código, **confie no código** e sinalize que é hora de regenerar. A pasta `graphify-out/` é regenerável e está no `.gitignore`.
 
 ## 10. O que NÃO fazer
 
