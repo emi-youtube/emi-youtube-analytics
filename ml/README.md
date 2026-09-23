@@ -54,14 +54,23 @@ python -m ml.concordancia.calcular_concordancia --gravar
 # 7. linha de base lexica (nao depende do gabarito: roda antes dele voltar)
 python -m ml.lexico.classificar_teste --id-execucao <N>
 
+# 7b. ensaio do fine-tuning (Colab T4; local, so o teste de fumaca)
+python -m ml.treino.treinar --id-execucao <N> --busca
+python -m ml.treino.exportar_onnx --id-execucao <N> --modelo ml/modelos/bertimbau-ensaio
+python -m ml.treino.prever_teste --id-execucao <N> --modelo ml/modelos/bertimbau-ensaio
+
 # 8. Capitulo 5: compara os metodos contra o rotulo_humano e gera tabelas e figuras
-python -m ml.avaliacao.avaliar --id-execucao <N> \
-    --previsoes lexico=ml/dados/previsoes_lexico.csv --gemini
+python -m ml.avaliacao.avaliar --id-execucao <N> --gemini \
+    --previsoes lexico=ml/dados/previsoes_lexico.csv \
+    --previsoes bertimbau=ml/dados/previsoes_bertimbau.csv
 ```
 
-Os passos 7 e 8 sao independentes entre si: o 7 so precisa da amostra sorteada (passo
-4) e pode rodar enquanto os avaliadores preenchem as planilhas; o 8 precisa do
-gabarito gravado no passo 6, mas aceita `--gabarito <csv>` para ensaiar antes disso.
+Os passos 7, 7b e 8 sao independentes entre si. O 7 e o 7b so precisam da amostra
+sorteada (passo 4) e rodam enquanto os avaliadores preenchem as planilhas; o 8 precisa
+do gabarito gravado no passo 6, mas aceita `--gabarito <csv>` para ensaiar antes disso.
+
+O `prever_teste` do 7b tambem roda antes do gabarito: ele produz previsoes, nunca
+metricas. Quem compara e o passo 8.
 
 O passo 3 exige `ml/.env` com a `GEMINI_API_KEY` — **nunca** no `.env` da raiz
 (CLAUDE.md regra 3: o backend de produção não pode ter chave de LLM nem por
@@ -247,6 +256,10 @@ da metade das letras é latina — "não", "coração" e "über" passam.
 | `ml/lexico/dados/` | SentiLex-PT02 — **entrada de terceiros**, 6,9 MB, CC-BY 4.0 | não (`.gitignore`) |
 | `ml/lexico/metadados_lexico.json` | recurso, sha256, regra, distribuição e cobertura da linha de base | **sim** |
 | `ml/avaliacao/saida/` | tabelas, figuras e métricas do Capítulo 5 — **só agregados** | **sim** |
+| `ml/treino/busca_hiperparametros.json` | a grade inteira, com as métricas de validação de cada configuração | **sim** |
+| `ml/treino/relatorio_onnx.json` | F1, latência, RAM e tamanho de cada formato do modelo | **sim** |
+| `ml/treino/colab_bertimbau.ipynb` | notebook do Colab (sem saídas) | **sim** |
+| `ml/modelos/` | pesos, tokenizer, `model_card.json`, grafos ONNX | não (`.gitignore`) |
 
 `ml/curadoria/curadoria_videos_sprint1.xlsx` é a **proveniência do corpus**: registra
 quais vídeos entraram, por quê, e permite a qualquer pessoa recoletar exatamente o
@@ -294,13 +307,30 @@ Três coisas que valem repetir aqui:
 - **o F1 macro é a métrica** (regra 8), e ele vem com IC 95% por bootstrap. Com 334
   comentários, intervalos que se sobrepõem não demonstram diferença entre métodos.
 
+### Treino
+
+`ml/treino/` é o **ensaio** do fine-tuning: roda com o `rotulo_fraco` da Gemini
+enquanto o gabarito humano não volta. O mesmo código roda no Colab (T4) e localmente —
+o notebook chama estes módulos em vez de reimplementá-los, senão ele divergiria do
+repositório na primeira correção.
+
+Quatro coisas que valem repetir aqui:
+
+- **os 334 do teste não entram em nenhuma etapa** — o treino sai de `split IS NULL`;
+- **a partição 85/15 não vai para o banco.** Se o Kappa falhar, a amostra humana nova
+  sai justamente destes 2.200, e o sorteio só enxerga quem está sem partição;
+- **hiperparâmetro é escolhido pela validação, e só.** `prever_teste.py` carrega os 334
+  sem os rótulos e não calcula métrica nenhuma — comparar é trabalho do passo 8;
+- **as métricas do ensaio não vão para o Capítulo 5.** Elas medem imitação da Gemini, e
+  o aviso está escrito dentro de cada JSON que o treino gera.
+
 ## O que ainda não existe
 
-`treino/`. Duas regras do `CLAUDE.md` que valem para quando ele entrar:
+Nada do pipeline de IA está faltando — o que falta é o **gabarito humano voltar**. Com
+ele, o passo 6 grava `rotulo_humano`, o passo 8 produz as tabelas e as figuras do
+Capítulo 5, e o treino que hoje é ensaio vira o modelo que o `backend/` publica.
+
+As duas regras do `CLAUDE.md` que continuam valendo em cada uma dessas etapas:
 
 - a Gemini **não** roda em produção, só aqui, offline;
 - o conjunto de **teste é só humano** — avaliar contra rótulo da Gemini seria circular.
-
-O BERTimbau entra na comparação sem tocar em código nenhum: o notebook do Colab
-exporta um CSV com `id_comentario` e `previsto`, e ele vira mais um `--previsoes` do
-passo 8.
