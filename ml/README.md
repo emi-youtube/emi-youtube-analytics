@@ -257,7 +257,7 @@ da metade das letras é latina — "não", "coração" e "über" passam.
 | `ml/lexico/metadados_lexico.json` | recurso, sha256, regra, distribuição e cobertura da linha de base | **sim** |
 | `ml/avaliacao/saida/` | tabelas, figuras e métricas do Capítulo 5 — **só agregados** | **sim** |
 | `ml/treino/busca_hiperparametros.json` | a grade inteira, com as métricas de validação de cada configuração | **sim** |
-| `ml/treino/relatorio_onnx.json` | F1, latência, RAM e tamanho de cada formato do modelo | **sim** |
+| `ml/treino/relatorio_onnx.json` | F1, divergência, latência, RAM e tamanho de cada formato do modelo | **sim** |
 | `ml/treino/colab_bertimbau.ipynb` | notebook do Colab (sem saídas) | **sim** |
 | `ml/modelos/` | pesos, tokenizer, `model_card.json`, grafos ONNX | não (`.gitignore`) |
 

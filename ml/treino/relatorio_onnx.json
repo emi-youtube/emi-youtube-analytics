@@ -1,0 +1,63 @@
+{
+  "aviso": "medido na VALIDACAO com rotulo fraco. A pergunta aqui e se o int8 responde como o fp32, nao quanto o modelo acerta — isso e o Capitulo 5.",
+  "comentarios_avaliados": 330,
+  "threads": 1,
+  "portao_perda_f1_macro": 0.01,
+  "modelos": [
+    {
+      "nome": "pytorch fp32",
+      "f1_macro": 0.8050860190819623,
+      "acuracia": 0.8181818181818182,
+      "f1_por_classe": {
+        "positivo": 0.869281045751634,
+        "negativo": 0.8333333333333334,
+        "neutro": 0.7126436781609196
+      },
+      "latencia_mediana_ms": 89.12,
+      "latencia_p95_ms": 181.81,
+      "tamanho_mb": 416.2,
+      "pico_rss_mb": 666.5,
+      "previsoes_diferentes_da_base": null
+    },
+    {
+      "nome": "onnx fp32",
+      "f1_macro": 0.8050860190819623,
+      "acuracia": 0.8181818181818182,
+      "f1_por_classe": {
+        "positivo": 0.869281045751634,
+        "negativo": 0.8333333333333334,
+        "neutro": 0.7126436781609196
+      },
+      "latencia_mediana_ms": 59.02,
+      "latencia_p95_ms": 154.26,
+      "tamanho_mb": 415.8,
+      "pico_rss_mb": 1058.5,
+      "previsoes_diferentes_da_base": 0
+    },
+    {
+      "nome": "onnx int8",
+      "f1_macro": 0.7647932131495229,
+      "acuracia": 0.7696969696969697,
+      "f1_por_classe": {
+        "positivo": 0.8260869565217391,
+        "negativo": 0.7682926829268294,
+        "neutro": 0.7
+      },
+      "latencia_mediana_ms": 27.97,
+      "latencia_p95_ms": 80.48,
+      "tamanho_mb": 104.7,
+      "pico_rss_mb": 579.1,
+      "previsoes_diferentes_da_base": 53
+    }
+  ],
+  "int8_vs_fp32": {
+    "perda_f1_macro": 0.040292805932439446,
+    "aprovado": false,
+    "previsoes_diferentes": 53,
+    "fracao_previsoes_diferentes": 0.1606060606060606,
+    "divergencia_suspeita": true,
+    "limite_divergencia_suspeita": 0.02,
+    "aceleracao_mediana": 3.1862483955014764,
+    "fracao_do_tamanho": 0.2516246943025437
+  }
+}

@@ -173,6 +173,53 @@ Além do F1, o relatório traz a **divergência de previsão** — quantos comen
 de rótulo. O F1 pode empatar com os erros trocando de lugar, e aí o int8 acerta *outros*
 comentários, não os mesmos. Acima de 2% isso vira aviso (não é portão: o portão é o F1).
 
+### O que a medição do ensaio deu: **int8 reprovado**
+
+Medido nos 330 comentários da validação, com os pesos do ensaio
+(`relatorio_onnx.json`, uma thread, um processo por formato):
+
+| | F1 macro | mediana | p95 | RSS de pico | tamanho | previsões ≠ base |
+|---|---|---|---|---|---|---|
+| pytorch fp32 | 0,8051 | 89,1 ms | 181,8 ms | 666 MB | 416,2 MB | — |
+| onnx fp32 | 0,8051 | 59,0 ms | 154,3 ms | 1.059 MB | 415,8 MB | **0** / 330 |
+| onnx int8 | 0,7648 | 28,0 ms | 80,5 ms | 579 MB | 104,7 MB | **53** / 330 |
+
+O int8 é ~3× mais rápido que o PyTorch e ocupa 25% do tamanho, mas perde **4,0 pontos
+de F1 macro** — quatro vezes o portão de 1 ponto. **Reprovado**, e não por pouco: 53 dos
+330 comentários (16,1%) mudam de rótulo, muito acima do limite de 2% que já seria aviso.
+
+As colunas de qualidade são determinísticas — duas execuções dão os mesmos F1 até o
+último dígito. As de tempo **não**: duas medições nesta mesma máquina deram 3,2× e 4,1×
+para o int8, porque a latência depende do que mais estava rodando. Leia os tempos como
+ordem de grandeza, e meça de novo no hardware que vai hospedar.
+
+A perda **não** cai onde se esperaria: o neutro, que é a classe mais fraca no fp32, é a
+que menos perde (−1,3 ponto). Quem desaba é o **negativo** (−6,5), seguido do positivo
+(−4,3) — ou seja, o int8 estraga justamente as duas classes que o fp32 acertava bem. Não
+é "classe difícil fica mais difícil", é outra coisa; qual, esta medição não diz.
+
+Duas ressalvas antes de concluir qualquer coisa sobre a arquitetura:
+
+- **o modelo medido é o do ensaio**, treinado com rótulo fraco e já decorando: a perda
+  de treino cai de 0,178 para 0,074 na quarta época enquanto o F1 de validação para de
+  subir na terceira (0,8051 → 0,8030). Modelo que decora sai com logit extremo, e é
+  justamente a faixa que a quantização dinâmica representa pior — este número **não**
+  transfere direto para o modelo final;
+- **quem decide é o F1 contra o `rotulo_humano`**, não este. A medição aqui responde
+  "o int8 responde como o fp32?", e a resposta foi não.
+
+O caminho que sobra para a B1, enquanto isso: o **onnx fp32** é ~1,5× mais rápido
+sem trocar **nenhuma** previsão — 0 de 330, e é por isso que o relatório grava a
+divergência de todo formato, não só a do int8: zero ali é o que separa "o int8 degradou"
+de "a exportação degradou".
+
+O que o fp32 não resolve é a memória: **1.059 MB de pico contra 666 MB do PyTorch**.
+Cada formato é medido no seu próprio processo, então não é contaminação de um pelo
+outro — o `onnxruntime` gasta mesmo mais RSS que o PyTorch para o mesmo grafo, e a causa
+não foi investigada. Cabe nos 1,75 GB da B1, com folga menor que a do PyTorch. É esta a
+medição a repetir depois do treino oficial, junto com a decisão de se o int8 volta para
+a mesa.
+
 ## Testes
 
 `ml/tests/test_treino.py` cobre partição, pesos de classe e `model_card.json` — sem
@@ -220,7 +267,7 @@ cofre, download) ficam atrás do `NO_COLAB` e não executam aqui — quem cobre 
 | treino completo, CPU (1.870 exemplos, 3 épocas) | ~40 min — dá para rodar, mas é para o Colab |
 | treino completo, T4 | ~2 min |
 | busca das 9 configurações, T4 | ~25 min |
-| conversão + medição ONNX, CPU | ~5 min |
+| conversão + medição ONNX, CPU | ~8 min (330 comentários) |
 | notebook inteiro reduzido, CPU (`TESTE_NOTEBOOK=1`) | ~20 min |
 
 ## O que é versionado
@@ -228,7 +275,7 @@ cofre, download) ficam atrás do `NO_COLAB` e não executam aqui — quem cobre 
 | arquivo | conteúdo | versionado? |
 |---|---|---|
 | `busca_hiperparametros.json` | a grade inteira, com as métricas de validação de cada configuração | **sim** |
-| `relatorio_onnx.json` | F1, latência, RAM e tamanho dos três formatos | **sim** |
+| `relatorio_onnx.json` | F1, divergência, latência, RAM e tamanho dos três formatos | **sim** |
 | `colab_bertimbau.ipynb` | o notebook (sem saídas) | **sim** |
 | `ml/modelos/` | pesos, tokenizer, `model_card.json`, grafos ONNX | não (`.gitignore`) |
 | `ml/dados/previsoes_bertimbau.csv` | previsões do teste | não (`.gitignore`) |

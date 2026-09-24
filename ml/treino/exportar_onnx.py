@@ -389,21 +389,58 @@ def gravar_relatorio(
                 "latencia_p95_ms": round(medicao.latencia_p95_ms, 2),
                 "tamanho_mb": round(medicao.tamanho_mb, 1),
                 "pico_rss_mb": round(medicao.pico_rss_mb, 1),
+                # Divergencia contra a base, por formato. O `relatar()` ja imprimia
+                # este numero para os dois formatos convertidos, mas so o do int8
+                # sobrevivia no JSON — e e o do fp32 que responde "a conversao para
+                # ONNX, sozinha, mudou alguma coisa?". Zero aqui e o que separa "o
+                # int8 degradou" de "a exportacao degradou".
+                "previsoes_diferentes_da_base": (
+                    None if medicao.nome == base.nome else divergencia(base, medicao)
+                ),
             }
             for medicao in medicoes
         ],
     }
     if int8 is not None:
         perda = base.f1_macro - int8.f1_macro
+        trocadas = divergencia(base, int8)
         conteudo["int8_vs_fp32"] = {
             "perda_f1_macro": perda,
             "aprovado": perda <= PERDA_MAXIMA_F1,
-            "previsoes_diferentes": divergencia(base, int8),
+            "previsoes_diferentes": trocadas,
+            "fracao_previsoes_diferentes": trocadas / quantidade,
+            # O portao e o F1, e ele pode passar com os erros so trocando de lugar.
+            # Este campo existe para que a ressalva viva no arquivo versionado, e nao
+            # so no log de quem rodou: `aprovado: true` com divergencia alta significa
+            # que o int8 acerta OUTROS comentarios, nao os mesmos.
+            "divergencia_suspeita": trocadas / quantidade > DIVERGENCIA_SUSPEITA,
+            "limite_divergencia_suspeita": DIVERGENCIA_SUSPEITA,
             "aceleracao_mediana": base.latencia_mediana_ms / int8.latencia_mediana_ms,
             "fracao_do_tamanho": int8.tamanho_mb / base.tamanho_mb,
         }
     caminho.write_text(json.dumps(conteudo, ensure_ascii=False, indent=2), encoding="utf-8")
     logger.info("relatorio -> %s", caminho)
+
+
+def exigir_modelo_treinado(modelo_dir: Path) -> None:
+    """Confere que `--modelo` aponta para uma pasta com modelo ANTES de exportar.
+
+    Foi este o erro do Colab, e o rastro que ele deixava não dizia o que tinha
+    acontecido: `FileNotFoundError: ml/modelos/bertimbau-ensaio/model_card.json`, sem
+    dizer em qual cópia do repositório o interpretador estava procurando. `--modelo`
+    veio relativo, o kernel tinha mudado de diretório, e `ml/modelos/` não existe num
+    clone novo — a pasta inteira está no `.gitignore`. A mensagem agora mostra o
+    caminho ABSOLUTO que ele procurou, que é o que separa "o treino não rodou" de "o
+    treino rodou na outra cópia".
+    """
+    if (modelo_dir / "model_card.json").exists():
+        return
+    raise SystemExit(
+        f"nao ha modelo em {modelo_dir.resolve()} (sem model_card.json). "
+        "Rode o treino antes, e confira se este e mesmo o diretorio onde ele gravou: "
+        "ml/modelos/ nao vem no clone (esta no .gitignore), entao um caminho relativo "
+        "resolvido a partir de outro diretorio aponta para uma pasta vazia."
+    )
 
 
 def medir_em_subprocesso(formato: str, argumentos: argparse.Namespace, destino: Path) -> Medicao:
@@ -490,6 +527,7 @@ def main() -> None:
         stream=sys.stderr if argumentos.medir else sys.stdout,
     )
 
+    exigir_modelo_treinado(argumentos.modelo)
     cartao = json.loads((argumentos.modelo / "model_card.json").read_text(encoding="utf-8"))
     max_length = cartao["max_length"]
     # A ordem dos rotulos vem do cartao, nunca do codigo (CLAUDE.md regra 5). Aqui ela
