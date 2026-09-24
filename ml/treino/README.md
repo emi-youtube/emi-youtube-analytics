@@ -4,10 +4,13 @@ Fine-tuning do BERTimbau com o **rótulo fraco** da Gemini, enquanto o gabarito 
 não volta. O mesmo código roda no Colab (T4) e na máquina da equipe (CPU).
 
 ```bash
-# teste de fumaca local, em CPU (~2 min)
-python -m ml.treino.treinar --id-execucao 4 --limite 150 --epocas 1 --lote 8
+# teste de fumaca local, em CPU (~2 min): corpus pequeno e uma semente so.
+# Com --limite TUDO sai com sufixo -reduzido -- os dois relatorios e a pasta do
+# modelo. Os pesos do treino de verdade estao fora do git e uma sessao de T4 nao
+# volta: ja aconteceu de um ensaio de 150 exemplos gravar por cima deles.
+python -m ml.treino.treinar --id-execucao 4 --limite 150 --sementes 42 --epocas 1 --lote 8
 
-# treino completo + busca de hiperparametros (Colab, T4)
+# treino oficial: busca de hiperparametros + a configuracao escolhida em 5 sementes
 python -m ml.treino.treinar --id-execucao 4 --busca
 
 # conversao para ONNX int8 e medicao de RAM/latencia
@@ -76,8 +79,8 @@ um resultado sobre sentimento. O número do capítulo sai de `ml/avaliacao/`, co
 `rotulo_humano`, e só existe depois que o gabarito voltar.
 
 Por isso o aviso está escrito dentro do `model_card.json`, do
-`busca_hiperparametros.json` e do `relatorio_onnx.json`: daqui a seis meses, ninguém
-vai lembrar de qual JSON era qual.
+`busca_hiperparametros.json`, do `relatorio_sementes.json` e do `relatorio_onnx.json`:
+daqui a seis meses, ninguém vai lembrar de qual JSON era qual.
 
 ## Quem entra no treino
 
@@ -115,6 +118,33 @@ para mexer num hiperparâmetro transformaria o teste num segundo conjunto de val
 e as métricas do Capítulo 5 perderiam o sentido que o TC2 atribui a elas. É também por
 isso que `prever_teste.py` **carrega os 334 sem os rótulos** e não calcula métrica
 nenhuma: a comparação é outro processo, rodado depois.
+
+A busca roda com **uma semente**. O que ela compara são nove configurações entre si, e
+repetir cada uma cinco vezes custaria a tarde de GPU inteira para escolher, quase
+sempre, a mesma vencedora. A variação entre sementes é medida uma vez, depois, na
+configuração escolhida.
+
+## O treino oficial roda cinco sementes
+
+Uma rodada só não distingue "esta configuração é melhor" de "esta semente teve sorte".
+Com 1.870 exemplos e uma cabeça de classificação inicializada ao acaso, dois treinos
+idênticos a menos da semente variam alguns pontos de F1 macro — e um TCC que reporta o
+número de uma rodada única está reportando também a sorte dela.
+
+`python -m ml.treino.treinar --id-execucao 4` roda a configuração escolhida com as
+sementes **42, 43, 44, 45 e 46** e grava `relatorio_sementes.json` com a tabela das
+cinco, média, desvio padrão, mínimo, mediana e máximo.
+
+| decisão | por quê |
+|---|---|
+| **partição fixa** nas cinco rodadas | o que varia é só o sorteio da inicialização e a ordem dos lotes. Se a partição mudasse junto, o desvio misturaria "o treino oscila" com "a validação mudou", e não responderia nem uma coisa nem outra |
+| **desvio padrão amostral** (divisor n-1) | as cinco sementes são uma amostra do sorteio, não a população de todos os treinos possíveis. Com n=5 o amostral sai 12% maior que o populacional — usar o menor dos dois faria a instabilidade do treino parecer menor do que é |
+| **publica a semente mediana** | publicar a melhor das cinco seria escolher pelo máximo de uma amostra: o artefato sairia com um número sistematicamente acima da média reportada duas linhas antes. A mediana é o representante honesto da distribuição — e continua sendo escolha pela **validação**, não pelo teste |
+| **as cinco rodadas ficam na memória** (~420 MB cada) | os pesos publicados são exatamente os que produziram a linha mediana da tabela. Descartar e retreinar a mediana no fim seria mais econômico e não reproduz bit a bit em GPU |
+
+As sementes são **fixas, não sorteadas**: um número do TCC que muda a cada execução não
+é reproduzível. A primeira é a semente do projeto (`ml.config.SEMENTE`), que continua
+sendo a da partição.
 
 ## Por que o laço é escrito à mão
 
@@ -241,6 +271,11 @@ Rode-o antes de mexer no notebook ou nos requirements. O teste de fumaça **não
 esse tipo de erro: ele roda no `ml/.venv`, que já tem tudo instalado desde a
 exportação do corpus.
 
+`ml/tests/test_sementes.py` cobre a estatística das cinco rodadas e a escolha de quem é
+publicado — média, desvio amostral, mediana e desempate. Fica separado do
+`test_treino.py` porque importa `treinar.py`, que carrega `torch`; sem `torch`
+instalado ele se pula sozinho.
+
 `ml/tests/test_notebook.py` **executa o notebook inteiro** num kernel (`nbclient`), com
 `ENSAIO_REDUZIDO=1`: corpus de 150, grade de uma configuração, duas sementes, medição
 ONNX em 40 comentários. Ele não mede qualidade nenhuma — prova que **nenhuma célula
@@ -266,6 +301,7 @@ cofre, download) ficam atrás do `NO_COLAB` e não executam aqui — quem cobre 
 | teste de fumaça, CPU (150 exemplos, 1 época) | ~2 min |
 | treino completo, CPU (1.870 exemplos, 3 épocas) | ~40 min — dá para rodar, mas é para o Colab |
 | treino completo, T4 | ~2 min |
+| treino oficial (5 sementes), T4 | ~10 min |
 | busca das 9 configurações, T4 | ~25 min |
 | conversão + medição ONNX, CPU | ~8 min (330 comentários) |
 | notebook inteiro reduzido, CPU (`TESTE_NOTEBOOK=1`) | ~20 min |
@@ -275,10 +311,11 @@ cofre, download) ficam atrás do `NO_COLAB` e não executam aqui — quem cobre 
 | arquivo | conteúdo | versionado? |
 |---|---|---|
 | `busca_hiperparametros.json` | a grade inteira, com as métricas de validação de cada configuração | **sim** |
+| `relatorio_sementes.json` | as cinco rodadas, média e desvio, e qual semente foi publicada | **sim** |
 | `relatorio_onnx.json` | F1, divergência, latência, RAM e tamanho dos três formatos | **sim** |
 | `colab_bertimbau.ipynb` | o notebook (sem saídas) | **sim** |
 | `ml/modelos/` | pesos, tokenizer, `model_card.json`, grafos ONNX | não (`.gitignore`) |
 | `ml/dados/previsoes_bertimbau.csv` | previsões do teste | não (`.gitignore`) |
 
-Os dois JSON só têm agregados — nenhum texto de terceiros. O modelo é regenerável a
+Os três JSON só têm agregados — nenhum texto de terceiros. O modelo é regenerável a
 partir deles mais o corpus.
