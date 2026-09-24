@@ -257,7 +257,8 @@ da metade das letras é latina — "não", "coração" e "über" passam.
 | `ml/lexico/metadados_lexico.json` | recurso, sha256, regra, distribuição e cobertura da linha de base | **sim** |
 | `ml/avaliacao/saida/` | tabelas, figuras e métricas do Capítulo 5 — **só agregados** | **sim** |
 | `ml/treino/busca_hiperparametros.json` | a grade inteira, com as métricas de validação de cada configuração | **sim** |
-| `ml/treino/relatorio_onnx.json` | F1, latência, RAM e tamanho de cada formato do modelo | **sim** |
+| `ml/treino/relatorio_sementes.json` | as cinco rodadas do treino oficial, média e desvio, e qual semente foi publicada | **sim** |
+| `ml/treino/relatorio_onnx.json` | F1, divergência, latência, RAM e tamanho de cada formato do modelo | **sim** |
 | `ml/treino/colab_bertimbau.ipynb` | notebook do Colab (sem saídas) | **sim** |
 | `ml/modelos/` | pesos, tokenizer, `model_card.json`, grafos ONNX | não (`.gitignore`) |
 
@@ -314,13 +315,17 @@ enquanto o gabarito humano não volta. O mesmo código roda no Colab (T4) e loca
 o notebook chama estes módulos em vez de reimplementá-los, senão ele divergiria do
 repositório na primeira correção.
 
-Quatro coisas que valem repetir aqui:
+Cinco coisas que valem repetir aqui:
 
 - **os 334 do teste não entram em nenhuma etapa** — o treino sai de `split IS NULL`;
 - **a partição 85/15 não vai para o banco.** Se o Kappa falhar, a amostra humana nova
   sai justamente destes 2.200, e o sorteio só enxerga quem está sem partição;
 - **hiperparâmetro é escolhido pela validação, e só.** `prever_teste.py` carrega os 334
   sem os rótulos e não calcula métrica nenhuma — comparar é trabalho do passo 8;
+- **o treino oficial roda cinco sementes** na mesma partição e reporta média ± desvio
+  padrão do F1 macro; o modelo publicado é o da semente **mediana**, não o da melhor.
+  Uma rodada só não distingue "esta configuração é melhor" de "esta semente teve
+  sorte";
 - **as métricas do ensaio não vão para o Capítulo 5.** Elas medem imitação da Gemini, e
   o aviso está escrito dentro de cada JSON que o treino gera.
 
