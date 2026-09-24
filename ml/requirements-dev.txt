@@ -11,3 +11,24 @@ ruff==0.16.8
 # com a biblioteca, em cem conjuntos sorteados. Mesma estrategia do Kappa, conferido
 # contra os valores publicados de Fleiss (1971).
 scikit-learn==1.5.2
+
+# Execucao do notebook num kernel de verdade (ml/tests/test_notebook.py). E o unico
+# jeito de provar que as celulas rodam: erro de notebook -- laco de eventos ja
+# rodando, caminho montado na hora, celula que promete um arquivo e nao grava --
+# atravessa o ruff e os testes estaticos inteiro, e so aparece executando.
+# O ipykernel entra porque o nbclient precisa de um kernel para falar; o venv do ml/
+# nao tem um.
+nbclient==0.10.2
+ipykernel==6.29.5
+
+# O ipython 9 exige psutil>=7, e instalar este arquivo subiu o psutil do ambiente de
+# 6.1.0 para 7.x -- justamente o pacote com que ml/treino/exportar_onnx.py mede o RSS
+# que decide a instancia do Azure. Medir a memoria com uma versao e publicar o numero
+# como se fosse do ambiente fixado e o tipo de diferenca que ninguem nota.
+#
+# O ipykernel aceita ipython>=7.23, entao a dependencia fica na linha 8 -- que nao
+# pede psutil nenhum -- e o psutil continua no 6.1.0 do requirements-treino.txt. Quem
+# confere isso na pratica e a celula de verificacao do notebook, que compara versao
+# instalada com pino e falha se divergirem.
+ipython==8.31.0
+psutil==6.1.0

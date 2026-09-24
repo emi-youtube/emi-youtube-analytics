@@ -72,18 +72,32 @@ DISTRIBUICAO_DE = {
 }
 
 
-def comandos_de_instalacao() -> list[str]:
-    """Os `pip install` do notebook, na ordem em que ele os executa."""
+def comandos_de_instalacao() -> list[list[str]]:
+    """Os argumentos de cada `pip install` do notebook, na ordem em que ele os executa.
+
+    Lidos da constante `INSTALACAO` do notebook, por AST — e não de linhas `!pip` por
+    prefixo de texto. O notebook declara a instalação como DADOS justamente para que
+    este teste possa reexecutá-la: uma linha de shell com um caminho interpolado na
+    hora não roda fora do Colab, e um teste que lê uma célula que mudou de forma passa
+    a aprovar o vazio, que é o pior resultado possível para um teste de ambiente.
+
+    Célula com `await` de nível superior não é Python válido fora do kernel, então cada
+    uma é analisada por conta própria e a que não compilar é ignorada.
+    """
     notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
-    comandos: list[str] = []
     for celula in notebook["cells"]:
         if celula["cell_type"] != "code":
             continue
-        for linha in "".join(celula["source"]).splitlines():
-            limpa = linha.strip()
-            if limpa.startswith("!pip install"):
-                comandos.append(limpa.removeprefix("!").strip())
-    return comandos
+        try:
+            arvore = ast.parse("".join(celula["source"]))
+        except SyntaxError:
+            continue
+        for no in ast.walk(arvore):
+            if isinstance(no, ast.Assign) and any(
+                isinstance(alvo, ast.Name) and alvo.id == "INSTALACAO" for alvo in no.targets
+            ):
+                return [list(argumentos) for argumentos in ast.literal_eval(no.value)]
+    return []
 
 
 def modulos_de_treino() -> list[str]:
@@ -157,14 +171,24 @@ def requisitos_declarados(caminho: Path, vistos: set[Path] | None = None) -> set
 def distribuicoes_que_o_notebook_instala() -> set[str]:
     """O que os comandos do notebook trazem: requirements mais caminhos locais."""
     distribuicoes: set[str] = set()
-    for comando in comandos_de_instalacao():
-        partes = comando.split()
-        for posicao, parte in enumerate(partes):
-            if parte == "-r" and posicao + 1 < len(partes):
-                distribuicoes |= requisitos_declarados(RAIZ_REPO / partes[posicao + 1])
+    for argumentos in comandos_de_instalacao():
+        for posicao, parte in enumerate(argumentos):
+            if parte == "-r" and posicao + 1 < len(argumentos):
+                distribuicoes |= requisitos_declarados(RAIZ_REPO / argumentos[posicao + 1])
             elif parte.startswith("./"):
                 distribuicoes.add(Path(parte).name.lower())
     return distribuicoes
+
+
+def fonte_da_celula_de_instalacao() -> str:
+    """O código da célula que declara `INSTALACAO` — a que clona e instala."""
+    notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    for celula in notebook["cells"]:
+        if celula["cell_type"] == "code":
+            fonte = "".join(celula["source"])
+            if "INSTALACAO" in fonte and "pip" in fonte:
+                return fonte
+    raise AssertionError("o notebook nao tem mais uma celula que usa INSTALACAO")
 
 
 # ------------------------------------------------------- estatico (roda sempre)
@@ -172,7 +196,10 @@ def distribuicoes_que_o_notebook_instala() -> set[str]:
 
 def test_o_notebook_tem_celula_de_instalacao():
     comandos = comandos_de_instalacao()
-    assert comandos, "notebook sem nenhum '!pip install' — a celula 1 sumiu?"
+    assert comandos, (
+        "notebook sem a constante INSTALACAO — a celula 1 sumiu, ou a instalacao "
+        "voltou a ser uma linha de shell que este teste nao consegue reexecutar"
+    )
 
 
 def test_todo_import_de_treino_esta_coberto_pelo_que_o_notebook_instala():
@@ -209,16 +236,42 @@ def test_o_preprocessamento_nao_entra_editavel_no_notebook():
     uma mudança no mapa de emoji valer nos dois ambientes locais sem reinstalar. O
     notebook desfaz isso para o Colab, e é essa linha que este teste protege.
     """
-    comandos = comandos_de_instalacao()
     instala_normal = [
-        comando
-        for comando in comandos
-        if "./preprocessamento" in comando and " -e " not in f" {comando} "
+        argumentos
+        for argumentos in comandos_de_instalacao()
+        if "./preprocessamento" in argumentos and "-e" not in argumentos
     ]
     assert instala_normal, (
         "o notebook precisa reinstalar ./preprocessamento SEM -e depois dos "
         "requirements: no Colab a instalacao editavel so vale apos reiniciar o kernel"
     )
+
+
+def test_o_clone_do_notebook_e_idempotente():
+    """Regressão do bug que custou a sessão: rodar a célula duas vezes clonava de novo.
+
+    Com `!git clone URL` seguido de `%cd emi-youtube-analytics`, a segunda execução
+    clonava *de dentro* do primeiro clone — o caminho é relativo ao diretório atual —
+    e o `%cd` descia para a cópia nova. A partir daí cada célula gravava numa cópia
+    diferente: o treino salvou o modelo numa, a exportação ONNX foi procurá-lo na
+    outra, e a segunda nem tinha `ml/modelos/` (a pasta inteira está no `.gitignore`).
+
+    O que este teste exige é a forma que não tem esse estado: clonar só quando ainda
+    não há clone, e ir sempre para o caminho ABSOLUTO de `RAIZ` — nunca para um nome
+    relativo, que depende de onde o kernel está.
+    """
+    fonte = fonte_da_celula_de_instalacao()
+
+    assert '(RAIZ / ".git").exists()' in fonte, (
+        "a celula de instalacao precisa checar se o clone ja existe antes de clonar: "
+        "rodada duas vezes, ela criava uma copia dentro da outra"
+    )
+    assert "pull" in fonte, "sem 'git pull' o segundo run deixa o clone desatualizado"
+    assert "os.chdir(RAIZ)" in fonte, (
+        "o notebook precisa entrar na RAIZ absoluta, e nao num nome relativo: era o "
+        "'%cd emi-youtube-analytics' que descia para a copia aninhada"
+    )
+    assert "%cd" not in fonte, "'%cd' com nome relativo e exatamente o que aninhava o clone"
 
 
 def test_o_notebook_verifica_o_ambiente_antes_de_usar():
@@ -259,10 +312,9 @@ def test_ambiente_limpo_importa_todo_o_ml_treino(tmp_path):
     python = ambiente / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     assert python.exists()
 
-    for comando in comandos_de_instalacao():
-        argumentos = comando.split()[1:]  # tira o "pip"
+    for argumentos in comandos_de_instalacao():
         processo = subprocess.run(
-            [str(python), "-m", "pip", *argumentos],
+            [str(python), "-m", "pip", "install", *argumentos],
             cwd=RAIZ_REPO,
             capture_output=True,
             text=True,
@@ -270,7 +322,7 @@ def test_ambiente_limpo_importa_todo_o_ml_treino(tmp_path):
             errors="replace",
         )
         assert processo.returncode == 0, (
-            f"falhou: pip {' '.join(argumentos)}\n{processo.stdout[-3000:]}\n"
+            f"falhou: pip install {' '.join(argumentos)}\n{processo.stdout[-3000:]}\n"
             f"{processo.stderr[-3000:]}"
         )
 
