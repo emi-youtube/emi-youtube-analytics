@@ -26,6 +26,7 @@ import {
 import {
   AlcanceExecucao,
   ComentarioAnalisado,
+  FatoInsight,
   ResultadoExecucao,
   TemaComSentimento,
   VideoComSentimento,
@@ -1144,6 +1145,10 @@ export function montarResultado(semente: SementeExecucao): ResultadoExecucao {
       representativo('negativo'),
       representativo('neutro'),
     ].filter((c): c is ComentarioAnalisado => c !== undefined),
+    insights: montarInsights(semente, temas, porTema, geral),
+    // A campanha do mock tem uma execução por modelo, e campanha de uma coleta
+    // não tem evolução — é o mesmo vazio que o motor devolve de verdade.
+    insights_da_campanha: [],
     ponto_de_atencao: {
       id_tema: temas[semente.atencao.tema].id_tema,
       rotulo_tema: temas[semente.atencao.tema].rotulo_tema,
@@ -1151,6 +1156,54 @@ export function montarResultado(semente: SementeExecucao): ResultadoExecucao {
     },
     versao_modelo: VERSAO_MODELO,
   };
+}
+
+/**
+ * O fato de `tema_mais_criticado` que o motor produziria para esta semente.
+ *
+ * Reproduz a regra do backend (`app/insights/execucao.py`) em vez de inventar
+ * número: o mock existe para a tela ser desenvolvida contra a forma real da
+ * resposta, e um fato com amostra que não bate com a distribuição ao lado
+ * ensinaria a tela a confiar em dados impossíveis.
+ */
+function montarInsights(
+  semente: SementeExecucao,
+  temas: Tema[],
+  porTema: TemaComSentimento[],
+  geral: DistribuicaoSentimento,
+): FatoInsight[] {
+  const alvo = porTema[semente.atencao.tema];
+  if (!alvo || alvo.distribuicao.total === 0 || geral.total === 0) {
+    return [];
+  }
+
+  const pontos = (parte: number, total: number) => Math.round((parte / total) * 1000) / 10;
+  const percentualTema = pontos(alvo.distribuicao.negativo, alvo.distribuicao.total);
+  const percentualGeral = pontos(geral.negativo, geral.total);
+  const emPortugues = (valor: number) => String(valor).replace('.', ',');
+
+  return [
+    {
+      tipo: 'tema_mais_criticado',
+      valores: {
+        rotulo_tema: alvo.tema.rotulo_tema,
+        percentual_negativo: percentualTema,
+        percentual_negativo_execucao: percentualGeral,
+        comentarios_no_tema: alvo.distribuicao.total,
+        comentarios_negativos_no_tema: alvo.distribuicao.negativo,
+      },
+      amostra: { tamanho: alvo.distribuicao.total, minimo_exigido: 30 },
+      origem: {
+        id_execucoes: [semente.id_execucao],
+        id_tema: temas[semente.atencao.tema].id_tema,
+      },
+      texto:
+        `O tema “${alvo.tema.rotulo_tema}” é o que mais concentra críticas: ` +
+        `${emPortugues(percentualTema)}% dos ${alvo.distribuicao.total} comentários ` +
+        `ligados a ele são negativos, contra ${emPortugues(percentualGeral)}% na ` +
+        `execução inteira.`,
+    },
+  ];
 }
 
 /** Índice por id, para os serviços mock não varrerem a lista toda. */
