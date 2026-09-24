@@ -40,8 +40,9 @@ backend/           FastAPI: API REST, autenticação, workers
 frontend/          Angular SSR
 ml/                pipeline de IA (exportação, rotulagem, treino, avaliação)
 preprocessamento/  pacote compartilhado: preparar_texto (layout src/, stdlib pura)
-docs/              documento acadêmico TCC + diagramas
 ```
+
+O documento acadêmico (TC2) e os diagramas ficam fora do repositório.
 
 O `ml/` produz o modelo; o `backend/` o consome. **Não misture:** nada de `ml/` importa de `backend/` e vice-versa — a comunicação é por artefato (arquivo de modelo + `model_card.json`).
 
@@ -96,6 +97,8 @@ Angular → API Gateway (JWT) → FastAPI
                             PostgreSQL
 ```
 
+**Formato do modelo em produção:** ponto flutuante de 32 bits (PyTorch ou ONNX). O ONNX int8 foi REPROVADO no ensaio — perdeu 4 pontos de F1 macro e mudou 16% das previsões, contra um limite de 1 ponto. Nova tentativa de quantização só com o modelo definitivo, e sempre com o portão de 1 ponto de F1 e a medição de divergência de previsões.
+
 O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa na requisição. Workers consomem a fila por polling com `SELECT ... FOR UPDATE SKIP LOCKED`.
 
 **Pipeline de treino (offline, fora da aplicação):** comentários → rotulagem fraca via Gemini → validação humana estratificada → fine-tuning BERTimbau no Colab → publica versão → worker de inferência carrega.
@@ -107,11 +110,12 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 1. **Nunca commitar segredos.** `.env` está no `.gitignore`. Se precisar de exemplo, crie `.env.example` com valores vazios.
 2. **Anonimizar autor de comentário.** Nunca persista nome/ID do autor — só `autor_hash` (SHA-256). Exigência de LGPD, documentada e defendida na banca.
 3. **A Gemini NÃO roda em produção.** Ela só aparece em `ml/rotulagem/`, offline. O backend em produção não tem chave de LLM.
+   **Exceção decidida, ainda NÃO implementada e condicionada ao prazo:** a análise da campanha sob demanda (Seção 11, fase 4). Só implemente quando o card correspondente for aberto. Quando existir, ela recebe apenas fatos agregados — nunca texto de comentário —, e o sistema funciona integralmente sem ela.
 4. **Nunca chame `search.list` da YouTube API** — custa 100 unidades de cota contra 1 de `commentThreads.list`. Os vídeos são curados manualmente; use os IDs direto.
 5. **Ordem dos rótulos vem do `model_card.json`**, nunca hardcoded. O `ml/` exporta `{id2label, max_length, versao, versao_preprocessamento}` junto dos pesos; o backend lê de lá. Hardcodar causa bug silencioso (prevê "negativo", grava "neutro"). Se a `versao_preprocessamento` do card divergir da instalada, o worker de inferência deve recusar o modelo.
 6. **Conjunto de teste é só humano.** Nunca avalie o modelo contra rótulos gerados pela Gemini — a comparação vira circular e inválida. `exemplos_treinamento.split` nasce NULO e só é atribuído depois da rotulagem fraca: a amostra humana é sorteada estratificada pelo rótulo fraco (que os avaliadores não veem) e vira `teste`; o restante vai 85/15 para treino e validação.
 7. **Tabela de infraestrutura não pode crescer sem limite.** `tentativas_login` e similares precisam de limpeza (apagar registros antigos na própria escrita). O free tier do Supabase tem cota de armazenamento.
-8. **`class_weight='balanced'` no treino.** O corpus da Sprint 1 (2.534 comentários, rótulo fraco) é 42,6% positivo / 30,1% neutro / 27,2% negativo — o negativo veio quase o dobro dos ~15% da literatura, puxado por Claro NET e Burger King. A métrica que importa é **F1 macro**, não acurácia.
+8. **`class_weight='balanced'` no treino.** O corpus da Sprint 1 (2.534 comentários, rótulo fraco) é 42,6% positivo / 30,1% neutro / 27,2% negativo — mais negativo que a suposição inicial do planejamento, efeito da curadoria com campanhas de recepção crítica. A métrica que importa é **F1 macro**, não acurácia.
 
 ---
 
@@ -161,3 +165,52 @@ Se o relatório estiver desatualizado em relação ao que você encontrar no có
 - Não crie o `TESTE.PY` da raiz como padrão — código solto na raiz não entra no repositório final.
 - Não "limpe" os `chr(0xFE0F)` de `preprocessamento/` de volta para literais: são caracteres invisíveis, e o `ruff format` reescreve o escape `"\ufe0f"` para o literal na primeira formatação.
 - Não expanda gíria no pré-processamento ("q" → "que"): é normalização semântica que os avaliadores humanos não fazem. Normalização tipográfica (`…` → `...`) pode.
+
+---
+
+## 11. Insights e campanhas
+
+Decisões da equipe (24/09). **Tudo nesta seção é evolução PLANEJADA e CONDICIONADA AO PRAZO.** Nada daqui tem prioridade sobre o caminho crítico: gabarito → Kappa → treino → avaliação (Cap. 5) → workers de inferência e de tópicos. Sem esses workers não existe dado para gerar insight.
+
+### Fluxo do produto
+
+1. O usuário cria uma **campanha** — na interface; no banco continua sendo `MODELOS_ANALISE` (a banca compara com o documento).
+2. Adiciona vídeos, cada um com **papel** (`proprio` ou `concorrente`) e **rótulo livre** opcional (ex.: "versão A").
+3. Executa a análise como hoje: coleta, classificação, tópicos.
+4. O painel mostra a comparação por regras e comentários representativos por tema.
+5. Sob demanda, o usuário pede a **análise da campanha** em texto corrido, gerada por IA.
+
+### Fases
+
+- **Fase 3 — papéis, comparação por regras e comentários representativos.** Prioridade alta dentro da evolução.
+- **Fase 4 — análise da campanha pela IA generativa.** Só se houver tempo; senão, vira trabalho futuro no TCC.
+
+### Três camadas de insight
+
+1. **Regras sobre os resultados.** Cada insight é um FATO ESTRUTURADO (tipo da regra, valores, amostra de cada valor, origem), e o texto é gerado a partir dele. Nunca escreva insight como string solta.
+2. **Comentários representativos por tema,** escolhidos LOCALMENTE: o comentário mais central de cada tema na representação do próprio BERTimbau. É extrativo — mostra um comentário real —, sem serviço externo e sem risco de invenção.
+3. **Síntese em texto corrido pela Gemini** (fase 4).
+
+### Regras de método
+
+- Amostra mínima por afirmação; abaixo dela, o insight não é emitido.
+- Variação entre execuções só vira insight acima da margem de incerteza das proporções.
+- Temas NÃO casam por rótulo entre execuções (a modelagem de tópicos roda por execução). Casar por sobreposição de palavras-chave. Dentro de uma mesma execução, vídeos próprios e de concorrentes compartilham os temas — a comparação entre eles é direta.
+- O insight herda o erro do classificador; o texto não afirma além dos números.
+
+### Camada da IA generativa (fase 4)
+
+- Disparada pelo usuário, processada como job na fila existente — nunca dentro da requisição.
+- Recebe SÓ fatos agregados: percentuais, nomes de temas, palavras-chave. NUNCA texto de comentário. Os comentários representativos aparecem AO LADO do texto, escolhidos localmente.
+- Todo número no texto gerado precisa existir nos fatos; senão, o texto é descartado e vale o texto por regra.
+- Indisponibilidade ou erro → texto por regra, sem erro visível.
+- Resultado PERSISTIDO com modelo, data, versão do prompt e fatos usados: não paga de novo a cada visita e preserva o registro se o modelo for aposentado.
+- Marcado na interface como gerado por IA.
+- Corresponde ao UC06 "Gerar relatório estratégico", que existe no diagrama e nunca foi implementado.
+
+### Mudanças de modelo previstas (propostas de nome)
+
+- `VIDEOS_MONITORADOS` (id_modelo FK, youtube_video_id, papel CK, rotulo): os vídeos que a campanha acompanha, com o papel de cada um. Substitui a lista de IDs guardada hoje em `filtros.videos`; a regra de "ao menos um vídeo" do UC02 migra para cá. Não confundir com `VIDEOS`, que é o retrato de cada coleta.
+- `SINTESES` (id_modelo FK, fatos JSONB, texto, gerador, versao_prompt, criado_em): as análises geradas.
+- `jobs.tipo` ganha um novo valor para a síntese.
+- Ao implementar: atualizar DER, casos de uso (UC02 vira "Criar campanha"; UC06 especificado) e o argumento de LGPD do TC2 ("nenhum texto de comentário sai da infraestrutura em produção").
