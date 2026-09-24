@@ -22,9 +22,9 @@ reimplementa nada**: clona o repositório e chama estes módulos. Notebook com c
 próprio diverge do repositório na primeira correção, e aí o modelo publicado deixa de
 ser o que o repositório descreve.
 
-### O ambiente do Colab tem duas armadilhas
+### O ambiente do Colab tem quatro armadilhas
 
-As duas já custaram uma sessão:
+As quatro já custaram uma sessão:
 
 - **instalação editável não vale no kernel que já está rodando.** `pip install -e`
   registra um `.pth` que o interpretador lê ao iniciar; num kernel vivo, o pacote só
@@ -38,10 +38,31 @@ As duas já custaram uma sessão:
   'asyncpg'" três células adiante. O `asyncpg` está nos requisitos desde sempre — e o
   `pip install --dry-run` a partir da raiz do repositório resolve ele e o
   `preprocessamento` sem erro; o que faltou foi a instalação inteira ter dado certo no
-  Colab. A célula de verificação importa tudo logo após a instalação, para o erro
-  aparecer onde ele nasce.
+  Colab. Hoje a instalação é `subprocess.run(..., check=True)`, que para na linha que
+  falha, e a célula de verificação importa tudo logo depois — o erro aparece onde
+  nasce;
+- **clone não idempotente cria uma cópia dentro da outra.** `git clone` rodado de
+  dentro do próprio repositório produz `emi-youtube-analytics/emi-youtube-analytics`, e
+  a partir daí cada célula grava numa cópia diferente conforme o diretório em que o
+  kernel estiver. Foi o que matou a exportação ONNX: o treino salvou o modelo numa
+  cópia, a exportação foi procurá-lo na outra — onde `ml/modelos/` nem existe, porque a
+  pasta inteira está no `.gitignore` (o `.gitkeep` não é reincluído: `git` não readmite
+  arquivo sob diretório excluído). Daí as duas regras do notebook: o clone **atualiza**
+  em vez de clonar de novo, e **todo caminho sai da constante `RAIZ`**, absoluta;
+- **`asyncio.run` não roda dentro de um kernel.** O Colab já tem um laço de eventos
+  vivo, e `asyncio.run` dentro de um laço vivo levanta `RuntimeError: asyncio.run()
+  cannot be called from a running event loop`. Em notebook a forma certa é o `await` de
+  nível superior. Nos scripts (`treinar.py`, `exportar_onnx.py`) o `asyncio.run`
+  continua certo: ali o laço é só deles.
 
-`ml/tests/test_ambiente_colab.py` protege as duas coisas. Ele lê os comandos **do
+A célula de verificação também compara **versão instalada com pino do requirements**. O
+Colab já vem com `torch`, e uma instalação que falhou em silêncio deixa o notebook
+rodando com a versão da casa: o treino até roda, e quem quebra é a exportação quatro
+células depois, com uma mensagem que não fala em versão nenhuma. A mesma conferência
+pegou um caso local — o `ipykernel` puxa `ipython`, que exige `psutil>=7`, e instalar o
+`requirements-dev.txt` subiu o `psutil` que mede o RSS do relatório ONNX.
+
+`ml/tests/test_ambiente_colab.py` protege as quatro coisas. Ele lê os comandos **do
 próprio notebook** — copiar a lista de pacotes para o teste criaria uma segunda fonte
 de verdade, que é o tipo de divergência que ele deveria detectar.
 
@@ -173,6 +194,24 @@ Rode-o antes de mexer no notebook ou nos requirements. O teste de fumaça **não
 esse tipo de erro: ele roda no `ml/.venv`, que já tem tudo instalado desde a
 exportação do corpus.
 
+`ml/tests/test_notebook.py` **executa o notebook inteiro** num kernel (`nbclient`), com
+`ENSAIO_REDUZIDO=1`: corpus de 150, grade de uma configuração, duas sementes, medição
+ONNX em 40 comentários. Ele não mede qualidade nenhuma — prova que **nenhuma célula
+levanta exceção** e que **todo caminho que o notebook promete gravar existe no fim, com
+data desta execução**. É o teste que faltava: as correções anteriores do notebook
+passaram no `ruff` e nos testes estáticos, e a sessão seguinte no Colab quebrou mesmo
+assim, porque erro de notebook (laço de eventos já rodando, caminho montado na hora,
+célula que promete arquivo e não grava) só aparece executando.
+
+```bash
+TESTE_NOTEBOOK=1 ml/.venv/Scripts/python.exe -m pytest ml/tests/test_notebook.py
+```
+
+Precisa de banco e de uns 20 minutos. Rode-o depois de mexer no notebook e **antes** de
+gastar uma sessão de GPU com ele. As células que só existem no Colab (clone, `pip`,
+cofre, download) ficam atrás do `NO_COLAB` e não executam aqui — quem cobre a instalação
+é o `test_ambiente_colab.py`.
+
 ## Custo de tempo
 
 | | |
@@ -182,6 +221,7 @@ exportação do corpus.
 | treino completo, T4 | ~2 min |
 | busca das 9 configurações, T4 | ~25 min |
 | conversão + medição ONNX, CPU | ~5 min |
+| notebook inteiro reduzido, CPU (`TESTE_NOTEBOOK=1`) | ~20 min |
 
 ## O que é versionado
 
