@@ -120,7 +120,7 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 1. **Nunca commitar segredos.** `.env` está no `.gitignore`. Se precisar de exemplo, crie `.env.example` com valores vazios.
 2. **Anonimizar autor de comentário.** Nunca persista nome/ID do autor — só `autor_hash` (SHA-256). Exigência de LGPD, documentada e defendida na banca.
 3. **A Gemini NÃO roda em produção.** Ela só aparece em `ml/rotulagem/`, offline. O backend em produção não tem chave de LLM.
-   **Exceção decidida, ainda NÃO implementada e condicionada ao prazo:** a análise da campanha sob demanda (Seção 11, fase 4). Só implemente quando o card correspondente for aberto. Quando existir, ela recebe apenas fatos agregados — nunca texto de comentário —, e o sistema funciona integralmente sem ela.
+   **Exceção prevista como TRABALHO FUTURO, não implementar:** a análise da campanha sob demanda (Seção 11, fase 4).
 4. **Nunca chame `search.list` da YouTube API** — custa 100 unidades de cota contra 1 de `commentThreads.list`. Os vídeos são curados manualmente; use os IDs direto.
 5. **Ordem dos rótulos vem do `model_card.json`**, nunca hardcoded. O `ml/` exporta `{id2label, max_length, versao, versao_preprocessamento}` junto dos pesos; o backend lê de lá. Hardcodar causa bug silencioso (prevê "negativo", grava "neutro"). Se a `versao_preprocessamento` do card divergir da instalada, o worker de inferência deve recusar o modelo.
 6. **Conjunto de teste é só humano.** Nunca avalie o modelo contra rótulos gerados pela Gemini — a comparação vira circular e inválida. `exemplos_treinamento.split` nasce NULO e só é atribuído depois da rotulagem fraca: a amostra humana é sorteada estratificada pelo rótulo fraco (que os avaliadores não veem) e vira `teste`; o restante vai 85/15 para treino e validação.
@@ -195,7 +195,7 @@ Decisões da equipe (24/09). **Tudo nesta seção é evolução PLANEJADA e COND
 ### Fases
 
 - **Fase 3 — papéis, comparação por regras e comentários representativos.** Prioridade alta dentro da evolução.
-- **Fase 4 — análise da campanha pela IA generativa.** Só se houver tempo; senão, vira trabalho futuro no TCC.
+- **Fase 4 — análise da campanha pela IA generativa. TRABALHO FUTURO (decidido em 25/09). Não implementar.** O UC06 é atendido pelo relatório exportável com indicadores e insights por regras (página própria para impressão).
 
 ### Três camadas de insight
 
