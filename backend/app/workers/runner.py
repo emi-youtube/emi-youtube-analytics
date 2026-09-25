@@ -4,11 +4,12 @@ Processo separado da API de propósito — o FastAPI não pode ficar segurando c
 inferência (CLAUDE.md Seção 5). Dá para subir mais de uma instância: o `SKIP LOCKED`
 da fila garante que duas não peguem o mesmo job.
 
-**Um processo para as duas etapas**, e não um por worker. Dentro do escopo do projeto
-(500 a 5.000 comentários por execução) as duas são curtas e nunca disputam recurso: a
-coleta espera rede, a inferência ocupa processador. Dois serviços custariam outro
-contêiner no crédito do Azure para não resolver nada — a mesma razão que faz a fila ser
-uma tabela em vez de um Redis (CLAUDE.md Seção 10).
+**Um processo para as três etapas**, e não um por worker. Dentro do escopo do projeto
+(500 a 5.000 comentários por execução) as três são curtas: a coleta espera rede, a
+inferência e a modelagem de tópicos ocupam processador, e nunca rodam ao mesmo tempo
+para a mesma execução. Três serviços custariam mais dois contêineres no crédito do
+Azure para não resolver nada — a mesma razão que faz a fila ser uma tabela em vez de um
+Redis (CLAUDE.md Seção 10).
 
 **O classificador é carregado ANTES do laço.** É onde o portão da regra 5 do CLAUDE.md
 e a conferência do sha256 do léxico acontecem: se o recurso não está lá, o worker se
@@ -27,7 +28,7 @@ from app.core.config import settings
 from app.core.database import async_session_factory
 from app.inferencia.base import Classificador, ClassificadorIndisponivel
 from app.inferencia.lexico import ClassificadorLexico
-from app.workers import coleta, inferencia
+from app.workers import coleta, inferencia, topicos
 from app.workers.youtube import ClienteYouTube
 
 logger = logging.getLogger(__name__)
@@ -48,9 +49,9 @@ def montar_classificador() -> Classificador:
 async def _ciclo(parar: asyncio.Event, cliente: ClienteYouTube, classificador: Classificador):
     """Consome a fila até esvaziar, depois dorme o intervalo de polling.
 
-    A coleta vem primeiro em cada volta porque é ela que produz o que a inferência
-    consome: com as duas filas cheias, adiantar a coleta encurta o tempo total da
-    execução que o usuário está esperando.
+    A ordem das tentativas segue a cadeia (coleta -> inferência -> tópicos) porque
+    cada etapa produz o que a seguinte consome: com as filas cheias, adiantar a
+    etapa de baixo encurta o tempo total da execução que o usuário está esperando.
     """
     while not parar.is_set():
         try:
@@ -58,6 +59,8 @@ async def _ciclo(parar: asyncio.Event, cliente: ClienteYouTube, classificador: C
                 trabalhou = await coleta.executar_proximo(db, cliente)
                 if not trabalhou:
                     trabalhou = await inferencia.executar_proximo(db, classificador)
+                if not trabalhou:
+                    trabalhou = await topicos.executar_proximo(db)
         except Exception:
             # Falha de infraestrutura (banco fora do ar, por exemplo): não derruba
             # o worker, que volta a tentar no próximo ciclo.
@@ -102,7 +105,7 @@ async def main() -> None:
             laco.add_signal_handler(sinal, parar.set)
 
     logger.info(
-        "workers iniciados etapas=coleta,inferencia classificador=%s %s intervalo=%ss "
+        "workers iniciados etapas=coleta,inferencia,topicos classificador=%s %s intervalo=%ss "
         "max_tentativas=%s",
         classificador.descritor.nome_modelo,
         classificador.descritor.versao,

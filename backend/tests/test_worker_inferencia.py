@@ -32,10 +32,11 @@ from app.models.execucao import Execucao
 from app.models.job import Job
 from app.models.job_dlq import JobDlq
 from app.models.modelo_analise import ModeloAnalise
+from app.models.tema import Tema
 from app.models.usuario import Usuario
 from app.models.versao_modelo import VersaoModelo
 from app.models.video import Video
-from app.workers import coleta, fila, inferencia
+from app.workers import coleta, fila, inferencia, topicos
 from app.workers.youtube import ComentarioColetado, VideoColetado
 from tests.test_worker_coleta import ClienteFalso
 
@@ -228,8 +229,9 @@ async def test_execucao_sem_comentario_conclui_sem_analise(sessao):
     assert (await sessao.scalars(select(AnaliseSentimento))).all() == []
     await sessao.refresh(job)
     assert job.status == "concluida"
+    # A execucao segue em 'processando': quem a encerra e a etapa de topicos.
     await sessao.refresh(execucao)
-    assert execucao.status == "concluida"
+    assert execucao.status == "processando"
 
 
 async def test_executar_proximo_sem_job_devolve_false(sessao):
@@ -248,7 +250,12 @@ async def test_ignora_job_de_outro_tipo(sessao):
 # --------------------------------------------------------------------------- ciclo da execução
 
 
-async def test_inferencia_encerra_a_execucao(sessao):
+async def test_inferencia_publica_topicos_e_mantem_execucao_processando(sessao):
+    """A inferencia deixou de ser a ultima etapa quando o worker de topicos entrou.
+
+    Ela agora passa o bastao: publica `topicos` na MESMA transacao em que se
+    conclui, e a execucao so fecha no fim da cadeia.
+    """
     execucao = await montar_execucao_com_comentarios(sessao, ["adorei"])
     job = await enfileirar_inferencia(sessao, execucao)
 
@@ -257,10 +264,12 @@ async def test_inferencia_encerra_a_execucao(sessao):
     await sessao.refresh(job)
     assert job.status == "concluida"
     await sessao.refresh(execucao)
-    assert execucao.status == "concluida"
-    assert execucao.concluido_em is not None
-    # Última etapa da cadeia: não publica mais nada.
-    assert (await sessao.scalars(select(Job).where(Job.status == "pendente"))).all() == []
+    assert execucao.status == "processando"
+    assert execucao.concluido_em is None
+
+    seguinte = (await sessao.scalars(select(Job).where(Job.status == "pendente"))).all()
+    assert [j.tipo for j in seguinte] == ["topicos"]
+    assert seguinte[0].id_execucao == execucao.id_execucao
 
 
 async def test_reivindicar_nao_reescreve_o_inicio_da_execucao(sessao):
@@ -630,11 +639,18 @@ async def test_ponta_a_ponta_coleta_simulada_ate_execucao_concluida(sessao):
 
     # 2. inferência, do job que a coleta publicou
     assert await inferencia.executar_proximo(sessao, ClassificadorFalso()) is True
+    await sessao.refresh(execucao)
+    assert execucao.status == "processando"  # ainda falta a etapa de tópicos
 
-    # 3. execução concluída, uma análise por comentário
+    # 3. tópicos, do job que a inferência publicou. Três comentários é menos que o
+    #    mínimo, então ela conclui sem tema — e é ela que encerra a execução.
+    assert await topicos.executar_proximo(sessao) is True
+
+    # 4. execução concluída, uma análise por comentário
     await sessao.refresh(execucao)
     assert execucao.status == "concluida"
     assert execucao.concluido_em is not None
+    assert (await sessao.scalars(select(Tema))).all() == []
 
     analises = (await sessao.scalars(select(AnaliseSentimento))).all()
     comentarios = (await sessao.scalars(select(Comentario))).all()

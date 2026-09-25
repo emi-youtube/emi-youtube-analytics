@@ -20,6 +20,19 @@ httpx==0.28.1
 # Sem dependencias proprias: e stdlib pura, nao pesa no ambiente de producao.
 -e ./preprocessamento
 
+# Modelagem de topicos do worker de topicos (TF-IDF + NMF).
+#
+# E a UNICA dependencia pesada do backend de producao, e entra por decisao
+# registrada: o CLAUDE.md Secao 2 preve "LDA ou clustering de embeddings" para
+# tópicos, e a equipe escolheu TF-IDF + NMF para nao carregar um segundo modelo
+# neural ao lado do classificador (memoria do contêiner) nem agrupar por
+# sentimento sem querer (ver app/topicos/modelo.py).
+#
+# Arrasta numpy e scipy. NAO arrasta torch nem transformers: o backend de
+# producao continua sem biblioteca de deep learning -- o classificador de
+# sentimento hoje e o lexico, que e stdlib pura.
+scikit-learn==1.9.1
+
 # Classificador lexico COMPARTILHADO com o ml/ (pacote proprio na raiz do repo).
 # E a primeira implementacao do worker de inferencia, enquanto o BERTimbau oficial
 # nao existe -- e a MESMA regra que o ml/ usa como piso do Capitulo 5. Duas copias
