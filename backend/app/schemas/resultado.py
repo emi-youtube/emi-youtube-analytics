@@ -196,6 +196,11 @@ class VideoComSentimento(BaseModel):
 class TemaComSentimento(BaseModel):
     tema: TemaResponse
     distribuicao: DistribuicaoSentimento
+    # O comentário que fala pelo tema (camada 2 da Seção 11 do CLAUDE.md):
+    # extrativo, escolhido localmente, sem serviço externo e sem risco de
+    # invenção. `None` só quando o tema não tem nenhum comentário ligado, o que
+    # o limiar de peso torna possível.
+    comentario_representativo: "ComentarioAnalisado | None" = None
 
 
 # --------------------------------------------------------------------------- insights

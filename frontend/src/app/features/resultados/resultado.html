@@ -173,6 +173,22 @@
             <app-barra-sentimento [distribuicao]="item.distribuicao" />
           </div>
           <span class="tema__total">{{ numero(item.distribuicao.total) }}</span>
+
+          <!--
+            O comentário que fala pelo tema. Vem escolhido do servidor (maior
+            peso, descartando os curtos demais) para a regra morar num lugar só.
+          -->
+          @if (item.comentario_representativo; as rep) {
+            <blockquote class="tema__citacao">
+              <p class="tema__citacao-texto">{{ rep.comentario.texto }}</p>
+              <footer class="tema__citacao-rodape muted">
+                <span class="selo selo--{{ rep.analise.sentimento }}">
+                  {{ rotuloSentimento(rep.analise.sentimento) }}
+                </span>
+                <span>comentário mais representativo deste tema</span>
+              </footer>
+            </blockquote>
+          }
         </li>
       }
     </ul>
