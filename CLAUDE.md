@@ -25,7 +25,7 @@ Não sugira trocar. Cada uma tem justificativa registrada no documento acadêmic
 | Banco | **PostgreSQL** via Supabase (só como Postgres gerenciado) | camada gratuita permanente |
 | Fila de jobs | **tabela `jobs` no próprio Postgres** | evita serviço de fila pago |
 | Classificação | **BERTimbau** fine-tuned, rodando **local** | sem custo por token, sem enviar dados a terceiros |
-| Tópicos | LDA ou clustering de embeddings | insights por execução |
+| Tópicos | **TF-IDF + NMF** (`scikit-learn`), semente fixa | sem 2º modelo neural na memória; TF-IDF não sabe o que é sentimento, então não agrupa por ele |
 | Treino | Google Colab (GPU T4 gratuita) | offline, sob demanda |
 | Hospedagem | Vercel (front) + Azure for Students (back) | créditos acadêmicos |
 
@@ -98,7 +98,7 @@ Angular → API Gateway (JWT) → FastAPI
                                  ↓ publica job (tabela jobs)
               ┌──────────────────┼──────────────────┐
      Worker Coleta        Worker Inferência    Worker Tópicos
-     (YouTube API)        (BERTimbau local)    (LDA/clustering)
+     (YouTube API)        (BERTimbau local)    (TF-IDF + NMF)
               └──────────────────┼──────────────────┘
                             PostgreSQL
 ```
@@ -107,7 +107,7 @@ Angular → API Gateway (JWT) → FastAPI
 
 O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa na requisição. Workers consomem a fila por polling com `SELECT ... FOR UPDATE SKIP LOCKED`.
 
-**Uma execução é uma CADEIA de jobs, não um job.** Cada etapa, ao concluir, publica a seguinte **na mesma transação** em que se marca concluída; só a última marca a EXECUCAO como `concluida`. Enquanto houver etapa pendente, a execução fica em `processando` — coletar comentário sem classificar não é resultado nenhum para a PME. A ordem vive num lugar só (`backend/app/workers/pipeline.py`); hoje é `coleta → inferencia`, e o worker de tópicos entra entre os dois. Mesma transação porque uma etapa que se marcasse concluída antes de publicar a próxima poderia morrer no meio: a execução ficaria `processando` para sempre, sem job na fila para ninguém buscar.
+**Uma execução é uma CADEIA de jobs, não um job.** Cada etapa, ao concluir, publica a seguinte **na mesma transação** em que se marca concluída; só a última marca a EXECUCAO como `concluida`. Enquanto houver etapa pendente, a execução fica em `processando` — coletar comentário sem classificar não é resultado nenhum para a PME. A ordem vive num lugar só (`backend/app/workers/pipeline.py`): `coleta → inferencia → topicos`. Tópicos fica por último porque é a etapa mais cara e a que a PME menos espera primeiro — assim uma falha nela deixa a execução em `erro` com os sentimentos já gravados, em vez de custar também a classificação. Mesma transação porque uma etapa que se marcasse concluída antes de publicar a próxima poderia morrer no meio: a execução ficaria `processando` para sempre, sem job na fila para ninguém buscar.
 
 **O classificador é uma interface** (`backend/app/inferencia/base.py`), e o worker de inferência é transporte: ele aplica `preparar_texto`, pede um rótulo e grava. A primeira implementação é o **léxico** (SentiLex, o piso do Capítulo 5), porque um piso que classifica é melhor que um painel vazio; o BERTimbau entra como segunda implementação, sem o worker mudar. Toda análise aponta para a linha de `VERSOES_MODELO` da versão que a produziu — é o que dá sentido ao histórico depois da troca.
 
@@ -149,7 +149,7 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 **Em andamento agora, em paralelo:**
 
 - **Sprint 1 (dupla ML):** curadoria manual de 15–20 vídeos publicitários (em andamento, não bloqueia código) → script de coleta → rotulagem fraca → mini-amostra → Kappa → fine-tuning piloto → **gate de decisão**.
-- **Sprint 3 (dupla Infra):** schema das 10 tabelas → auth JWT → CRUD de modelo de análise → tabela `jobs` + `POST /execucoes` → worker de coleta → **worker de inferência** (interface do classificador + implementação léxica; o BERTimbau troca a implementação). Falta o worker de tópicos e os endpoints de resultado.
+- **Sprint 3 (dupla Infra):** schema das 10 tabelas → auth JWT → CRUD de modelo de análise → tabela `jobs` + `POST /execucoes` → worker de coleta → **worker de inferência** (interface do classificador + implementação léxica; o BERTimbau troca a implementação) → **rotas de resultado, comentários e painel** (frontend saiu do mock) → **worker de tópicos** (TF-IDF + NMF). A cadeia `coleta → inferencia → topicos` está fechada.
 
 Backlog completo no Trello (board "Emi YouTube Analytics", uma lista por sprint).
 
@@ -200,7 +200,11 @@ Decisões da equipe (24/09). **Tudo nesta seção é evolução PLANEJADA e COND
 ### Três camadas de insight
 
 1. **Regras sobre os resultados.** Cada insight é um FATO ESTRUTURADO (tipo da regra, valores, amostra de cada valor, origem), e o texto é gerado a partir dele. Nunca escreva insight como string solta.
-2. **Comentários representativos por tema,** escolhidos LOCALMENTE: o comentário mais central de cada tema na representação do próprio BERTimbau. É extrativo — mostra um comentário real —, sem serviço externo e sem risco de invenção.
+2. **Comentários representativos por tema,** escolhidos LOCALMENTE: **o comentário de maior peso no tema, descartando os curtos demais** (menos de 40 caracteres). O peso vem do `COMENTARIO_TEMA`, que é a saída do NMF normalizada por comentário. Empate resolve pelo menor `id_comentario`, então a escolha é a mesma em toda execução do método. É extrativo — mostra um comentário real —, sem serviço externo e sem risco de invenção.
+
+   **Isto substitui a ideia original de usar a representação do BERTimbau.** Ela foi descartada por dois motivos: um segundo modelo neural residente ao lado do classificador não cabe na memória do contêiner, e o espaço do classificador foi treinado para separar SENTIMENTO — usá-lo para achar o comentário mais central de um ASSUNTO tenderia a devolver o mais positivo ou o mais negativo, não o mais típico. O peso do NMF não tem esse viés porque o TF-IDF não sabe o que é sentimento.
+
+   O corte de comprimento existe porque o de maior peso puro costuma ser o mais curto: um comentário de três palavras, todas do tema, tem a massa concentrada nele. "preço alto" é o mais representativo pela conta e não mostra nada à PME.
 3. **Síntese em texto corrido pela Gemini** (fase 4).
 
 ### Regras de método

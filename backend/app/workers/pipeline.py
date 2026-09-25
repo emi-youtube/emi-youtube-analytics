@@ -21,18 +21,19 @@ TIPO_TOPICOS = "topicos"
 
 # `None` = fim da cadeia: esta etapa marca a execução como `concluida`.
 #
-# Quando o worker de tópicos existir, ele entra ENTRE os dois (tópicos precisa dos
-# comentários, não dos rótulos), e a mudança é só aqui:
+# Tópicos vem DEPOIS da inferência, e não entre a coleta e ela, por uma razão de
+# produto: classificar é o que a PME espera ver primeiro, e a modelagem de
+# tópicos é a etapa mais cara das três. Pondo tópicos no fim, uma falha ali deixa
+# a execução em `erro` com os sentimentos já gravados — o painel mostra a
+# distribuição e avisa que o agrupamento não saiu. Na ordem inversa, uma falha na
+# modelagem custaria também a classificação.
 #
-#     TIPO_COLETA: TIPO_TOPICOS,
-#     TIPO_TOPICOS: TIPO_INFERENCIA,
-#     TIPO_INFERENCIA: None,
-#
-# `TIPO_TOPICOS` já está declarado acima porque o CHECK de `jobs.tipo` já o aceita —
-# o valor existe no banco desde a migration inicial, só não há worker que o consuma.
+# As duas não dependem uma da outra: tópicos lê COMENTARIOS (texto), inferência
+# escreve ANALISES_SENTIMENTO. A ordem é escolha, não obrigação.
 PROXIMA_ETAPA: dict[str, str | None] = {
     TIPO_COLETA: TIPO_INFERENCIA,
-    TIPO_INFERENCIA: None,
+    TIPO_INFERENCIA: TIPO_TOPICOS,
+    TIPO_TOPICOS: None,
 }
 
 
