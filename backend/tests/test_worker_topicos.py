@@ -468,6 +468,166 @@ async def test_log_carrega_o_id_execucao(sessao, caplog):
     assert all(f"id_execucao={execucao.id_execucao}" in linha for linha in linhas)
 
 
+async def test_recalcular_apaga_os_temas_antigos_e_refaz(sessao):
+    """Corrige execucao antiga depois de uma melhoria no metodo, sem gastar cota."""
+    textos = [texto for _, texto in corpus()]
+    execucao = await montar_execucao(sessao, textos, email="rec1@exemplo.com")
+    await enfileirar(sessao, execucao)
+    await topicos.executar_proximo(sessao)
+
+    antigos = (await sessao.scalars(select(Tema))).all()
+    assert antigos
+    quantos_antes = len(antigos)
+    rotulos_antes = [t.rotulo_tema for t in antigos]
+
+    # Job de recalculo: mesmo tipo, com o pedido no payload.
+    job = Job(
+        tipo="topicos",
+        id_execucao=execucao.id_execucao,
+        status="pendente",
+        payload={"recalcular": True},
+    )
+    sessao.add(job)
+    await sessao.commit()
+
+    assert await topicos.executar_proximo(sessao) is True
+
+    novos = (await sessao.scalars(select(Tema))).all()
+    assert novos
+    # O que importa e que NAO ACUMULOU: os antigos foram apagados antes de
+    # remodelar. Comparar ids nao serviria — o SQLite reaproveita chave primaria
+    # depois de um DELETE, entao id igual nao quer dizer linha antiga.
+    assert len(novos) == quantos_antes
+    # Mesmo corpus e mesma semente: o recalculo reproduz os mesmos temas.
+    assert [t.rotulo_tema for t in novos] == rotulos_antes
+
+
+async def test_recalcular_leva_as_ligacoes_antigas_junto(sessao):
+    """COMENTARIO_TEMA some por cascata — nao pode sobrar ligacao orfa."""
+    textos = [texto for _, texto in corpus()]
+    execucao = await montar_execucao(sessao, textos, email="rec2@exemplo.com")
+    await enfileirar(sessao, execucao)
+    await topicos.executar_proximo(sessao)
+
+    ligacoes_antes = len((await sessao.scalars(select(ComentarioTema))).all())
+    assert ligacoes_antes
+
+    sessao.add(
+        Job(
+            tipo="topicos",
+            id_execucao=execucao.id_execucao,
+            status="pendente",
+            payload={"recalcular": True},
+        )
+    )
+    await sessao.commit()
+    await topicos.executar_proximo(sessao)
+
+    ligacoes = (await sessao.scalars(select(ComentarioTema))).all()
+    assert ligacoes
+    # Nao acumulou, e nenhuma ligacao ficou apontando para tema inexistente.
+    assert len(ligacoes) == ligacoes_antes
+    temas_atuais = {t.id_tema for t in (await sessao.scalars(select(Tema))).all()}
+    assert {lig.id_tema for lig in ligacoes} <= temas_atuais
+
+
+async def test_sem_recalcular_o_job_repetido_continua_sendo_ignorado(sessao):
+    """A idempotencia so cede quando o job PEDE o recalculo."""
+    textos = [texto for _, texto in corpus()]
+    execucao = await montar_execucao(sessao, textos, email="rec3@exemplo.com")
+    await enfileirar(sessao, execucao)
+    await topicos.executar_proximo(sessao)
+    ids = {t.id_tema for t in (await sessao.scalars(select(Tema))).all()}
+
+    await enfileirar(sessao, execucao)  # sem payload
+    await topicos.executar_proximo(sessao)
+
+    assert {t.id_tema for t in (await sessao.scalars(select(Tema))).all()} == ids
+
+
+async def test_recalculo_reencerra_a_execucao(sessao):
+    """A execucao volta a 'processando' enquanto roda e termina 'concluida'."""
+    textos = [texto for _, texto in corpus()]
+    execucao = await montar_execucao(sessao, textos, email="rec4@exemplo.com")
+    await enfileirar(sessao, execucao)
+    await topicos.executar_proximo(sessao)
+    await sessao.refresh(execucao)
+    assert execucao.status == "concluida"
+    inicio = execucao.iniciado_em
+
+    sessao.add(
+        Job(
+            tipo="topicos",
+            id_execucao=execucao.id_execucao,
+            status="pendente",
+            payload={"recalcular": True},
+        )
+    )
+    await sessao.commit()
+    await topicos.executar_proximo(sessao)
+
+    await sessao.refresh(execucao)
+    assert execucao.status == "concluida"
+    # `iniciado_em` e da EXECUCAO: o recalculo nao reescreve o inicio dela.
+    assert execucao.iniciado_em == inicio
+
+
+async def test_worker_aplica_stopwords_de_marca(sessao, caplog):
+    """Dois videos de marcas diferentes: o nome de cada um sai dos temas."""
+    usuario = Usuario(nome="Dona", email="marca@exemplo.com", senha_hash="x", papel="usuario_pme")
+    sessao.add(usuario)
+    await sessao.flush()
+    modelo = ModeloAnalise(
+        id_usuario=usuario.id_usuario, nome="Campanha", termo_pesquisa="x", filtros={}
+    )
+    sessao.add(modelo)
+    await sessao.flush()
+    execucao = Execucao(id_modelo=modelo.id_modelo, status="processando")
+    sessao.add(execucao)
+    await sessao.flush()
+
+    from tests.test_topicos_marcas import corpus_de_duas_marcas
+
+    videos = {}
+    for id_local, (titulo, canal) in enumerate(
+        [("Novo Zephyr: o SUV que dura", "Zephyr Brasil"), ("Kovak Trailer", "Kovak Brasil")],
+        start=1,
+    ):
+        video = Video(
+            id_execucao=execucao.id_execucao,
+            youtube_video_id=f"v{id_local}",
+            titulo=titulo,
+            canal=canal,
+        )
+        sessao.add(video)
+        await sessao.flush()
+        videos[id_local] = video
+
+    for indice, (_, id_video_local, texto) in enumerate(corpus_de_duas_marcas()):
+        sessao.add(
+            Comentario(
+                id_video=videos[id_video_local].id_video,
+                youtube_comment_id=f"c{indice}",
+                autor_hash=hash_token(f"a{indice}"),
+                texto=texto,
+            )
+        )
+    await sessao.commit()
+    await enfileirar(sessao, execucao)
+
+    with caplog.at_level(logging.INFO, logger="app.workers.topicos"):
+        await topicos.executar_proximo(sessao)
+
+    temas = (await sessao.scalars(select(Tema))).all()
+    assert temas
+    palavras = {p for t in temas for p in (t.palavras_chave or [])}
+    assert "zephyr" not in palavras
+    assert "kovak" not in palavras
+    # E o log diz quais foram, para a decisao ser auditavel.
+    linhas = [r.getMessage() for r in caplog.records if "stopwords de marca" in r.getMessage()]
+    assert linhas and "zephyr" in linhas[0]
+
+
 async def test_sem_job_devolve_false(sessao):
     assert await topicos.executar_proximo(sessao) is False
 

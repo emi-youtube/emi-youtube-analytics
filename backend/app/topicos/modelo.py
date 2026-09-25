@@ -239,11 +239,17 @@ def modelar(
     comentarios: list[tuple[int, str]],
     *,
     semente: int = SEMENTE,
+    stopwords_extra: frozenset[str] = frozenset(),
 ) -> ResultadoTopicos:
     """Extrai os temas de `(id_comentario, texto_original)`.
 
     Não toca no banco e não decide nada sobre persistência: devolve os temas e as
     ligações, e quem grava é o worker.
+
+    `stopwords_extra` vale só para esta execução: são os nomes de marca que
+    `app/topicos/marcas.py` confirmou estarem concentrados num vídeo. Sem eles o
+    NMF separa os temas por marca em vez de por assunto, que é o defeito que a
+    validação sobre os vídeos de carros expôs.
     """
     total = len(comentarios)
     if total < MINIMO_DE_COMENTARIOS:
@@ -258,7 +264,7 @@ def modelar(
     # `preparar` devolve a lista de tokens; o vetorizador recebe texto, então
     # junta de volta. O `analyzer` padrão não é usado: a limpeza (emoji, URL,
     # stopword) é nossa e precisa valer igual em todo lugar.
-    documentos = [" ".join(preparar(texto)) for _, texto in comentarios]
+    documentos = [" ".join(preparar(texto, stopwords_extra)) for _, texto in comentarios]
 
     nao_vazios = sum(1 for doc in documentos if doc)
     if nao_vazios < MINIMO_DE_COMENTARIOS:
