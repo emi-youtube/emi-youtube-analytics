@@ -127,6 +127,8 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 - Rotas versionadas: `/api/v1/...`
 - Toda linha de log inclui o `id_execucao` quando houver — sem isso é impossível depurar execuções concorrentes.
 - Migrations versionadas (Alembic), nunca alterar schema direto no painel do Supabase.
+- **Git — antes de criar qualquer branch:** `git fetch origin`, `git checkout main`, `git pull`. Nunca confie no `main` local sem atualizar; ele fica velho rápido e a branch nasce sem o que já foi mergeado.
+- **Todo PR tem base na `main`.** Se parecer que o PR precisa de outra base, pare e pergunte antes de abrir. Já aconteceu três vezes: o `main` local desatualizado parecia não ter o que o PR precisava (o PR #8 foi aberto contra `sprint1/lexico-e-avaliacao` porque `ml/treino/` parecia não existir na `main`, quando já estava lá desde o PR #7).
 
 ---
 
