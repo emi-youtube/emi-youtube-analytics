@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,6 +16,9 @@ class Job(Base):
         CheckConstraint(
             "status IN ('pendente', 'processando', 'concluida', 'erro')", name="ck_jobs_status"
         ),
+        # Índice do reaper: ele varre por status + reivindicado_em a cada
+        # passagem, e sem isto seria varredura da tabela inteira.
+        Index("ix_jobs_status_reivindicado_em", "status", "reivindicado_em"),
     )
 
     id_job: Mapped[int] = mapped_column(primary_key=True)
@@ -31,3 +34,8 @@ class Job(Base):
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # Quando este job foi reivindicado por um worker. É o que distingue "está
+    # rodando" de "o worker morreu e abandonou": o reaper devolve à fila o que
+    # passou do tempo limite (`workers/fila.devolver_presos`). Nulo enquanto o
+    # job está pendente, e nas linhas anteriores à migration 0009.
+    reivindicado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

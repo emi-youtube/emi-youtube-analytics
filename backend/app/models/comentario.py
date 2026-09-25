@@ -10,9 +10,7 @@ class Comentario(Base):
     __tablename__ = "comentarios"
     # Unicidade por VIDEO (que já é por execução), pelo mesmo motivo de VIDEOS.
     __table_args__ = (
-        UniqueConstraint(
-            "id_video", "youtube_comment_id", name="uq_comentarios_video_comentario"
-        ),
+        UniqueConstraint("id_video", "youtube_comment_id", name="uq_comentarios_video_comentario"),
     )
 
     id_comentario: Mapped[int] = mapped_column(primary_key=True)

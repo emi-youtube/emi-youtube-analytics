@@ -11,6 +11,11 @@ para a mesma execução. Três serviços custariam mais dois contêineres no cr�
 Azure para não resolver nada — a mesma razão que faz a fila ser uma tabela em vez de um
 Redis (CLAUDE.md Seção 10).
 
+**O reaper roda no próprio laço**, sem job agendado e sem serviço à parte: é uma
+consulta a cada `worker_reaper_intervalo_segundos` que devolve à fila o job que
+um worker morto deixou em `processando` (`workers/fila.devolver_presos`). Em
+produção worker morrendo é questão de quando, não de se.
+
 **O classificador é carregado ANTES do laço.** É onde o portão da regra 5 do CLAUDE.md
 e a conferência do sha256 do léxico acontecem: se o recurso não está lá, o worker se
 recusa a subir com uma mensagem que diz o caminho esperado, em vez de coletar durante
@@ -21,6 +26,7 @@ import asyncio
 import contextlib
 import logging
 import signal
+import time
 
 import httpx
 
@@ -28,7 +34,7 @@ from app.core.config import settings
 from app.core.database import async_session_factory
 from app.inferencia.base import Classificador, ClassificadorIndisponivel
 from app.inferencia.lexico import ClassificadorLexico
-from app.workers import coleta, inferencia, topicos
+from app.workers import coleta, fila, inferencia, topicos
 from app.workers.youtube import ClienteYouTube
 
 logger = logging.getLogger(__name__)
@@ -53,9 +59,24 @@ async def _ciclo(parar: asyncio.Event, cliente: ClienteYouTube, classificador: C
     cada etapa produz o que a seguinte consome: com as filas cheias, adiantar a
     etapa de baixo encurta o tempo total da execução que o usuário está esperando.
     """
+    proximo_reaper = 0.0
+
     while not parar.is_set():
         try:
             async with async_session_factory() as db:
+                # O reaper vem antes de reivindicar: um job devolvido nesta
+                # passagem já pode ser pego na mesma volta do laço.
+                agora = time.monotonic()
+                if agora >= proximo_reaper:
+                    proximo_reaper = agora + settings.worker_reaper_intervalo_segundos
+                    devolvidos = await fila.devolver_presos(
+                        db,
+                        settings.worker_timeout_job_minutos,
+                        settings.worker_max_retries,
+                    )
+                    if devolvidos:
+                        logger.warning("reaper tratou %s job(s) preso(s)", devolvidos)
+
                 trabalhou = await coleta.executar_proximo(db, cliente)
                 if not trabalhou:
                     trabalhou = await inferencia.executar_proximo(db, classificador)
@@ -106,11 +127,13 @@ async def main() -> None:
 
     logger.info(
         "workers iniciados etapas=coleta,inferencia,topicos classificador=%s %s intervalo=%ss "
-        "max_tentativas=%s",
+        "max_tentativas=%s reaper=a cada %ss com limite de %smin",
         classificador.descritor.nome_modelo,
         classificador.descritor.versao,
         settings.worker_poll_interval_seconds,
         settings.worker_max_retries,
+        settings.worker_reaper_intervalo_segundos,
+        settings.worker_timeout_job_minutos,
     )
 
     async with httpx.AsyncClient(timeout=settings.youtube_timeout_seconds) as http:

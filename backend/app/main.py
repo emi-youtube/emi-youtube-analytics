@@ -33,9 +33,7 @@ async def validation_exception_handler(
     erros = [
         {"loc": erro["loc"], "msg": erro["msg"], "type": erro["type"]} for erro in exc.errors()
     ]
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": erros}
-    )
+    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": erros})
 
 
 app.include_router(api_router, prefix="/api/v1")
