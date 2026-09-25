@@ -35,8 +35,7 @@ STATUS_ATIVOS = (STATUS_PENDENTE, STATUS_PROCESSANDO)
 TIPO_JOB_COLETA = "coleta"
 
 EXECUCAO_EM_ANDAMENTO = (
-    "Este modelo já possui uma execução em andamento. "
-    "Aguarde a conclusão antes de disparar outra."
+    "Este modelo já possui uma execução em andamento. Aguarde a conclusão antes de disparar outra."
 )
 
 

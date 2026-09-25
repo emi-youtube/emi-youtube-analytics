@@ -184,9 +184,7 @@ def evolucao_dos_videos(
                         # YouTube deve aparecer com o nome que tem hoje.
                         "titulo": video_depois.titulo,
                         "youtube_video_id": youtube_video_id,
-                        "percentual_negativo_antes": pontos_percentuais(
-                            comparacao.proporcao_antes
-                        ),
+                        "percentual_negativo_antes": pontos_percentuais(comparacao.proporcao_antes),
                         "percentual_negativo_depois": pontos_percentuais(
                             comparacao.proporcao_depois
                         ),

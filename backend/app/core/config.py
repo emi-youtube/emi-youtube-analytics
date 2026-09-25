@@ -38,6 +38,16 @@ class Settings(BaseSettings):
     sentilex_path: str = ""
 
     worker_poll_interval_seconds: int = 5
+    # Depois de quantos minutos em 'processando' um job é considerado abandonado
+    # pelo worker e devolvido à fila (`workers/fila.devolver_presos`). Tem de ser
+    # BEM maior que o job mais lento: devolver um job que só está demorando faria
+    # dois workers processarem a mesma execução ao mesmo tempo. No escopo do
+    # projeto (500 a 5.000 comentários) a etapa mais lenta leva segundos.
+    worker_timeout_job_minutos: int = 15
+    # De quanto em quanto tempo o runner roda o reaper. Não precisa ser frequente
+    # — o que ele corrige já está parado há 15 minutos —, e varrer a cada ciclo
+    # de polling (5s) seria consulta a mais sem ganho nenhum.
+    worker_reaper_intervalo_segundos: int = 60
     # Tentativas de RETENTATIVA por job em erro transitório: as esperas são
     # 2, 4, 8 e 16s (+ jitter), então 4 corresponde a ~30s de insistência.
     worker_max_retries: int = 4

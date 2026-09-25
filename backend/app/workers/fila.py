@@ -4,15 +4,20 @@
 serviço de fila: quem chega primeiro tranca a linha, os outros pulam para a
 próxima em vez de esperar.
 
+**Job preso.** Se o worker morre no meio de um job (queda, deploy, OOM), o job
+fica em `processando` para sempre — o SELECT acima só busca `pendente`, então
+ninguém mais o reivindica e a execução trava sem resultado e sem erro. Quem
+resolve é `devolver_presos`, chamado pelo laço do runner.
+
 Este módulo é agnóstico de etapa: ele reivindica, conta tentativa, conclui e arquiva
 na DLQ, sem saber o que cada tipo de job faz. Quem sabe a ORDEM das etapas é
 `workers/pipeline.py`, e `concluir` consulta esse mapa para publicar a seguinte.
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.execucao import Execucao
@@ -21,6 +26,12 @@ from app.models.job_dlq import JobDlq
 from app.workers import pipeline
 
 logger = logging.getLogger(__name__)
+
+# Só os tipos que têm worker podem ser devolvidos à fila. Um `topicos`
+# enfileirado à mão antes de o worker existir ficaria em `processando`... não
+# ficaria: ele nunca é reivindicado. Mas a lista deixa a intenção explícita e
+# impede que um tipo futuro sem consumidor entre em laço de devolução.
+TIPOS_COM_WORKER = ("coleta", "inferencia", "topicos")
 
 STATUS_PENDENTE = "pendente"
 STATUS_PROCESSANDO = "processando"
@@ -48,6 +59,9 @@ async def reivindicar(db: AsyncSession, tipo: str) -> Job | None:
         return None
 
     job.status = STATUS_PROCESSANDO
+    # Marca a hora da reivindicação: é por ela que o reaper reconhece o job que
+    # um worker morto deixou para trás.
+    job.reivindicado_em = datetime.now(UTC)
 
     execucao = await db.get(Execucao, job.id_execucao)
     if execucao is not None:
@@ -136,6 +150,94 @@ async def concluir(db: AsyncSession, job: Job) -> Job | None:
         proximo.tipo,
     )
     return proximo
+
+
+async def devolver_presos(db: AsyncSession, limite_minutos: int, max_tentativas: int) -> int:
+    """Devolve à fila os jobs que um worker abandonou. Retorna quantos tratou.
+
+    **O problema.** `reivindicar` põe o job em `processando` e é o worker que o
+    conclui. Se o processo morre antes disso — deploy, OOM, queda —, ninguém
+    mais toca naquele job: a consulta da fila só enxerga `pendente`. A execução
+    fica `processando` para sempre, e o usuário não recebe nem resultado nem
+    erro.
+
+    **A regra.** Job em `processando` cuja reivindicação é mais velha que
+    `limite_minutos` conta mais uma TENTATIVA e:
+
+    - volta para `pendente`, se ainda tem tentativa sobrando;
+    - vai para a DLQ, se esgotou.
+
+    Contar tentativa é o que impede o laço infinito. Um job que derruba o worker
+    por conta própria — um comentário que estoura a memória, por exemplo — seria
+    devolvido, mataria o worker de novo e assim por diante para sempre. Com a
+    contagem ele chega à DLQ e a execução termina em `erro`, que é uma resposta
+    ruim mas é uma resposta.
+
+    **O limite tem de ser bem maior que o job mais lento.** Devolver um job que
+    só está demorando faz dois workers processarem a mesma execução ao mesmo
+    tempo. O padrão (`worker_timeout_job_minutos`) é 15 minutos, contra coletas
+    que levam segundos no escopo do projeto.
+
+    **`SKIP LOCKED` aqui também:** com mais de um worker, dois reapers rodam ao
+    mesmo tempo e não podem tratar o mesmo job duas vezes.
+
+    Reprocessar é seguro porque os três workers são idempotentes ou atômicos: a
+    coleta só commita no fim (morrer no meio não deixa vídeo pela metade), a
+    inferência pula comentário que já tem análise, e os tópicos verificam se a
+    execução já tem tema.
+    """
+    limite = datetime.now(UTC) - timedelta(minutes=limite_minutos)
+
+    presos = list(
+        (
+            await db.scalars(
+                select(Job)
+                .where(
+                    Job.tipo.in_(TIPOS_COM_WORKER),
+                    Job.status == STATUS_PROCESSANDO,
+                    # Linha anterior à migration 0009 não tem `reivindicado_em`;
+                    # `criado_em` é sempre anterior, então serve de piso seguro.
+                    func.coalesce(Job.reivindicado_em, Job.criado_em) < limite,
+                )
+                .order_by(Job.id_job)
+                .with_for_update(skip_locked=True)
+            )
+        ).all()
+    )
+    if not presos:
+        return 0
+
+    for job in presos:
+        job.tentativas += 1
+        if job.tentativas > max_tentativas:
+            logger.error(
+                "job preso esgotou as tentativas, vai para a DLQ id_job=%s tipo=%s "
+                "id_execucao=%s tentativas=%s",
+                job.id_job,
+                job.tipo,
+                job.id_execucao,
+                job.tentativas,
+            )
+            await enviar_para_dlq(
+                db,
+                job,
+                f"job abandonado por worker morto e devolvido {job.tentativas} vez(es); "
+                f"esgotou o limite de {max_tentativas} tentativas",
+            )
+            continue
+
+        job.status = STATUS_PENDENTE
+        job.reivindicado_em = None
+        logger.warning(
+            "job preso devolvido a fila id_job=%s tipo=%s id_execucao=%s tentativa=%s",
+            job.id_job,
+            job.tipo,
+            job.id_execucao,
+            job.tentativas,
+        )
+
+    await db.commit()
+    return len(presos)
 
 
 async def enviar_para_dlq(db: AsyncSession, job: Job, erro: str) -> None:
