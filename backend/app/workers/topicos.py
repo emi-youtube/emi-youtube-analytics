@@ -14,8 +14,15 @@ concorrerem a tema. O banco guarda o original e é dele que se parte.
 
 **Idempotente.** Execução que já tem tema não é reprocessada: `TEMAS` é o
 registro daquela modelagem, e rodar de novo ou duplicaria as linhas ou mudaria os
-temas debaixo de um painel que já foi lido. Para refazer de verdade, apague os
-temas da execução e enfileire outro job — o caminho é explícito de propósito.
+temas debaixo de um painel que já foi lido.
+
+**Salvo quando o job pede `recalcular`.** Aí os temas antigos da execução são
+APAGADOS e a modelagem roda de novo sobre os mesmos comentários. É o que permite
+corrigir execuções antigas depois de uma melhoria no método — como as stopwords
+de marca — sem recoletar nada e sem gastar uma unidade de cota. Quem enfileira
+esse job é `python -m app.workers.recalcular_topicos`, nunca a API: refazer a
+análise de uma execução concluída é operação de manutenção, não algo que o
+usuário dispara sem saber.
 
 **Execução sem tema é resultado, não erro.** Abaixo do mínimo de comentários, ou
 com vocabulário pobre demais, a execução conclui normalmente com zero temas e o
@@ -24,7 +31,7 @@ motivo vai para o log com o `id_execucao`.
 
 import logging
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comentario import Comentario
@@ -32,6 +39,7 @@ from app.models.comentario_tema import ComentarioTema
 from app.models.job import Job
 from app.models.tema import Tema
 from app.models.video import Video
+from app.topicos.marcas import VideoDaExecucao, stopwords_de_marca
 from app.topicos.modelo import ResultadoTopicos, modelar, representante_do_tema
 from app.workers import fila
 
@@ -51,20 +59,45 @@ async def _ja_tem_temas(db: AsyncSession, id_execucao: int) -> bool:
     return bool(total)
 
 
-async def _comentarios(db: AsyncSession, id_execucao: int) -> list[tuple[int, str]]:
-    """`(id_comentario, texto ORIGINAL)` da execução, em ordem estável.
+async def _comentarios(db: AsyncSession, id_execucao: int) -> list[tuple[int, int, str]]:
+    """`(id_comentario, id_video, texto ORIGINAL)` da execução, em ordem estável.
 
     A ordem importa para o determinismo: o NMF recebe a matriz na ordem em que os
     documentos chegam, e uma ordem diferente daria uma fatoração diferente mesmo
     com a mesma semente.
+
+    O `id_video` vem junto porque as stopwords de marca precisam saber em que
+    vídeo cada comentário está — é a distribuição entre vídeos que distingue
+    nome de marca de assunto (`app/topicos/marcas.py`).
     """
     linhas = await db.execute(
-        select(Comentario.id_comentario, Comentario.texto)
+        select(Comentario.id_comentario, Comentario.id_video, Comentario.texto)
         .join(Video, Video.id_video == Comentario.id_video)
         .where(Video.id_execucao == id_execucao)
         .order_by(Comentario.id_comentario)
     )
-    return [(id_comentario, texto) for id_comentario, texto in linhas]
+    return [(id_comentario, id_video, texto) for id_comentario, id_video, texto in linhas]
+
+
+async def _videos(db: AsyncSession, id_execucao: int) -> list[VideoDaExecucao]:
+    linhas = await db.execute(
+        select(Video.id_video, Video.titulo, Video.canal)
+        .where(Video.id_execucao == id_execucao)
+        .order_by(Video.id_video)
+    )
+    return [VideoDaExecucao(id_video, titulo, canal) for id_video, titulo, canal in linhas]
+
+
+async def _apagar_temas(db: AsyncSession, id_execucao: int) -> int:
+    """Apaga os temas da execução. COMENTARIO_TEMA vai junto por cascata da FK."""
+    ids = list(
+        (await db.scalars(select(Tema.id_tema).where(Tema.id_execucao == id_execucao))).all()
+    )
+    if not ids:
+        return 0
+    await db.execute(delete(Tema).where(Tema.id_tema.in_(ids)))
+    await db.commit()
+    return len(ids)
 
 
 async def _gravar(db: AsyncSession, id_execucao: int, resultado: ResultadoTopicos) -> int:
@@ -100,15 +133,48 @@ async def _gravar(db: AsyncSession, id_execucao: int, resultado: ResultadoTopico
 async def processar(db: AsyncSession, job: Job) -> int:
     """Modela os tópicos da execução. Devolve quantos temas gravou."""
     id_execucao = job.id_execucao
+    recalcular = bool((job.payload or {}).get("recalcular"))
 
     if await _ja_tem_temas(db, id_execucao):
-        logger.info("topicos ja existem, nada a fazer id_execucao=%s (idempotencia)", id_execucao)
-        return 0
+        if not recalcular:
+            logger.info(
+                "topicos ja existem, nada a fazer id_execucao=%s (idempotencia)", id_execucao
+            )
+            return 0
+        apagados = await _apagar_temas(db, id_execucao)
+        logger.info(
+            "recalculo pedido: %s tema(s) antigo(s) apagado(s) id_execucao=%s",
+            apagados,
+            id_execucao,
+        )
 
     comentarios = await _comentarios(db, id_execucao)
-    logger.info("topicos iniciados id_execucao=%s comentarios=%s", id_execucao, len(comentarios))
+    videos = await _videos(db, id_execucao)
+    logger.info(
+        "topicos iniciados id_execucao=%s comentarios=%s videos=%s",
+        id_execucao,
+        len(comentarios),
+        len(videos),
+    )
 
-    resultado = modelar(comentarios)
+    # Stopwords de MARCA, calculadas para esta execução: nome de canal e palavra
+    # de título que a distribuição confirma estarem presas a um vídeo só. Sem
+    # elas o NMF separa os temas por marca em vez de por assunto.
+    marcas = stopwords_de_marca(videos, comentarios)
+    if marcas.motivo:
+        logger.info("sem stopwords de marca id_execucao=%s motivo=%s", id_execucao, marcas.motivo)
+    else:
+        logger.info(
+            "stopwords de marca id_execucao=%s palavras=%s poupadas=%s",
+            id_execucao,
+            sorted(marcas.palavras),
+            sorted(c.palavra for c in marcas.mantidas if c.comentarios >= 3),
+        )
+
+    resultado = modelar(
+        [(id_comentario, texto) for id_comentario, _, texto in comentarios],
+        stopwords_extra=marcas.palavras,
+    )
 
     if not resultado.houve_temas:
         # Resultado válido: a execução conclui sem tema e o motivo fica no log.
@@ -117,7 +183,7 @@ async def processar(db: AsyncSession, job: Job) -> int:
 
     gravados = await _gravar(db, id_execucao, resultado)
 
-    textos = dict(comentarios)
+    textos = {id_comentario: texto for id_comentario, _, texto in comentarios}
     for tema in resultado.temas:
         representante = representante_do_tema(tema.indice, resultado.atribuicoes, textos)
         quantos = sum(1 for a in resultado.atribuicoes if a.indice_tema == tema.indice)

@@ -241,7 +241,7 @@ def limpar(texto: str) -> str:
     return sem_ruido.lower().strip()
 
 
-def tokenizar(texto: str) -> list[str]:
+def tokenizar(texto: str, extras: frozenset[str] = frozenset()) -> list[str]:
     """Palavras úteis do texto já limpo, DOBRADAS para a forma sem acento.
 
     **Por que sem acento aqui, se o classificador léxico exige o acento.** São
@@ -268,12 +268,18 @@ def tokenizar(texto: str) -> list[str]:
         if RISO.match(bruto):
             continue
         dobrado = _sem_acento(bruto)
-        if dobrado in STOPWORDS:
+        if dobrado in STOPWORDS or dobrado in extras:
             continue
         tokens.append(dobrado)
     return tokens
 
 
-def preparar(texto: str) -> list[str]:
-    """`limpar` + `tokenizar`, que é como o vetorizador consome um comentário."""
-    return tokenizar(limpar(texto))
+def preparar(texto: str, extras: frozenset[str] = frozenset()) -> list[str]:
+    """`limpar` + `tokenizar`, que é como o vetorizador consome um comentário.
+
+    `extras` são as stopwords válidas SÓ para uma execução — hoje os nomes de
+    marca (`app/topicos/marcas.py`). Ficam fora do conjunto global de propósito:
+    "renault" é ruído na campanha da Renault e é assunto legítimo na campanha de
+    uma concessionária que vende várias marcas.
+    """
+    return tokenizar(limpar(texto), extras)

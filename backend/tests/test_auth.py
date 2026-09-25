@@ -294,9 +294,7 @@ async def test_poda_nao_alcanca_outros_emails(cliente, sessao):
     await logar(cliente, senha="SenhaErrada123")
 
     outros = await sessao.scalars(
-        select(TentativaLogin).where(
-            TentativaLogin.email_hash == hash_token("outro@exemplo.com")
-        )
+        select(TentativaLogin).where(TentativaLogin.email_hash == hash_token("outro@exemplo.com"))
     )
     assert len(outros.all()) == 1
 

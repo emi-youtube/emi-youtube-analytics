@@ -325,9 +325,7 @@ async def test_atualizar_modelo_de_outro_usuario_retorna_404(cliente, sessao):
     )
 
     assert resposta.status_code == 404
-    modelo = await sessao.scalar(
-        select(ModeloAnalise).where(ModeloAnalise.id_modelo == id_modelo)
-    )
+    modelo = await sessao.scalar(select(ModeloAnalise).where(ModeloAnalise.id_modelo == id_modelo))
     assert modelo.nome == "Campanha de verão"
 
 

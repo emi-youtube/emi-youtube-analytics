@@ -25,7 +25,7 @@ Não sugira trocar. Cada uma tem justificativa registrada no documento acadêmic
 | Banco | **PostgreSQL** via Supabase (só como Postgres gerenciado) | camada gratuita permanente |
 | Fila de jobs | **tabela `jobs` no próprio Postgres** | evita serviço de fila pago |
 | Classificação | **BERTimbau** fine-tuned, rodando **local** | sem custo por token, sem enviar dados a terceiros |
-| Tópicos | **TF-IDF + NMF** (`scikit-learn`), semente fixa | sem 2º modelo neural na memória; TF-IDF não sabe o que é sentimento, então não agrupa por ele |
+| Tópicos | **TF-IDF + NMF** (`scikit-learn`), semente fixa, **stopwords de marca por execução** | sem 2º modelo neural na memória; TF-IDF não sabe o que é sentimento, então não agrupa por ele |
 | Treino | Google Colab (GPU T4 gratuita) | offline, sob demanda |
 | Hospedagem | Vercel (front) + Azure for Students (back) | créditos acadêmicos |
 
@@ -108,6 +108,10 @@ Angular → API Gateway (JWT) → FastAPI
 O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa na requisição. Workers consomem a fila por polling com `SELECT ... FOR UPDATE SKIP LOCKED`.
 
 **Uma execução é uma CADEIA de jobs, não um job.** Cada etapa, ao concluir, publica a seguinte **na mesma transação** em que se marca concluída; só a última marca a EXECUCAO como `concluida`. Enquanto houver etapa pendente, a execução fica em `processando` — coletar comentário sem classificar não é resultado nenhum para a PME. A ordem vive num lugar só (`backend/app/workers/pipeline.py`): `coleta → inferencia → topicos`. Tópicos fica por último porque é a etapa mais cara e a que a PME menos espera primeiro — assim uma falha nela deixa a execução em `erro` com os sentimentos já gravados, em vez de custar também a classificação. Mesma transação porque uma etapa que se marcasse concluída antes de publicar a próxima poderia morrer no meio: a execução ficaria `processando` para sempre, sem job na fila para ninguém buscar.
+
+**Nome de marca não vira tema.** O nome do canal e as palavras do título de cada vídeo entram como stopwords **daquela execução** — mas só as que a medição confirmar: a palavra vira stopword quando 85% dos comentários que a contêm vêm de um único vídeo. Sem esse portão, "trailer" (que está num título e é assunto legítimo) sumiria junto com "renault". Sem a regra, o NMF separa os temas por MARCA em vez de por assunto, porque o nome da marca só aparece nos comentários de um vídeo e por isso é o token mais discriminativo do corpus — e a demonstração compara vídeo próprio com vídeo de concorrente, que é exatamente essa situação. Execução de um vídeo só não usa o critério (ali tudo está concentrado num vídeo por definição). Ver `backend/app/topicos/marcas.py`.
+
+**Refazer os tópicos de uma execução antiga** (depois de uma melhoria no método) é `python -m app.workers.recalcular_topicos --id-execucao N --confirmar`: apaga os temas daquela execução e remodela os MESMOS comentários, sem recoletar e sem gastar cota. É comando e não rota de propósito — trocar os temas debaixo de um painel já lido é manutenção deliberada.
 
 **O classificador é uma interface** (`backend/app/inferencia/base.py`), e o worker de inferência é transporte: ele aplica `preparar_texto`, pede um rótulo e grava. A primeira implementação é o **léxico** (SentiLex, o piso do Capítulo 5), porque um piso que classifica é melhor que um painel vazio; o BERTimbau entra como segunda implementação, sem o worker mudar. Toda análise aponta para a linha de `VERSOES_MODELO` da versão que a produziu — é o que dá sentido ao histórico depois da troca.
 
