@@ -198,7 +198,13 @@ async def test_coleta_persiste_videos_e_comentarios(sessao):
     assert {c.id_video for c in comentarios} == {videos[0].id_video}
 
 
-async def test_ao_terminar_marca_job_e_execucao_como_concluida(sessao):
+async def test_ao_terminar_publica_inferencia_e_mantem_execucao_processando(sessao):
+    """A coleta NAO encerra a execucao: ela passa o bastao para a inferencia.
+
+    Comentario coletado sem classificacao nao e resultado nenhum para a PME -- se a
+    execucao virasse 'concluida' aqui, o painel anunciaria pronto um resultado que
+    ainda nao existe.
+    """
     job = await montar_job(sessao)
     cliente = ClienteFalso(videos=[video()], comentarios={VIDEO_A: [comentario("c1")]})
 
@@ -206,9 +212,55 @@ async def test_ao_terminar_marca_job_e_execucao_como_concluida(sessao):
 
     await sessao.refresh(job)
     assert job.status == "concluida"
+
     execucao = await sessao.get(Execucao, job.id_execucao)
-    assert execucao.status == "concluida"
-    assert execucao.concluido_em is not None
+    assert execucao.status == "processando"
+    assert execucao.concluido_em is None
+
+    proximo = (await sessao.scalars(select(Job).where(Job.tipo == "inferencia"))).all()
+    assert len(proximo) == 1
+    assert proximo[0].id_execucao == job.id_execucao
+    assert proximo[0].status == "pendente"
+
+
+async def test_job_de_inferencia_nasce_na_mesma_transacao_da_conclusao(sessao):
+    """Atomicidade: nunca existe o instante 'coleta concluida, nada na fila'.
+
+    Se as duas escritas fossem transacoes separadas e o worker morresse entre elas, a
+    execucao ficaria 'processando' para sempre, sem job para ninguem buscar.
+    """
+    job = await montar_job(sessao)
+    cliente = ClienteFalso(videos=[video()], comentarios={VIDEO_A: [comentario("c1")]})
+    commits: list[tuple[str, str | None]] = []
+
+    commit_original = sessao.commit
+
+    async def espiar_commit():
+        await commit_original()
+        coletado = await sessao.get(Job, job.id_job)
+        seguinte = await sessao.scalar(select(Job).where(Job.tipo == "inferencia"))
+        commits.append((coletado.status if coletado else None, seguinte.tipo if seguinte else None))
+
+    sessao.commit = espiar_commit
+    try:
+        await coleta.executar_proximo(sessao, cliente)
+    finally:
+        sessao.commit = commit_original
+
+    # Em nenhum commit o job de coleta aparece concluido sem a etapa seguinte no banco.
+    assert ("concluida", None) not in commits
+    assert ("concluida", "inferencia") in commits
+
+
+async def test_falha_na_coleta_nao_publica_inferencia(sessao):
+    """Sem comentario nenhum nao ha o que classificar: a cadeia para na falha."""
+    job = await montar_job(sessao, filtros={"videos": []})
+
+    await coleta.executar_proximo(sessao, ClienteFalso())
+
+    assert await sessao.scalar(select(Job).where(Job.tipo == "inferencia")) is None
+    execucao = await sessao.get(Execucao, job.id_execucao)
+    assert execucao.status == "erro"
 
 
 async def test_executar_proximo_sem_job_devolve_false(sessao):
@@ -336,6 +388,8 @@ async def test_video_com_comentarios_desabilitados_fica_com_zero(sessao):
     # a execução inteira não pode falhar por causa de um vídeo sem comentários
     await sessao.refresh(job)
     assert job.status == "concluida"
+    execucao = await sessao.get(Execucao, job.id_execucao)
+    assert execucao.status == "processando"  # segue para a inferência
 
 
 # --------------------------------------------------------------------------- resiliência

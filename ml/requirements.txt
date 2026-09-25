@@ -22,6 +22,13 @@ openpyxl==3.1.5
 #   ml/.venv/Scripts/python.exe -m pip install -e ./preprocessamento
 -e ./preprocessamento
 
+# Classificador lexico, tambem compartilhado. Nasceu aqui (ml/lexico/sentilex.py) e
+# mudou de casa quando o worker de inferencia passou a precisar dele: o backend nao
+# pode importar de ml/ (CLAUDE.md Secao 3) e a regra tem que ser uma so, senao o
+# piso do Capitulo 5 e a classificacao de producao divergem em silencio.
+# O ml/lexico/ continua com o que e experimento (classificar_teste.py, metadados).
+-e ./lexico
+
 # Figuras do Capitulo 5 (ml/avaliacao/graficos.py). Entra no ml/ e so nele: o
 # backend de producao nao desenha grafico -- o dashboard e do Angular.
 matplotlib==3.9.4

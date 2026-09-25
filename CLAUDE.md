@@ -40,13 +40,19 @@ backend/           FastAPI: API REST, autenticação, workers
 frontend/          Angular SSR
 ml/                pipeline de IA (exportação, rotulagem, treino, avaliação)
 preprocessamento/  pacote compartilhado: preparar_texto (layout src/, stdlib pura)
+lexico/            pacote compartilhado: SentiLex + soma de polaridade (idem)
 ```
 
 O documento acadêmico (TC2) e os diagramas ficam fora do repositório.
 
 O `ml/` produz o modelo; o `backend/` o consome. **Não misture:** nada de `ml/` importa de `backend/` e vice-versa — a comunicação é por artefato (arquivo de modelo + `model_card.json`).
 
-**Exceção por desenho, não por quebra de regra:** o que os dois lados precisam executar de forma idêntica mora em `preprocessamento/`, um terceiro pacote que ambos importam. Hoje é só `preparar_texto`. Se treino e inferência pré-processassem diferente, o modelo receberia em produção um texto que nunca viu no treino.
+**Exceção por desenho, não por quebra de regra:** o que os dois lados precisam executar **de forma idêntica** mora num pacote próprio na raiz, que ambos importam (layout `src/`, stdlib pura, instalado com `pip install -e` nos dois ambientes). São dois:
+
+- **`preprocessamento/`** — `preparar_texto`. Se treino e inferência pré-processassem diferente, o modelo receberia em produção um texto que nunca viu no treino.
+- **`lexico/`** — a soma de polaridade sobre o SentiLex. Ela é ao mesmo tempo a linha de base do Capítulo 5 (rodada pelo `ml/`) e a primeira implementação do worker de inferência, enquanto o BERTimbau oficial não existe. Duas cópias divergiriam, e o piso publicado deixaria de descrever o que a PME vê no painel. Nasceu em `ml/lexico/sentilex.py` e mudou de casa quando o worker passou a precisar dela; em `ml/lexico/` ficou o que é experimento.
+
+O critério para criar um terceiro: código que as duas metades têm de executar igual, e cuja divergência seria silenciosa. Não é atalho para compartilhar utilitário.
 
 **Quem vê qual texto:** o pré-processamento existe por limitação do tokenizer do BERTimbau (não tem nenhum emoji no vocabulário). Por isso ele se aplica **só na entrada do BERTimbau** — no treino e no worker de inferência. Avaliadores humanos e a Gemini leem o texto **original**. O banco guarda o original; o texto pré-processado é derivado, nunca canônico.
 
@@ -101,6 +107,10 @@ Angular → API Gateway (JWT) → FastAPI
 
 O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa na requisição. Workers consomem a fila por polling com `SELECT ... FOR UPDATE SKIP LOCKED`.
 
+**Uma execução é uma CADEIA de jobs, não um job.** Cada etapa, ao concluir, publica a seguinte **na mesma transação** em que se marca concluída; só a última marca a EXECUCAO como `concluida`. Enquanto houver etapa pendente, a execução fica em `processando` — coletar comentário sem classificar não é resultado nenhum para a PME. A ordem vive num lugar só (`backend/app/workers/pipeline.py`); hoje é `coleta → inferencia`, e o worker de tópicos entra entre os dois. Mesma transação porque uma etapa que se marcasse concluída antes de publicar a próxima poderia morrer no meio: a execução ficaria `processando` para sempre, sem job na fila para ninguém buscar.
+
+**O classificador é uma interface** (`backend/app/inferencia/base.py`), e o worker de inferência é transporte: ele aplica `preparar_texto`, pede um rótulo e grava. A primeira implementação é o **léxico** (SentiLex, o piso do Capítulo 5), porque um piso que classifica é melhor que um painel vazio; o BERTimbau entra como segunda implementação, sem o worker mudar. Toda análise aponta para a linha de `VERSOES_MODELO` da versão que a produziu — é o que dá sentido ao histórico depois da troca.
+
 **Pipeline de treino (offline, fora da aplicação):** comentários → rotulagem fraca via Gemini → validação humana estratificada → fine-tuning BERTimbau no Colab → publica versão → worker de inferência carrega.
 
 ---
@@ -139,7 +149,7 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 **Em andamento agora, em paralelo:**
 
 - **Sprint 1 (dupla ML):** curadoria manual de 15–20 vídeos publicitários (em andamento, não bloqueia código) → script de coleta → rotulagem fraca → mini-amostra → Kappa → fine-tuning piloto → **gate de decisão**.
-- **Sprint 3 (dupla Infra):** schema das 10 tabelas → auth JWT → CRUD de modelo de análise → tabela `jobs` + `POST /execucoes` → worker de coleta.
+- **Sprint 3 (dupla Infra):** schema das 10 tabelas → auth JWT → CRUD de modelo de análise → tabela `jobs` + `POST /execucoes` → worker de coleta → **worker de inferência** (interface do classificador + implementação léxica; o BERTimbau troca a implementação). Falta o worker de tópicos e os endpoints de resultado.
 
 Backlog completo no Trello (board "Emi YouTube Analytics", uma lista por sprint).
 

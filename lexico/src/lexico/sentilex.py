@@ -1,16 +1,26 @@
 """Classificador léxico: SentiLex-PT02 + soma de polaridade. O piso do Capítulo 5.
 
 Funções **puras**: recebem texto, devolvem rótulo. Nada de banco, nada de planilha,
-nada de `ml.config` — o que lê o banco e grava o CSV mora em `classificar_teste.py`.
-A separação não é só estética: é o que permite que este módulo seja importado pelo
-worker de inferência como *fallback* sem arrastar o `ml/` inteiro para dentro do
-`backend/` (ver "Promoção para o pacote compartilhado" no README desta pasta).
+nada de `ml.config` — o que lê o banco e grava o CSV mora em
+`ml/lexico/classificar_teste.py`, e o que grava ANALISES_SENTIMENTO mora em
+`backend/app/inferencia/lexico.py`. A separação não é só estética: é o que permite
+que este módulo more num pacote compartilhado e seja importado pelos dois lados sem
+arrastar o `ml/` inteiro para dentro do `backend/` (CLAUDE.md Seção 3).
 
 **O que este classificador é.** O TC2 (Seção 3.8) cita o SentiLex-PT como a
-abordagem léxica clássica para o português. Aqui ele existe como **linha de base**:
-o número que o BERTimbau precisa superar para justificar o custo de treinar um
-modelo. Não é um concorrente ajustado — é o piso. Por isso a regra é a mais simples
-que existe: soma as polaridades das palavras conhecidas e olha o sinal.
+abordagem léxica clássica para o português. Ele tem dois papéis, e a regra é a mesma
+nos dois:
+
+- no `ml/`, é a **linha de base** do Capítulo 5: o número que o BERTimbau precisa
+  superar para justificar o custo de treinar um modelo. Não é um concorrente
+  ajustado — é o piso;
+- no `backend/`, é a **primeira implementação** do worker de inferência, enquanto o
+  BERTimbau oficial não existe. Um piso que classifica é melhor que um painel vazio,
+  e a troca depois é só de implementação da interface `Classificador`.
+
+Por isso a regra é a mais simples que existe: soma as polaridades das palavras
+conhecidas e olha o sinal. Que ela seja o piso do capítulo é o que proíbe melhorá-la
+para melhorar a produção — os dois números têm que continuar sendo o mesmo número.
 
 Sem negação, sem intensificador, sem janela de escopo, sem desambiguação por PoS.
 Cada uma dessas heurísticas melhoraria o número e tornaria a comparação menos
@@ -37,8 +47,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Rótulos do projeto (CLAUDE.md Seção 4). Repetidos aqui em vez de importados de
-# `ml.config` de propósito: este módulo não pode depender do `ml/` para poder virar
-# fallback do worker. O teste trava os dois valores em sincronia.
+# `ml.config` de propósito: este módulo é compartilhado, e depender do `ml/` o
+# tornaria inimportável pelo backend. `ml/tests/test_lexico.py` trava esta cópia
+# contra o CLASSES do `ml/`, e `backend/tests/test_worker_inferencia.py` contra o
+# CHECK de ANALISES_SENTIMENTO.
 POSITIVO, NEGATIVO, NEUTRO = "positivo", "negativo", "neutro"
 
 # Polaridades que o SentiLex declara. Qualquer outro valor é erro de digitação do
