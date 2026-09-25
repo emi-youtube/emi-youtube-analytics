@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/emi-frontend/browser",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/v1/:caminho*",
+      "destination": "https://SUBSTITUA-PELO-APP-SERVICE.azurewebsites.net/api/v1/:caminho*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/api/ssr"
+    }
+  ],
+  "functions": {
+    "api/ssr.mjs": {
+      "includeFiles": "dist/emi-frontend/server/**"
+    }
+  }
+}

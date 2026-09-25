@@ -179,8 +179,25 @@ baixa e selo de revisão.
 
 ## Antes de publicar
 
-`angular.json` → `build.options.security.allowedHosts` hoje tem só
-`localhost` e `127.0.0.1`. É a proteção contra SSRF do Angular 21: o SSR
-recusa requisições cujo header `Host` não esteja na lista e cai para
-renderização no cliente. **O domínio de produção precisa entrar nessa lista**,
-senão o SSR não funciona no ar.
+`angular.json` → `build.options.security.allowedHosts` é a proteção contra SSRF
+do Angular 21. **O domínio de produção precisa entrar nessa lista.**
+
+Três coisas foram MEDIDAS contra o bundle de produção, porque o comportamento
+real é mais severo do que parecia:
+
+1. **Host fora da lista recebe `HTTP 400`, não renderização no cliente.** A
+   resposta é `Header "host" with value "..." is not allowed.` e o corpo não tem
+   HTML nenhum. Domínio errado na lista não degrada a página — derruba o site.
+2. **A entrada precisa estar em minúsculas.** O Angular compara contra o host já
+   normalizado, então `MinhaApp.vercel.app` na lista nunca casa; o header da
+   requisição, esse sim, pode vir em qualquer caixa.
+3. **Não há curinga.** `.vercel.app` na lista NÃO libera
+   `emi-git-branch-x.vercel.app` — medido, dá 400. Consequência prática: as
+   URLs de *preview* da Vercel, que mudam a cada deploy, não funcionam com SSR.
+   Ou se aceita que só produção renderiza no servidor, ou se usa `"*"` — que o
+   próprio Angular só considera aceitável quando outra camada valida o `Host`
+   (a Vercel valida, mas é decisão de segurança da equipe).
+
+Cuidado ao testar local: o cache do Angular (`.angular/cache`) pode reaproveitar
+o manifesto antigo e servir a lista velha. Ao mexer nisto, apague o cache antes
+de acreditar no resultado.

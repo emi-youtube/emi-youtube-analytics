@@ -32,7 +32,8 @@
             "security": {
               "allowedHosts": [
                 "localhost",
-                "127.0.0.1"
+                "127.0.0.1",
+                "substitua-pelo-dominio.vercel.app"
               ]
             },
             "ssr": {
