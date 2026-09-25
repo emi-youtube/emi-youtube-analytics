@@ -1,0 +1,36 @@
+# Pacote COMUM ao ml/ e ao backend/, pelo mesmo motivo do preprocessamento/.
+#
+# Ele NASCEU dentro do ml/ (ml/lexico/sentilex.py), como linha de base do Capitulo 5,
+# e mudou de casa quando o worker de inferencia passou a precisar dele: o CLAUDE.md
+# Secao 3 proibe backend/ importar de ml/, e a regra de classificacao tem que ser
+# LITERALMENTE a mesma nos dois lados -- o numero que a banca ve no Capitulo 5 e o
+# rotulo que a PME ve no painel saem da mesma soma de polaridade. Duas copias
+# divergiriam, e a comparacao do capitulo deixaria de descrever a producao.
+#
+# O ml/lexico/ continua existindo com o que e experimento: classificar_teste.py
+# (le o banco, escreve CSV), o metadados_lexico.json e o README com a proveniencia.
+#
+# O ARQUIVO do SentiLex nao vem aqui: e dado de terceiro, 6,9 MB, fora do git.
+# O caminho dele e configuracao (SENTILEX_PATH) e o sha256 esperado esta no codigo
+# do classificador -- divergiu, o worker se recusa a iniciar.
+#
+# Instalacao (nos dois ambientes):
+#   backend/.venv/Scripts/python.exe -m pip install -e ./lexico
+#   ml/.venv/Scripts/python.exe      -m pip install -e ./lexico
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lexico"
+version = "1.0.0"
+description = "Classificador lexico (SentiLex-PT02) compartilhado entre o experimento (ml/) e a inferencia (backend/)"
+requires-python = ">=3.11"
+# Sem dependencias de proposito: so a stdlib. Este pacote entra no ambiente de
+# producao do backend, que nao pode carregar peso de biblioteca de ML.
+dependencies = []
+
+# Layout src/: sem ele, rodar da raiz do repositorio faz o DIRETORIO lexico/ virar
+# um namespace package vazio e sombrear o pacote instalado.
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -19,3 +19,12 @@ httpx==0.28.1
 # copia de cada lado (CLAUDE.md Secao 3 proibe ml/ e backend/ se importarem).
 # Sem dependencias proprias: e stdlib pura, nao pesa no ambiente de producao.
 -e ./preprocessamento
+
+# Classificador lexico COMPARTILHADO com o ml/ (pacote proprio na raiz do repo).
+# E a primeira implementacao do worker de inferencia, enquanto o BERTimbau oficial
+# nao existe -- e a MESMA regra que o ml/ usa como piso do Capitulo 5. Duas copias
+# divergiriam e o numero do capitulo deixaria de descrever a producao.
+# O ARQUIVO do SentiLex nao vem no pacote (dado de terceiro, 6,9 MB, fora do git):
+# o caminho e SENTILEX_PATH e o sha256 esperado esta no codigo do classificador.
+# Tambem stdlib pura.
+-e ./lexico

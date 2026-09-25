@@ -6,6 +6,11 @@ coleta nunca acontece dentro de uma requisição HTTP — o endpoint só enfilei
 Reprodutibilidade: os parâmetros saem de `jobs.payload`, congelados no disparo.
 O worker NUNCA relê MODELOS_ANALISE; se o usuário editar o modelo no meio da
 coleta, a execução continua sendo a que foi pedida.
+
+A coleta NÃO encerra a execução: ao concluir, ela publica o job da etapa seguinte na
+mesma transação e a execução segue em `processando` (`workers/pipeline.py`). Coletar
+comentário sem classificar não é resultado nenhum para a PME — a execução só está
+pronta quando a análise está.
 """
 
 import asyncio

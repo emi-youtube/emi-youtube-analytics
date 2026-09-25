@@ -7,6 +7,13 @@ Ele não é um concorrente do BERTimbau: é o **piso**. O número que o modelo t
 precisa superar para que o custo de treinar um modelo se justifique no capítulo de
 resultados. Um piso que tivesse sido ajustado deixaria de responder a essa pergunta.
 
+> **A regra não mora mais aqui.** Ela está no pacote compartilhado `lexico/`
+> (`lexico/src/lexico/sentilex.py`), instalado nos dois ambientes como o
+> `preprocessamento/`, porque o worker de inferência do backend passou a usá-la — ver
+> "Promoção para o pacote compartilhado" no fim deste arquivo. Nesta pasta ficou o que
+> é **experimento**: `classificar_teste.py`, o `metadados_lexico.json` e esta
+> documentação.
+
 ```bash
 # 1. baixe o recurso (ver "Proveniência" abaixo) para ml/lexico/dados/
 # 2. classifique a amostra humana e guarde as previsoes
@@ -162,38 +169,69 @@ Arquivo usado na medição registrada acima:
 
 ---
 
-## Nada é gravado no banco
+## Este experimento não grava no banco
 
 `classificar_teste.py` **só lê** do Postgres. As previsões saem em CSV, e não em
-`ANALISES_SENTIMENTO`, por três motivos:
+`ANALISES_SENTIMENTO`, por dois motivos:
 
-1. aquela tabela tem `UNIQUE(id_comentario)` — a linha de base ocuparia o lugar que a
-   inferência de produção vai precisar para os mesmos comentários;
-2. ela é a superfície que o dashboard lê: o painel da PME passaria a mostrar
-   resultado de léxico;
-3. gravar ali exigiria uma linha em `VERSOES_MODELO`, que é escrita no banco além das
-   previsões.
+1. aquela tabela tem `UNIQUE(id_comentario)` — e o lugar é da **inferência de
+   produção**, que hoje é o worker (`backend/app/workers/inferencia.py`). Duas
+   escritas disputando a mesma linha por comentário quebrariam uma das duas;
+2. ela é a superfície que o dashboard lê. O painel da PME mostra o que o worker
+   gravou, com a linha de `VERSOES_MODELO` correspondente; previsão de experimento ali
+   seria indistinguível de resultado de execução.
 
-A comparação do Capítulo 5 é **artefato de experimento**, não análise de produção.
+A comparação do Capítulo 5 é **artefato de experimento**, não análise de produção — e é
+por isso que ela sai em arquivo, ainda que a regra seja a mesma que roda em produção.
+
+**O que mudou com o worker:** a mesma soma de polaridade agora também grava em
+`ANALISES_SENTIMENTO`, pelo caminho de produção, com uma linha própria em
+`VERSOES_MODELO` (`lexico-sentilex`, versão do pacote `lexico`) e o `sha256` do recurso
+na proveniência. São dois consumidores da mesma função pura, não duas cópias da regra.
 
 ---
 
-## Promoção para o pacote compartilhado (fallback do worker)
+## Promoção para o pacote compartilhado (feita)
 
-`sentilex.py` é **puro**: stdlib, sem banco, sem CLI, sem `ml.config` — inclusive os
-três rótulos estão repetidos lá dentro em vez de importados, com um teste travando a
-cópia contra o CHECK do banco. É o que torna o módulo utilizável pelo worker de
-inferência como fallback (quando o BERTimbau não carregar, classificar por léxico é
-melhor que devolver erro).
+`sentilex.py` era **puro** de propósito: stdlib, sem banco, sem CLI, sem `ml.config` —
+inclusive os três rótulos repetidos lá dentro em vez de importados, com um teste
+travando a cópia contra o CHECK do banco. Era o que tornava o módulo utilizável pelo
+worker de inferência sem arrastar o `ml/` para dentro do `backend/`.
 
-**O import direto, porém, não pode acontecer:** `backend/` não importa de `ml/` e
-vice-versa (CLAUDE.md Seção 3). O caminho é o mesmo que já foi usado com o
-pré-processamento: quando o worker precisar do fallback, `sentilex.py` **muda de casa**
-para um pacote compartilhado, instalado nos dois ambientes como o `preprocessamento/`
-já é. O módulo está escrito para essa mudança custar um `git mv` e um `pip install -e`.
+**Aconteceu.** O worker de inferência precisou de um classificador antes de o BERTimbau
+existir, e o import direto não podia acontecer (`backend/` não importa de `ml/`, e
+vice-versa — CLAUDE.md Seção 3). O caminho foi o mesmo do pré-processamento, e custou o
+`git mv` e o `pip install -e` previstos:
 
-Quando isso acontecer, duas coisas viajam junto: o arquivo do léxico vira dependência
-de runtime do backend (não é mais só dado de experimento) e o `sha256` dele passa a
-merecer o mesmo tratamento que a `versao_preprocessamento` tem hoje no
-`model_card.json` — se o léxico do fallback mudar sem ninguém notar, a classificação
-de produção muda em silêncio.
+| antes | agora |
+|---|---|
+| `ml/lexico/sentilex.py` | `lexico/src/lexico/sentilex.py` (pacote `lexico`) |
+| importado como `ml.lexico.sentilex` | importado como `lexico`, dos dois lados |
+| só experimento | experimento **e** produção, a mesma função |
+
+```bash
+backend/.venv/Scripts/python.exe -m pip install -e ./lexico
+ml/.venv/Scripts/python.exe      -m pip install -e ./lexico
+```
+
+Não é mais *fallback* do BERTimbau, como este README imaginava: é a **primeira
+implementação** da interface `Classificador` (`backend/app/inferencia/base.py`). O
+BERTimbau entra como uma segunda implementação, e o léxico continua sendo o piso.
+
+**As duas coisas que viajaram junto**, como previsto:
+
+1. **o arquivo do léxico virou dependência de runtime do backend.** Não é mais só dado
+   de experimento. O caminho é configuração (`SENTILEX_PATH`, com padrão apontando para
+   `ml/lexico/dados/` para quem já rodou o experimento), e ele continua fora do git;
+2. **o `sha256` ganhou o tratamento da `versao_preprocessamento`.** O hash esperado é
+   constante no classificador de produção (`backend/app/inferencia/lexico.py`),
+   conferido na **inicialização do worker**: arquivo ausente, ilegível ou diferente do
+   medido aqui e o worker se recusa a subir, dizendo o caminho que tentou. Sem isso, um
+   espelho diferente ou um download truncado mudaria a classificação de produção em
+   silêncio — e os números deste README passariam a descrever um recurso que não é mais
+   o que está rodando.
+
+O portão da `versao_preprocessamento` também vale para o léxico, e pelo mesmo motivo: o
+piso publicado foi medido sobre uma versão específica de `preparar_texto`, conversão de
+emoji incluída. Com outra versão, o piso do capítulo deixa de ser o piso que está em
+produção.

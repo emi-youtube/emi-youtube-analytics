@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cors_origins: str = "http://localhost:4200"
 
+    # Arquivo do SentiLex-PT02 que o classificador léxico carrega (worker de
+    # inferência). Fora do git — dado de terceiro, 6,9 MB — então é configuração, não
+    # constante. Vazio cai no padrão (ver `caminho_sentilex`), e não em `Path("")`:
+    # quem copia o env.example e deixa a linha em branco tem que obter o padrão, não
+    # um erro apontando para o diretório atual.
+    sentilex_path: str = ""
+
     worker_poll_interval_seconds: int = 5
     # Tentativas de RETENTATIVA por job em erro transitório: as esperas são
     # 2, 4, 8 e 16s (+ jitter), então 4 corresponde a ~30s de insistência.
@@ -42,6 +49,20 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def caminho_sentilex(self) -> Path:
+        """Onde procurar o arquivo do SentiLex, com o padrão do repositório.
+
+        O padrão aponta para onde o experimento do `ml/` já baixa o recurso, para que
+        quem rodou a linha de base do Capítulo 5 não precise de uma segunda cópia. Num
+        deploy em que a pasta `ml/` não existe, `SENTILEX_PATH` é obrigatório — e a
+        ausência aparece como falha de inicialização do worker, com o caminho que ele
+        tentou (app/inferencia/lexico.py).
+        """
+        if self.sentilex_path.strip():
+            return Path(self.sentilex_path.strip())
+        return REPO_ROOT / "ml" / "lexico" / "dados" / "SentiLex-flex-PT02.txt"
 
 
 @lru_cache

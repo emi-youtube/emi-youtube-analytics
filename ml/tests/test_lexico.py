@@ -12,8 +12,7 @@ idiomática e o lema repetido em duas classes gramaticais.
 
 import pytest
 
-from ml.config import CLASSES
-from ml.lexico.sentilex import (
+from lexico import (
     NEGATIVO,
     NEUTRO,
     POSITIVO,
@@ -24,6 +23,7 @@ from ml.lexico.sentilex import (
     normalizar_chave,
     tokenizar,
 )
+from ml.config import CLASSES
 
 # Linhas REAIS do SentiLex-flex-PT02, escolhidas uma a uma pelo que cada uma exercita.
 FLEX = """\
@@ -195,10 +195,10 @@ def test_classificar_muitos_preserva_a_ordem(lexico):
 
 
 def test_rotulos_batem_com_os_do_projeto():
-    """`sentilex` não importa `ml.config` (precisa virar fallback do worker).
+    """`sentilex` não importa `ml.config`: é pacote compartilhado com o backend.
 
     O preço de repetir os três rótulos é este teste, que impede a cópia de divergir
-    do CHECK do banco.
+    do CHECK do banco. O lado do backend tem o teste espelhado.
     """
     assert set(CLASSES) == {POSITIVO, NEGATIVO, NEUTRO}
 

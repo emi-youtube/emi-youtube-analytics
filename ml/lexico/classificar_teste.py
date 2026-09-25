@@ -39,8 +39,12 @@ import asyncpg
 from preprocessamento import VERSAO as VERSAO_PREPROCESSAMENTO
 from preprocessamento import preparar_texto
 
+# A regra saiu de ml/lexico/ para o pacote compartilhado quando o worker de
+# inferencia passou a precisar dela: e a MESMA soma de polaridade que produz o piso
+# deste experimento e o rotulo que a PME ve no painel (CLAUDE.md Secao 3).
+from lexico import VERSAO as VERSAO_LEXICO
+from lexico import Lexico, Previsao, carregar, classificar
 from ml.config import CLASSES, DIRETORIO_DADOS, DIRETORIO_ML, dsn_postgres
-from ml.lexico.sentilex import Lexico, Previsao, carregar, classificar
 
 logger = logging.getLogger("lexico")
 
@@ -135,6 +139,11 @@ def gravar_metadados(
         "data_utc": datetime.now(UTC).isoformat(),
         "id_execucao": id_execucao,
         "metodo": "lexico (SentiLex-PT02, soma de polaridade)",
+        # Versao do NOSSO classificador (a regra e o parser do recurso), nao do
+        # SentiLex. E o mesmo numero que vai para VERSOES_MODELO.versao quando o
+        # worker de inferencia grava com esta implementacao: o piso do capitulo e a
+        # producao ficam rastreaveis a mesma versao de codigo.
+        "versao_classificador": VERSAO_LEXICO,
         "recurso": {
             "nome": "SentiLex-PT02",
             "arquivo": lexico.arquivo,

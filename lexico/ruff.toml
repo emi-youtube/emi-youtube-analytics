@@ -1,0 +1,7 @@
+# Mesmas regras do resto do repositorio. Config proprio porque este pacote e
+# independente dos outros dois e precisa lintar sozinho.
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

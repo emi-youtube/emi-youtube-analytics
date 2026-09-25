@@ -3,6 +3,10 @@
 `SELECT ... FOR UPDATE SKIP LOCKED` é o que permite rodar mais de um worker sem
 serviço de fila: quem chega primeiro tranca a linha, os outros pulam para a
 próxima em vez de esperar.
+
+Este módulo é agnóstico de etapa: ele reivindica, conta tentativa, conclui e arquiva
+na DLQ, sem saber o que cada tipo de job faz. Quem sabe a ORDEM das etapas é
+`workers/pipeline.py`, e `concluir` consulta esse mapa para publicar a seguinte.
 """
 
 import logging
@@ -14,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.execucao import Execucao
 from app.models.job import Job
 from app.models.job_dlq import JobDlq
+from app.workers import pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +52,11 @@ async def reivindicar(db: AsyncSession, tipo: str) -> Job | None:
     execucao = await db.get(Execucao, job.id_execucao)
     if execucao is not None:
         execucao.status = STATUS_PROCESSANDO
-        execucao.iniciado_em = datetime.now(UTC)
+        if execucao.iniciado_em is None:
+            # Só na PRIMEIRA etapa. Uma execução passa por vários jobs (coleta ->
+            # inferência), e sobrescrever aqui faria o início da execução voltar no
+            # tempo a cada etapa: a duração que o painel mostra mediria só a última.
+            execucao.iniciado_em = datetime.now(UTC)
 
     await db.commit()
     await db.refresh(job)
@@ -69,16 +78,64 @@ async def registrar_tentativa(db: AsyncSession, job: Job) -> int:
     return job.tentativas
 
 
-async def concluir(db: AsyncSession, job: Job) -> None:
+async def concluir(db: AsyncSession, job: Job) -> Job | None:
+    """Encerra a etapa e passa a execução adiante. Devolve o job publicado, se houver.
+
+    Uma única transação faz as três coisas: marca este job concluído, publica o job da
+    etapa seguinte e decide o status da execução. Atomicidade é o ponto — job concluído
+    sem o próximo publicado deixaria a execução em `processando` sem nada na fila, e
+    ninguém viria buscá-la (ver `workers/pipeline.py`).
+
+    A execução só vira `concluida` quando a cadeia termina. Enquanto houver etapa
+    pendente ela continua `processando`, porque é o que ela é: a coleta acabou, a
+    análise não.
+    """
     job.status = STATUS_CONCLUIDA
 
-    execucao = await db.get(Execucao, job.id_execucao)
-    if execucao is not None:
-        execucao.status = STATUS_CONCLUIDA
-        execucao.concluido_em = datetime.now(UTC)
+    tipo_seguinte = pipeline.proxima_etapa(job.tipo)
+    proximo: Job | None = None
+    if tipo_seguinte is not None:
+        proximo = Job(
+            tipo=tipo_seguinte,
+            id_execucao=job.id_execucao,
+            status=STATUS_PENDENTE,
+            # Sem payload: a etapa seguinte encontra tudo de que precisa pelo
+            # `id_execucao` (os comentários já estão no banco). O payload congelado do
+            # disparo existe para a coleta, que fala com uma API externa e não pode
+            # reler MODELOS_ANALISE no meio do caminho.
+        )
+        db.add(proximo)
+
+    if tipo_seguinte is None:
+        # Fim da cadeia: agora sim a execução está pronta. Com etapa pendente ela
+        # continua `processando` e não há nada a atualizar nela.
+        execucao = await db.get(Execucao, job.id_execucao)
+        if execucao is not None:
+            execucao.status = STATUS_CONCLUIDA
+            execucao.concluido_em = datetime.now(UTC)
 
     await db.commit()
-    logger.info("job concluido id_job=%s id_execucao=%s", job.id_job, job.id_execucao)
+
+    if proximo is None:
+        logger.info(
+            "job concluido, execucao encerrada id_job=%s tipo=%s id_execucao=%s",
+            job.id_job,
+            job.tipo,
+            job.id_execucao,
+        )
+        return None
+
+    await db.refresh(proximo)
+    logger.info(
+        "job concluido, etapa seguinte publicada id_job=%s tipo=%s id_execucao=%s "
+        "proximo_job=%s proximo_tipo=%s",
+        job.id_job,
+        job.tipo,
+        job.id_execucao,
+        proximo.id_job,
+        proximo.tipo,
+    )
+    return proximo
 
 
 async def enviar_para_dlq(db: AsyncSession, job: Job, erro: str) -> None:
