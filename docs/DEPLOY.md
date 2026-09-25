@@ -13,10 +13,10 @@ foram considerados:
 
 | Arranjo | Veredito |
 |---|---|
-| **Dois App Services** (um API, um runner) | Dobra o custo para rodar dois processos que somados não passam de ~700 MB. Pior: App Service espera responder HTTP, e um serviço que só consome fila falharia o *health check* e seria reciclado em laço. |
+| **Dois App Services** (um API, um runner) | **O problema não é custo.** Dois apps no MESMO App Service Plan dividem a instância sem cobrança extra — o que se paga é o plano, não o app. O que inviabiliza é outra coisa: um App Service sem rota HTTP não tem como responder ao *health check* da plataforma, e o Azure recicla o contêiner por considerá-lo insalubre. Um consumidor de fila puro seria reiniciado em laço. (E os dois dividindo uma B1 disputariam a mesma memória de qualquer forma.) |
 | **App Service + WebJob contínuo** | **Inviável.** WebJobs só existem no App Service **Windows**; este backend é Python/Linux. |
-| **App Service + Container Instance** | Mais um serviço para pagar e operar, contra o CLAUDE.md Seção 10 (a fila é uma tabela justamente para não pagar infraestrutura). |
-| **Um App Service, dois processos** ✅ | Escolhido. Cabe com folga, custa uma instância, e a fila já é uma tabela — não há serviço intermediário para coordenar. |
+| **App Service + Container Instance** | Aí sim há custo novo, fora do plano, e mais um serviço para operar — contra o CLAUDE.md Seção 10 (a fila é uma tabela justamente para não pagar infraestrutura). |
+| **Um App Service, dois processos** ✅ | Escolhido. O runner fica ao lado de um processo que responde HTTP, então a plataforma vê o contêiner saudável e não o recicla. Cabe com folga na B1 e não há serviço intermediário para coordenar. |
 
 **Como os dois convivem** (`backend/startup.sh`): a API fica em **primeiro
 plano**, porque é o processo que o Azure monitora por HTTP e é dele que o ciclo
@@ -31,6 +31,29 @@ e enquanto ele volta o *reaper* devolve à fila o job que ele estava processando
 **"Always On" é obrigatório.** Sem ele o App Service descarrega o contêiner
 ocioso e o runner simplesmente para de existir até a próxima requisição HTTP.
 Está disponível a partir do plano Basic, que é o caso da B1.
+
+### O pacote: por que `backend/` sozinho não sobe
+
+`backend/requirements.txt` instala dois pacotes que moram **na raiz do
+repositório**: `preprocessamento/` e `lexico/` (CLAUDE.md Seção 3 — o que treino
+e inferência precisam executar igual mora num terceiro pacote). Com `backend/`
+como raiz da aplicação, esses caminhos não existem no servidor.
+
+E eles estão declarados com `-e` (editável), que é o certo para desenvolvimento
+e errado para deploy: editável grava no `site-packages` um **ponteiro para a
+pasta de origem**, que no servidor é o diretório temporário onde o Oryx monta o
+app antes de copiá-lo. O ponteiro fica apontando para o vazio e o import quebra
+em **produção**, não no build — o deploy "dá certo" e o app morre ao subir.
+
+`backend/scripts/montar_pacote.sh` monta um pacote autocontido: leva os dois
+compartilhados para dentro dele e tira o `-e` da cópia que vai para o servidor.
+O `requirements.txt` do repositório não muda — continua editável para quem
+desenvolve.
+
+O mesmo script roda no workflow e na conferência local, de propósito: se a prova
+montasse o pacote de outro jeito, não provaria nada sobre o que é publicado. O
+workflow ainda instala o pacote num ambiente limpo e falha se algum
+compartilhado tiver virado ponteiro em vez de cópia.
 
 ### O arquivo do SentiLex
 
@@ -78,17 +101,10 @@ mais severo do que a documentação interna do projeto dizia:
 3. **Não há curinga.** `.vercel.app` na lista **não** libera
    `emi-git-branch-x.vercel.app` — medido, dá 400.
 
-**Consequência a decidir:** as URLs de *preview* da Vercel mudam a cada deploy,
-então **preview não vai funcionar com SSR**. Duas saídas, e a escolha é da
-equipe:
-
-- **(a) aceitar** que só o domínio de produção renderiza no servidor — nenhuma
-  perda de segurança, previews ficam quebrados;
-- **(b) usar `"*"`** na lista. O próprio Angular considera isso aceitável
-  "quando a validação dos headers `Host` e `X-Forwarded-Host` é feita em outra
-  camada, como um load balancer ou proxy reverso". A Vercel é essa camada — ela
-  só roteia os próprios domínios para a função. Ainda assim é afrouxar uma
-  proteção, e por isso não foi feito sem decisão.
+**Decidido:** a lista tem **só o domínio de produção**. As URLs de *preview* da
+Vercel mudam a cada deploy e não serão usadas, então não há motivo para afrouxar
+a proteção com `"*"` — o que o próprio Angular só considera aceitável quando
+outra camada valida o `Host`. Preview responde 400; é o esperado.
 
 **Armadilha local:** o cache do Angular (`.angular/cache`) reaproveita o
 manifesto e serve a lista antiga. Ao mexer em `allowedHosts`, apague o cache
@@ -105,8 +121,15 @@ painéis.
 
 1. **Portal do Azure → Create a resource → Web App.**
 2. Preencha: **Publish** = `Code`; **Runtime stack** = `Python 3.11`;
-   **Operating System** = `Linux`; **Region** = a mesma do banco
-   (`Brazil South`, para ficar perto do Supabase em `sa-east-1`).
+   **Operating System** = `Linux`; **Region** = `Brazil South`, para ficar perto
+   do Supabase em `sa-east-1`.
+
+   > **Se a assinatura de estudante recusar a região** (acontece: a Azure for
+   > Students não libera todas as regiões, e algumas ficam sem capacidade para o
+   > plano Basic), use a permitida mais próxima — em ordem de preferência:
+   > `South Central US`, `East US 2`, `East US`. A consequência é só latência a
+   > mais entre a API e o banco; nada no código depende da região. O importante
+   > é NÃO mudar a região do Supabase, que é onde os dados estão.
 3. Em **Pricing plan**, escolha **B1**. Anote o **nome do app** — ele vira
    `<nome>.azurewebsites.net` e você vai precisar dele no passo D2.
 4. Criado o recurso, abra **Settings → Configuration → General settings** e
@@ -130,27 +153,58 @@ painéis.
    | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `true` |
 
    > `SCM_DO_BUILD_DURING_DEPLOYMENT` é o que faz o Azure instalar o
-   > `requirements.txt`. Sem ele o app sobe sem dependência nenhuma.
+   > `requirements.txt` do pacote. Sem ele o app sobe sem dependência nenhuma.
+   > A instalação acontece no SERVIDOR de propósito: é o que garante que as
+   > rodas binárias de `numpy`, `scipy` e `scikit-learn` sejam as da plataforma
+   > do App Service, e não as da máquina que montou o pacote.
    >
    > Nenhum destes valores entra no repositório nem na imagem. O `.env` está no
    > `.gitignore` e não é publicado.
 
-7. **Deployment Center → GitHub**, autorize, e selecione o repositório e a
-   branch `main`. Em **Build provider** use **GitHub Actions**. Confirme que o
-   *workflow* gerado aponta para a pasta `backend` como raiz do app — se não
-   apontar, me avise que eu ajusto o arquivo.
+7. **NÃO use o Deployment Center.** O workflow que ele gera publica a pasta
+   `backend/` como está, e ela sozinha não é instalável: o `requirements.txt`
+   dela instala `preprocessamento/` e `lexico/`, que ficam na raiz do
+   repositório. O deploy subiria sem os dois. O repositório já traz o workflow
+   certo em `.github/workflows/deploy-backend.yml`, que monta um pacote
+   autocontido. Os passos 8 a 10 o ligam ao seu App Service.
 
-8. Depois do primeiro deploy, abra **Log stream** e confirme três linhas:
-   `[sentilex] ok:`, a migration do Alembic e
-   `workers iniciados etapas=coleta,inferencia,topicos`.
+8. **Baixe o perfil de publicação.** No App Service, barra superior →
+   **Download publish profile** (se não estiver visível, está em **⋯ / More**).
+   Baixa um arquivo `.PublishSettings`. É um XML com credenciais — trate como
+   senha: não abra em chat, não commite.
 
-9. Teste a API: abra `https://<nome>.azurewebsites.net/api/v1/health` — tem de
-   responder `{"status":"ok","database":"connected"}`.
+   > Se o botão estiver desabilitado, vá em **Configuration → General settings**
+   > e ponha **SCM Basic Auth Publishing Credentials** = `On`. Contas novas do
+   > Azure vêm com isso desligado por padrão.
 
-### B. Azure — aplicar a migration do reaper
+9. **Cadastre o perfil como segredo do GitHub.** No repositório →
+   **Settings → Secrets and variables → Actions → New repository secret**:
 
-A migration `0009` roda sozinha no arranque (passo 2 do `startup.sh`). Se
-preferir rodar antes, é `alembic upgrade head` apontando para o mesmo banco.
+   | Campo | Valor |
+   |---|---|
+   | **Name** | `AZURE_WEBAPP_PUBLISH_PROFILE` |
+   | **Secret** | abra o `.PublishSettings` num editor de texto e cole o **conteúdo inteiro do XML** |
+
+   O nome tem de ser exatamente esse — é o que o workflow lê. O GitHub mascara
+   segredos no log, então ele não vaza nas execuções.
+
+10. **Ajuste o nome do app no workflow.** Em
+    `.github/workflows/deploy-backend.yml`, troque `NOME_DO_APP` pelo nome do
+    App Service do passo A3. Commit na `main` dispara o primeiro deploy; dá para
+    disparar à mão em **Actions → Deploy do backend → Run workflow**.
+
+11. Depois do primeiro deploy, abra **Log stream** e confirme três linhas:
+    `[sentilex] ok:`, a migration do Alembic e
+    `workers iniciados etapas=coleta,inferencia,topicos`.
+
+12. Teste a API: abra `https://<nome>.azurewebsites.net/api/v1/health` — tem de
+    responder `{"status":"ok","database":"connected"}`.
+
+### B. Azure — a migration do reaper
+
+Nada a fazer: a migration `0009` roda sozinha no arranque (passo 2 do
+`startup.sh`), antes de qualquer processo atender. Se preferir aplicá-la antes
+do primeiro deploy, é `alembic upgrade head` apontando para o mesmo banco.
 
 ### C. Vercel — importar o projeto
 

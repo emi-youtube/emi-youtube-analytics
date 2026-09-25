@@ -1,0 +1,105 @@
+# Deploy do backend para o Azure App Service.
+#
+# POR QUE ESTE WORKFLOW EXISTE, e não o que o Deployment Center gera sozinho:
+# o gerado publica uma pasta do repositório como está. Aqui a pasta `backend/`
+# sozinha NÃO é uma aplicação instalável — o `requirements.txt` dela instala
+# `preprocessamento/` e `lexico/`, que moram na RAIZ do repositório (CLAUDE.md
+# Seção 3). Publicando só `backend/`, esses caminhos não existem e o app sobe
+# sem os dois pacotes.
+#
+# Some-se a isso o `-e`: instalação editável grava no site-packages um ponteiro
+# para a pasta de origem, que no servidor é o diretório temporário onde o Oryx
+# monta o app antes de copiá-lo. O ponteiro fica apontando para o vazio e o
+# import quebra em PRODUÇÃO, não no build.
+#
+# `scripts/montar_pacote.sh` resolve os dois: leva os pacotes compartilhados
+# para dentro do pacote e tira o `-e` da cópia que vai para o servidor. O mesmo
+# script é usado na prova local, para que o que se testa seja o que se publica.
+
+name: Deploy do backend (Azure App Service)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "preprocessamento/**"
+      - "lexico/**"
+      - ".github/workflows/deploy-backend.yml"
+  # Permite republicar sem um commit novo (rollback, troca de segredo).
+  workflow_dispatch:
+
+env:
+  # Trocar aqui se o App Service mudar de nome.
+  NOME_DO_APP: emi-youtube-analytics-api
+  VERSAO_PYTHON: "3.11"
+
+jobs:
+  empacotar-e-publicar:
+    runs-on: ubuntu-latest
+    # Sem concorrência: dois deploys ao mesmo tempo no mesmo App Service deixam
+    # o wwwroot num estado que não corresponde a commit nenhum.
+    concurrency:
+      group: deploy-backend
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.VERSAO_PYTHON }}
+
+      - name: Montar o pacote
+        run: bash backend/scripts/montar_pacote.sh pacote
+
+      # Esta etapa é a que impede o erro que motivou o workflow de voltar em
+      # silêncio: instala o pacote num ambiente LIMPO, como o servidor faz, e
+      # confirma que os compartilhados foram COPIADOS (e não linkados) e que a
+      # aplicação importa. Falhar aqui custa um minuto; falhar no servidor custa
+      # um deploy quebrado que só aparece no Log stream.
+      - name: Provar que o pacote é autocontido
+        working-directory: pacote
+        env:
+          DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:1/inexistente
+          JWT_SECRET_KEY: apenas-para-o-import-nao-falhar-no-ci-0123456789
+          YOUTUBE_API_KEY: ci
+        run: |
+          python -m venv /tmp/venv-prova
+          /tmp/venv-prova/bin/python -m pip install --quiet --upgrade pip
+          /tmp/venv-prova/bin/python -m pip install --quiet -r requirements.txt
+
+          # Os compartilhados têm de estar DENTRO do site-packages. Se um deles
+          # virar ponteiro, a origem some no servidor e o import quebra lá.
+          /tmp/venv-prova/bin/python - <<'PY'
+          import pathlib
+          import lexico, preprocessamento
+
+          for modulo in (preprocessamento, lexico):
+              caminho = pathlib.Path(modulo.__file__).resolve()
+              if "site-packages" not in caminho.parts:
+                  raise SystemExit(
+                      f"{modulo.__name__} nao foi copiado para o site-packages "
+                      f"({caminho}); instalacao editavel nao sobrevive ao deploy"
+                  )
+              print(f"ok {modulo.__name__} {modulo.VERSAO} -> {caminho}")
+          PY
+
+          # E a aplicação tem de importar inteira, com os workers.
+          /tmp/venv-prova/bin/python - <<'PY'
+          from app.main import app
+          from app.workers import coleta, fila, inferencia, pipeline, runner, topicos  # noqa: F401
+
+          rotas = sum("/api/v1" in getattr(r, "path", "") for r in app.routes)
+          print(f"ok FastAPI carregou com {rotas} rotas em /api/v1")
+          print(f"ok cadeia de jobs: {pipeline.PROXIMA_ETAPA}")
+          PY
+
+      - name: Publicar no App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.NOME_DO_APP }}
+          # Perfil de publicação baixado do portal e guardado como segredo do
+          # repositório. Nunca aparece em log: o GitHub mascara segredos.
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: pacote
