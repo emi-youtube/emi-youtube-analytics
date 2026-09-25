@@ -25,9 +25,7 @@ Sessao = Annotated[AsyncSession, Depends(get_db)]
 
 
 @router.post("", response_model=ModeloAnaliseResponse, status_code=status.HTTP_201_CREATED)
-async def criar(
-    dados: ModeloAnaliseCreate, usuario: UsuarioAtual, db: Sessao
-) -> ModeloAnalise:
+async def criar(dados: ModeloAnaliseCreate, usuario: UsuarioAtual, db: Sessao) -> ModeloAnalise:
     return await service.create(db, usuario, dados)
 
 

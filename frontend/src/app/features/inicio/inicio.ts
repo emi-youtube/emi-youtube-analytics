@@ -43,7 +43,13 @@ export class Inicio {
     return nome ? `${periodo}, ${nome}` : periodo;
   });
 
-  /** "BERTimbau v1.2, em uso desde 14 set. F1 macro de 0,79 na validação." */
+  /**
+   * "lexico-sentilex 1.0.0, em uso desde 24 set." — e, quando a versão tiver
+   * avaliação, " F1 macro de 0,79 na validação." no fim.
+   *
+   * O nome sai da versão registrada na análise, nunca fixo aqui: o léxico é o
+   * que está em produção hoje e o BERTimbau entra sem esta tela mudar.
+   */
   protected readonly descricaoDoModelo = computed(() => {
     const versao = this.resumo()?.versao_modelo;
     if (!versao) {
