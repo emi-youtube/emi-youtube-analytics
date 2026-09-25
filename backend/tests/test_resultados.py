@@ -315,6 +315,58 @@ async def test_representativos_usam_a_mediana_de_comprimento(cliente, sessao):
     ]
 
 
+async def test_representativos_cobrem_sentimento_com_contagem_par(cliente, sessao):
+    """Regressão: contagem PAR tem de devolver representativo como a ímpar.
+
+    `(total + 1) / 2` no SQLAlchemy 2.0 é divisão REAL — 6 comentários davam
+    3.5, que não casa com nenhum `row_number`, e o sentimento desaparecia da
+    amostra sem erro nenhum. Os testes anteriores usavam só contagens ímpares e
+    passavam; o bug apareceu na execução real (neutro 30, negativo 6).
+    """
+    dados = await montar_cenario(
+        cliente,
+        sessao,
+        email="par@exemplo.com",
+        textos_por_sentimento={
+            "positivo": ["bom", "muito bom mesmo"],  # 2 -> par
+            "negativo": ["ruim", "pessimo demais", "horrivel isso ai", "detestei"],  # 4 -> par
+            "neutro": ["ok", "sei la", "tanto faz", "indiferente", "normal", "meio"],  # 6 -> par
+        },
+    )
+    cabecalho = dados["cabecalho"]
+
+    corpo = (
+        await cliente.get(
+            f"/api/v1/execucoes/{dados['execucao'].id_execucao}/resultado", headers=cabecalho
+        )
+    ).json()
+
+    sentimentos = [i["analise"]["sentimento"] for i in corpo["comentarios_representativos"]]
+    assert sentimentos == ["positivo", "neutro", "negativo"]
+    # Mediana BAIXA: com 2 positivos ordenados por comprimento, é o mais curto.
+    escolhidos = {
+        i["analise"]["sentimento"]: i["comentario"]["texto"]
+        for i in corpo["comentarios_representativos"]
+    }
+    assert escolhidos["positivo"] == "bom"
+
+
+async def test_um_representativo_por_sentimento_presente(cliente, sessao):
+    """Exatamente um por sentimento que existe — nunca dois, nunca zero."""
+    dados = await montar_cenario(cliente, sessao, email="umpor@exemplo.com")
+    cabecalho = dados["cabecalho"]
+
+    corpo = (
+        await cliente.get(
+            f"/api/v1/execucoes/{dados['execucao'].id_execucao}/resultado", headers=cabecalho
+        )
+    ).json()
+
+    sentimentos = [i["analise"]["sentimento"] for i in corpo["comentarios_representativos"]]
+    # O cenário padrão tem positivo 3, neutro 1, negativo 2 (um par).
+    assert sorted(sentimentos) == ["negativo", "neutro", "positivo"]
+
+
 async def test_representativos_sao_estaveis_entre_chamadas(cliente, sessao):
     """Nada de aleatório: a mesma execução devolve sempre o mesmo comentário."""
     dados = await montar_cenario(cliente, sessao, email="d7@exemplo.com")

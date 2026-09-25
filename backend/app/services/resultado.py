@@ -443,10 +443,20 @@ async def comentarios_representativos(
         .subquery()
     )
 
-    # Divisão inteira: total 1 -> 1, total 2 -> 1 (mediana baixa), 3 -> 2, 4 -> 2.
+    # A posição da mediana BAIXA de n itens é (n + 1) // 2. Escrito como
+    # `2 * posicao IN (total, total + 1)` — só multiplicação e igualdade — de
+    # propósito: `(total + 1) / 2` no SQLAlchemy 2.0 vira divisão REAL (com cast
+    # para numeric, seguindo a semântica do `/` do Python), e 15.5 não casa com
+    # nenhum `row_number`. O efeito era perder o representativo de todo sentimento
+    # com contagem PAR, silenciosamente — e foi assim que o bug apareceu só na
+    # execução real, onde neutro tinha 30 e negativo 6.
+    #
+    # Exatamente uma posição casa: `total` e `total + 1` têm paridades opostas,
+    # então só um dos dois é par e divisível por 2.
     escolhidos = await db.scalars(
         select(ranqueados.c.id_comentario).where(
-            ranqueados.c.posicao == (ranqueados.c.total + 1) / 2
+            (ranqueados.c.posicao * 2 == ranqueados.c.total)
+            | (ranqueados.c.posicao * 2 == ranqueados.c.total + 1)
         )
     )
     ids = list(escolhidos.all())
