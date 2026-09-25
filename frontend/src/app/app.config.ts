@@ -4,7 +4,7 @@ import { provideClientHydration, withEventReplay } from '@angular/platform-brows
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 
 import { authInterceptor } from './core/auth/auth.interceptor';
-import { provideDadosDeDemonstracao } from './core/mock/mock.providers';
+import { provideDadosReais } from './core/mock/mock.providers';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -23,13 +23,15 @@ export const appConfig: ApplicationConfig = {
     // ---------------------------------------------------------------------
     // Origem dos dados de análise (Início, Resultados, Comentários).
     //
-    // Hoje: mock, porque o worker de inferência ainda não existe e não há
-    // ANALISES_SENTIMENTO nem TEMAS no banco. Enquanto esta linha estiver
-    // aqui, as três telas exibem o selo "Dados de demonstração".
+    // API REAL. O worker de inferência existe e ANALISES_SENTIMENTO é
+    // populada, então as três telas leem `GET /painel`,
+    // `GET /execucoes/{id}/resultado` e `GET /execucoes/{id}/comentarios`.
+    // O selo "Dados de demonstração" apaga sozinho: quem o acende é o token
+    // DADOS_DE_DEMONSTRACAO, que este provider define como `false`.
     //
-    // Para ligar a API real, troque por `provideDadosReais()` — e só. Os
-    // endpoints que precisam existir antes estão listados no README.
+    // TEMAS continua vazio até o worker de tópicos existir — as telas tratam
+    // isso como ausência, não como erro.
     // ---------------------------------------------------------------------
-    provideDadosDeDemonstracao(),
+    provideDadosReais(),
   ],
 };

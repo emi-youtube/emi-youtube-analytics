@@ -33,10 +33,12 @@ from app.core.database import Base, get_db
 from app.main import app
 from app.models.analise_sentimento import AnaliseSentimento
 from app.models.comentario import Comentario
+from app.models.comentario_tema import ComentarioTema
 from app.models.execucao import Execucao
 from app.models.job import Job
 from app.models.job_dlq import JobDlq
 from app.models.modelo_analise import ModeloAnalise
+from app.models.tema import Tema
 from app.models.tentativa_login import TentativaLogin
 from app.models.token_atualizacao import TokenAtualizacao
 from app.models.usuario import Usuario
@@ -55,6 +57,8 @@ TABELAS_TESTADAS = [
     Comentario.__table__,
     VersaoModelo.__table__,
     AnaliseSentimento.__table__,
+    Tema.__table__,
+    ComentarioTema.__table__,
 ]
 
 ROTA_ADMIN = "/api/v1/_teste/somente-admin"

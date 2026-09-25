@@ -134,8 +134,27 @@
   <section class="card painel">
     <div class="painel__cabecalho">
       <h2 class="painel__titulo">Sobre o que estão falando</h2>
-      <span class="muted">{{ r.temas.length }} temas · agrupados automaticamente</span>
+      @if (r.temas.length > 0) {
+        <span class="muted">{{ r.temas.length }} temas · agrupados automaticamente</span>
+      }
     </div>
+
+    <!--
+      Sem tema não é erro nem tela quebrada: é etapa que ainda não roda. O
+      agrupamento depende do worker de tópicos, que não existe. Dizer isso é
+      melhor que estampar "0 temas" sobre uma lista vazia.
+    -->
+    @if (r.temas.length === 0) {
+      <p class="painel__nota muted">
+        O agrupamento por tema ainda não roda nesta versão do sistema. Os comentários já
+        estão classificados por sentimento — a lista completa está disponível abaixo.
+      </p>
+      <div class="temas__rodape">
+        <a class="temas__link" [routerLink]="['/resultados', r.id_execucao, 'comentarios']">
+          Ver os comentários
+        </a>
+      </div>
+    }
 
     <ul class="temas">
       @for (item of r.temas; track item.tema.id_tema) {
@@ -158,16 +177,18 @@
       }
     </ul>
 
-    <div class="temas__rodape">
-      <p class="legenda">
-        <span><span class="ponto ponto--positivo"></span> Positivo</span>
-        <span><span class="ponto ponto--neutro"></span> Neutro</span>
-        <span><span class="ponto ponto--negativo"></span> Negativo</span>
-      </p>
-      <a class="temas__link" [routerLink]="['/resultados', r.id_execucao, 'comentarios']">
-        Ver os {{ r.temas.length }} temas e os comentários
-      </a>
-    </div>
+    @if (r.temas.length > 0) {
+      <div class="temas__rodape">
+        <p class="legenda">
+          <span><span class="ponto ponto--positivo"></span> Positivo</span>
+          <span><span class="ponto ponto--neutro"></span> Neutro</span>
+          <span><span class="ponto ponto--negativo"></span> Negativo</span>
+        </p>
+        <a class="temas__link" [routerLink]="['/resultados', r.id_execucao, 'comentarios']">
+          Ver os {{ r.temas.length }} temas e os comentários
+        </a>
+      </div>
+    }
   </section>
 
   <!-- Comentários representativos -->
@@ -225,21 +246,39 @@
     <section class="card painel">
       <h2 class="painel__titulo">Como estes números foram obtidos</h2>
       <dl class="procedencia">
-        <div class="procedencia__linha">
-          <dt>Modelo</dt>
-          <dd>{{ r.versao_modelo.nome_modelo }} {{ r.versao_modelo.versao }}</dd>
-        </div>
-        @if (r.versao_modelo.metricas_avaliacao; as m) {
+        @if (r.versao_modelo; as v) {
           <div class="procedencia__linha">
-            <dt>F1 macro (validação)</dt>
-            <dd>{{ m.f1_macro.toFixed(2).replace('.', ',') }}</dd>
+            <dt>Modelo</dt>
+            <!-- Nome e versão vêm da linha de VERSOES_MODELO, nunca fixos aqui. -->
+            <dd>{{ v.nome_modelo }} {{ v.versao }}</dd>
           </div>
-          @if (m.exemplos_teste) {
+          @if (v.metricas_avaliacao; as m) {
             <div class="procedencia__linha">
-              <dt>Conjunto de teste</dt>
-              <dd>{{ numero(m.exemplos_teste) }} exemplos humanos</dd>
+              <dt>F1 macro (validação)</dt>
+              <dd>{{ m.f1_macro.toFixed(2).replace('.', ',') }}</dd>
+            </div>
+            @if (m.exemplos_teste) {
+              <div class="procedencia__linha">
+                <dt>Conjunto de teste</dt>
+                <dd>{{ numero(m.exemplos_teste) }} exemplos humanos</dd>
+              </div>
+            }
+          } @else {
+            <!--
+              Versão sem avaliação registrada. É o caso do classificador léxico,
+              que é a linha de base: ele nunca foi medido contra o gabarito
+              humano, e inventar um número aqui seria pior que admitir a ausência.
+            -->
+            <div class="procedencia__linha">
+              <dt>F1 macro (validação)</dt>
+              <dd class="muted">sem avaliação registrada para esta versão</dd>
             </div>
           }
+        } @else {
+          <div class="procedencia__linha">
+            <dt>Modelo</dt>
+            <dd class="muted">nenhuma versão registrada</dd>
+          </div>
         }
       </dl>
       <p class="painel__nota muted">

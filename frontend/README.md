@@ -47,13 +47,23 @@ Angular roda os guards de novo no navegador, na hidratação. O HTML do servidor
 
 ## Dados de demonstração (mock)
 
-Três telas — **Início**, **Resultados** e **Comentários** — mostram dados
-fictícios. Elas dependem de `ANALISES_SENTIMENTO`, `TEMAS` e `COMENTARIO_TEMA`,
-que só existem depois que o worker de inferência rodar. Enquanto isso, cada uma
-exibe o selo **"Dados de demonstração"**.
+> **O mock está DESLIGADO.** As três telas — **Início**, **Resultados** e
+> **Comentários** — leem a API real desde que o worker de inferência passou a
+> popular `ANALISES_SENTIMENTO` e os três endpoints abaixo foram implementados.
+> `app.config.ts` usa `provideDadosReais()`, e o selo "Dados de demonstração"
+> está apagado.
+>
+> O mock continua no repositório de propósito: é o que permite desenvolver as
+> telas sem banco e sem cota da YouTube API, e os testes dos estados de
+> carregamento dependem da latência sorteada dele. Para voltar a ele numa
+> sessão de trabalho, troque a linha em `app.config.ts`.
+>
+> **`TEMAS` e `COMENTARIO_TEMA` continuam vazios** — o worker de tópicos não
+> existe. As telas tratam isso como ausência (o painel de temas explica que o
+> agrupamento não roda ainda), não como erro.
 
-O resto da aplicação (login, cadastro, modelos de análise, execuções) já fala
-com a API real — o mock cobre só os três recursos de análise.
+O resto da aplicação (login, cadastro, modelos de análise, execuções) já falava
+com a API real antes disso.
 
 ### Como funciona
 
@@ -69,8 +79,8 @@ As telas injetam a classe abstrata e não sabem qual implementação receberam.
 A escolha é **uma linha em `src/app/app.config.ts`**:
 
 ```ts
-provideDadosDeDemonstracao(); // hoje: mock nas três telas + selo aceso
-provideDadosReais(); // depois: API real, selo apagado
+provideDadosDeDemonstracao(); // mock nas três telas + selo aceso
+provideDadosReais(); // hoje: API real, selo apagado
 ```
 
 O mesmo provider define o token `DADOS_DE_DEMONSTRACAO`, que o componente
@@ -83,11 +93,21 @@ O mock responde por `Observable` com atraso sorteado entre 300 e 800 ms
 desenvolvimento. Ele também filtra e pagina de verdade sobre a amostra, em vez
 de devolver sempre a mesma página.
 
-### Endpoints que precisam existir para desligar cada mock
+### Os três endpoints (implementados)
 
-Os contratos já estão escritos em `core/api/*.models.ts`, com o nome de cada
-campo igual ao da coluna. Implementar estes três endpoints e trocar o provider
-é tudo o que falta.
+Os contratos foram escritos em `core/api/*.models.ts` ANTES dos endpoints, com o
+nome de cada campo igual ao da coluna. Os três existem agora — o backend está em
+`backend/app/api/v1/` (`painel.py` e as rotas de resultado em `execucoes.py`),
+com as agregações em `backend/app/services/resultado.py`.
+
+Duas diferenças entre o contrato escrito e o que o servidor devolve hoje, ambas
+por ausência de fonte e não por divergência:
+
+- **`versao_modelo` passou a aceitar `null`** (execução que não classificou nada
+  num banco sem versão registrada). A tela Resultados trata os dois casos.
+- **`metricas_avaliacao` vem `null` com o classificador léxico**, que é a linha
+  de base e nunca foi avaliado contra o gabarito humano (CLAUDE.md regra 6). A
+  tela mostra "sem avaliação registrada para esta versão" em vez de um número.
 
 #### 1. `GET /api/v1/painel` → `ResumoPainel`
 

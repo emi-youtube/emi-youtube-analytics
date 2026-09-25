@@ -189,8 +189,15 @@ export interface ResultadoExecucao {
   insights_da_campanha: FatoInsight[];
   /** @deprecated Ver `PontoDeAtencao`. Migrar `resultado.html` para `insights`. */
   ponto_de_atencao: PontoDeAtencao | null;
-  /** Qual versão do BERTimbau classificou esta execução. */
-  versao_modelo: VersaoModelo;
+  /**
+   * Qual versão do classificador produziu estas análises — o nome vem da linha
+   * de VERSOES_MODELO, nunca fixo na tela: hoje é o léxico (SentiLex), amanhã o
+   * BERTimbau, e a tela não precisa saber qual.
+   *
+   * `null` na execução que não classificou nada (todos os vídeos com comentário
+   * desabilitado) num banco onde nenhuma versão foi registrada ainda.
+   */
+  versao_modelo: VersaoModelo | null;
 }
 
 /** Item de `GET /api/v1/execucoes/resultados` — só o suficiente para escolher. */
