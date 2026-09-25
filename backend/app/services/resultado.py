@@ -22,7 +22,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.insights import (
@@ -64,6 +64,7 @@ from app.schemas.resultado import (
     VideoResumido,
 )
 from app.services.execucao import get_owned
+from app.topicos.modelo import MINIMO_CARACTERES_REPRESENTATIVO
 
 logger = logging.getLogger(__name__)
 
@@ -402,6 +403,71 @@ async def _montar_analisados(
     ]
 
 
+async def representantes_dos_temas(
+    db: AsyncSession, id_execucao: int
+) -> dict[int, ComentarioAnalisado]:
+    """`{id_tema: comentário}` — o que fala por cada tema da execução.
+
+    **A regra é a mesma de `app.topicos.modelo.representante_do_tema`**, e a
+    constante de comprimento é importada de lá em vez de repetida: o de maior
+    peso, descartando os curtos demais, desempate pelo menor `id_comentario`. A
+    diferença é só onde ela roda — lá sobre o resultado do NMF em memória, aqui
+    sobre `COMENTARIO_TEMA` já gravado, porque a tela lê o banco e não o modelo.
+
+    Uma consulta só, com `row_number()` particionado por tema: a ordenação põe os
+    comentários longos na frente (`0` antes de `1`), depois o maior peso, depois
+    o menor id. A primeira linha de cada partição é o representante — e o
+    fallback para "só existem curtos" sai de graça, porque nesse caso todos
+    empatam no `1` e o peso volta a mandar.
+    """
+    comprido = case((func.length(Comentario.texto) >= MINIMO_CARACTERES_REPRESENTATIVO, 0), else_=1)
+    posicao = (
+        func.row_number()
+        .over(
+            partition_by=ComentarioTema.id_tema,
+            order_by=(comprido, ComentarioTema.peso.desc(), Comentario.id_comentario),
+        )
+        .label("posicao")
+    )
+
+    ranqueados = (
+        select(
+            ComentarioTema.id_tema.label("id_tema"),
+            Comentario.id_comentario.label("id_comentario"),
+            posicao,
+        )
+        .join(Comentario, Comentario.id_comentario == ComentarioTema.id_comentario)
+        .join(Tema, Tema.id_tema == ComentarioTema.id_tema)
+        .where(Tema.id_execucao == id_execucao)
+        .subquery()
+    )
+
+    escolhidos = {
+        id_tema: id_comentario
+        for id_tema, id_comentario in await db.execute(
+            select(ranqueados.c.id_tema, ranqueados.c.id_comentario).where(
+                ranqueados.c.posicao == 1
+            )
+        )
+    }
+    if not escolhidos:
+        return {}
+
+    linhas = await db.execute(
+        _consulta_comentario_analisado(id_execucao).where(
+            Comentario.id_comentario.in_(escolhidos.values())
+        )
+    )
+    analisados = {
+        item.comentario.id_comentario: item for item in await _montar_analisados(db, linhas.all())
+    }
+    return {
+        id_tema: analisados[id_comentario]
+        for id_tema, id_comentario in escolhidos.items()
+        if id_comentario in analisados
+    }
+
+
 async def comentarios_representativos(
     db: AsyncSession, id_execucao: int
 ) -> list[ComentarioAnalisado]:
@@ -627,6 +693,7 @@ async def resultado_da_execucao(
     temas = await _temas(db, [id_execucao])
     por_video = await _contagens_por_video(db, [id_execucao])
     por_tema = await _contagens_por_tema(db, [id_execucao])
+    representantes = await representantes_dos_temas(db, id_execucao)
 
     logger.info(
         "resultado montado id_execucao=%s comentarios_analisados=%s videos=%s temas=%s "
@@ -663,6 +730,7 @@ async def resultado_da_execucao(
             TemaComSentimento(
                 tema=TemaResponse.model_validate(tema),
                 distribuicao=distribuicao_de(por_tema.get(tema.id_tema, {})),
+                comentario_representativo=representantes.get(tema.id_tema),
             )
             for tema in temas.get(id_execucao, [])
         ],

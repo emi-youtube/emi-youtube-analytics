@@ -176,6 +176,35 @@
   text-align: right;
 }
 
+/*
+  A citação ocupa uma linha inteira do grid do tema (1 / -1): sem isso ela cairia
+  na próxima coluna e desmontaria a linha de três colunas.
+*/
+.tema__citacao {
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--line);
+  background: var(--surface-2, rgba(0, 0, 0, 0.02));
+  border-radius: var(--radius-2, 6px);
+}
+
+.tema__citacao-texto {
+  margin: 0 0 var(--space-2);
+  /* Comentário de YouTube vem com quebra de linha própria; preservar ajuda a
+     ler, mas sem deixar a linha estourar a largura do card. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tema__citacao-rodape {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--text-sm, 0.875rem);
+}
+
 .temas__rodape {
   display: flex;
   align-items: center;

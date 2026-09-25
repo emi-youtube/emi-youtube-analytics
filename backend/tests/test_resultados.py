@@ -446,6 +446,79 @@ async def test_insights_da_campanha_vazios_na_primeira_coleta(cliente, sessao):
     assert isinstance(corpo["insights"], list)
 
 
+async def test_tema_traz_o_comentario_representativo(cliente, sessao):
+    """Camada 2 da Seção 11: o comentário que fala pelo tema, escolhido localmente."""
+    dados = await montar_cenario(cliente, sessao, email="rep1@exemplo.com", com_temas=True)
+    cabecalho = dados["cabecalho"]
+
+    corpo = (
+        await cliente.get(
+            f"/api/v1/execucoes/{dados['execucao'].id_execucao}/resultado", headers=cabecalho
+        )
+    ).json()
+
+    tema = corpo["temas"][0]
+    representativo = tema["comentario_representativo"]
+    assert representativo is not None
+    # É um dos comentários ligados ao tema, com a análise junto.
+    assert representativo["analise"]["sentimento"] in {"positivo", "neutro", "negativo"}
+    assert representativo["comentario"]["texto"]
+
+
+async def test_representativo_do_tema_evita_o_curto_demais(cliente, sessao):
+    """Mesma regra de `app.topicos.modelo`: peso manda, mas curto não fala pelo tema."""
+    from app.models.comentario_tema import ComentarioTema
+    from app.models.tema import Tema
+    from app.topicos.modelo import MINIMO_CARACTERES_REPRESENTATIVO
+
+    dados = await montar_cenario(cliente, sessao, email="rep2@exemplo.com")
+    cabecalho = dados["cabecalho"]
+
+    tema = Tema(
+        id_execucao=dados["execucao"].id_execucao, rotulo_tema="preço", palavras_chave=["caro"]
+    )
+    sessao.add(tema)
+    await sessao.flush()
+
+    curto, longo = dados["comentarios"][0], dados["comentarios"][1]
+    curto.texto = "caro"
+    longo.texto = "o preço ficou bem acima do que eu esperava para um produto desse tipo"
+    assert len(longo.texto) >= MINIMO_CARACTERES_REPRESENTATIVO
+    # O curto tem peso MAIOR e mesmo assim não pode ser o escolhido.
+    sessao.add(ComentarioTema(id_comentario=curto.id_comentario, id_tema=tema.id_tema, peso=0.99))
+    sessao.add(ComentarioTema(id_comentario=longo.id_comentario, id_tema=tema.id_tema, peso=0.40))
+    await sessao.commit()
+
+    corpo = (
+        await cliente.get(
+            f"/api/v1/execucoes/{dados['execucao'].id_execucao}/resultado", headers=cabecalho
+        )
+    ).json()
+
+    escolhido = corpo["temas"][0]["comentario_representativo"]
+    assert escolhido["comentario"]["id_comentario"] == longo.id_comentario
+
+
+async def test_tema_sem_comentario_tem_representativo_nulo(cliente, sessao):
+    """O limiar de peso pode deixar um tema sem nenhuma ligação."""
+    from app.models.tema import Tema
+
+    dados = await montar_cenario(cliente, sessao, email="rep3@exemplo.com")
+    cabecalho = dados["cabecalho"]
+    sessao.add(
+        Tema(id_execucao=dados["execucao"].id_execucao, rotulo_tema="orfao", palavras_chave=[])
+    )
+    await sessao.commit()
+
+    corpo = (
+        await cliente.get(
+            f"/api/v1/execucoes/{dados['execucao'].id_execucao}/resultado", headers=cabecalho
+        )
+    ).json()
+
+    assert corpo["temas"][0]["comentario_representativo"] is None
+
+
 # --------------------------------------------------------------------------- dono
 
 

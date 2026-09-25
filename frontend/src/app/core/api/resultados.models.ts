@@ -53,6 +53,17 @@ export interface VideoComSentimento {
 export interface TemaComSentimento {
   tema: Tema;
   distribuicao: DistribuicaoSentimento;
+  /**
+   * O comentário que fala pelo tema — escolhido LOCALMENTE pelo servidor: o de
+   * maior peso em `COMENTARIO_TEMA`, descartando os curtos demais (o de maior
+   * peso puro costuma ser o mais curto, e "preço alto" não mostra nada).
+   *
+   * É extrativo: um comentário real, sem serviço externo e sem risco de
+   * invenção (CLAUDE.md Seção 11, camada 2).
+   *
+   * `null` quando nenhum comentário passou do limiar de peso daquele tema.
+   */
+  comentario_representativo: ComentarioAnalisado | null;
 }
 
 /** Somas de VIDEOS da execução. */

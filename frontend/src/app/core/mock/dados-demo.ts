@@ -1110,9 +1110,25 @@ export function montarResultado(semente: SementeExecucao): ResultadoExecucao {
     distribuicao: distribuicao(semente.videos[indice].dist),
   }));
 
+  const comentarios = montarComentarios(semente);
+
+  // Espelha a regra do servidor (`app/topicos/modelo.representante_do_tema`): o
+  // comentário mais pesado do tema, descartando os curtos demais. O mock não tem
+  // peso, então usa o primeiro comentário daquele tema que seja longo o
+  // bastante — o que importa aqui é a tela receber a mesma FORMA de dado.
+  const MINIMO_CARACTERES_REPRESENTATIVO = 40;
+  const representanteDoTema = (idTema: number): ComentarioAnalisado | null => {
+    const doTema = comentarios.filter((c) => c.temas.some((t) => t.id_tema === idTema));
+    const longos = doTema.filter(
+      (c) => c.comentario.texto.length >= MINIMO_CARACTERES_REPRESENTATIVO,
+    );
+    return longos[0] ?? doTema[0] ?? null;
+  };
+
   const porTema: TemaComSentimento[] = temas.map((tema, indice) => ({
     tema,
     distribuicao: distribuicao(semente.temas[indice].dist),
+    comentario_representativo: representanteDoTema(tema.id_tema),
   }));
 
   // O total da execução é a soma dos vídeos: um comentário pertence a um vídeo
@@ -1127,7 +1143,6 @@ export function montarResultado(semente: SementeExecucao): ResultadoExecucao {
     { positivo: 0, neutro: 0, negativo: 0, total: 0 },
   );
 
-  const comentarios = montarComentarios(semente);
   const representativo = (sentimento: Sentimento) =>
     comentarios.find((c) => c.analise.sentimento === sentimento);
 

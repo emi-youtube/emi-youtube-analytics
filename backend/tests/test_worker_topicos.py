@@ -32,7 +32,13 @@ from app.topicos.modelo import (
     numero_de_temas,
     representante_do_tema,
 )
-from app.topicos.texto import PALAVRAS_DE_EMOJI, STOPWORDS, limpar, preparar
+from app.topicos.texto import (
+    PALAVRAS_DE_EMOJI,
+    PALAVROES,
+    STOPWORDS,
+    limpar,
+    preparar,
+)
 from app.workers import pipeline, topicos
 
 VIDEO_A = "video-a"
@@ -113,7 +119,8 @@ def test_url_mencao_e_timestamp_saem():
 def test_riso_com_qualquer_numero_de_letras_e_descartado():
     """Regressão da conferência: "kkkkk" (cinco kk) virou palavra-chave de dois temas."""
     for riso in ("kkkk", "kkkkk", "kkkkkkkkkk", "hahaha", "rsrsrs"):
-        assert preparar(f"{riso} muito bom o carro") == ["bom", "carro"], riso
+        # "bom" tambem sai: e cumprimento, e cumprimento nao e assunto.
+        assert preparar(f"{riso} muito bom o carro") == ["carro"], riso
 
 
 def test_acento_e_dobrado_para_nao_partir_a_mesma_palavra():
@@ -128,6 +135,68 @@ def test_limpeza_nao_altera_o_texto_do_banco():
     limpar(original)
 
     assert original == "Olha \U0001f60d https://x.com que CARRO"
+
+
+# --------------------------------------------------------------------------- stopwords e rótulo
+
+
+def test_stopwords_vem_da_lista_da_nltk():
+    """A base é a lista padrão de português da NLTK (207 termos), embutida.
+
+    Amostra do núcleo dela; o teste existe para que trocar a base por outra lista
+    seja uma decisão visível, e não um efeito colateral de mexer nos acréscimos.
+    """
+    for termo in ("de", "que", "nao", "para", "com", "uma", "estivessemos", "houveramos"):
+        assert termo in STOPWORDS, termo
+
+
+def test_acrescimos_do_projeto_cobrem_o_que_sujou_os_temas():
+    """Cada um destes apareceu num rótulo da conferência sobre o corpus real."""
+    # cumprimento: o tema "boa / noite / internet"
+    for termo in ("boa", "bom", "noite", "dia"):
+        assert termo in STOPWORDS, termo
+    # verbo vazio nomeado na revisão
+    for termo in ("vim", "ser", "mto"):
+        assert termo in STOPWORDS, termo
+    # avaliação, que não é assunto: o tema "melhor / publicidade / operadora"
+    assert "melhor" in STOPWORDS
+    # gíria e meta do YouTube
+    for termo in ("vc", "tbm", "pra", "video", "propaganda", "inscrito"):
+        assert termo in STOPWORDS, termo
+
+
+def test_palavrao_nao_e_stopword():
+    """Palavrão continua no vocabulário: é sinal de reclamação, não ruído."""
+    assert not (PALAVROES & STOPWORDS)
+    assert "merda" not in STOPWORDS
+
+    assert "merda" in preparar("que merda de operadora")
+
+
+def test_palavrao_fica_fora_do_rotulo_mas_nas_palavras_chave():
+    """O rótulo vai para o relatório que a PME apresenta."""
+    palavras = ("merda", "claro", "net", "internet", "bosta", "celular", "operadora")
+
+    rotulo = modelo_topicos._rotular(palavras)
+
+    assert rotulo == "claro / net / internet"
+    assert "merda" not in rotulo
+    assert "bosta" not in rotulo
+    # Mas continuam disponíveis como palavras-chave — o método não as apagou.
+    assert "merda" in palavras
+
+
+def test_rotulo_usa_palavrao_se_nao_sobrar_mais_nada():
+    """Tema sem nome nenhum seria pior que tema com nome feio."""
+    assert modelo_topicos._rotular(("merda", "bosta", "porra")) == "merda / bosta / porra"
+
+
+def test_rotulo_de_tema_real_nao_tem_palavrao():
+    resultado = modelar(corpus())
+
+    for tema in resultado.temas:
+        for parte in tema.rotulo.split(" / "):
+            assert parte not in PALAVROES, tema.rotulo
 
 
 # --------------------------------------------------------------------------- regra de k

@@ -29,7 +29,7 @@ from sklearn.decomposition import NMF
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from app.insights.configuracao import PADRAO
-from app.topicos.texto import PALAVRA, limpar, preparar
+from app.topicos.texto import PALAVRA, PALAVROES, limpar, preparar
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +184,12 @@ def numero_de_temas(quantidade_de_comentarios: int) -> int:
     return max(MINIMO_DE_TEMAS, min(MAXIMO_DE_TEMAS, min(por_amostra, por_crescimento)))
 
 
+def _sem_acento(palavra: str) -> str:
+    """Forma sem acento — os palavrões são guardados assim, como as stopwords."""
+    decomposta = unicodedata.normalize("NFD", palavra)
+    return "".join(c for c in decomposta if unicodedata.category(c) != "Mn")
+
+
 def _grafias_do_corpus(textos: list[str]) -> dict[str, str]:
     """Para cada forma sem acento, a grafia acentuada mais frequente do corpus.
 
@@ -207,12 +213,26 @@ def _grafias_do_corpus(textos: list[str]) -> dict[str, str]:
 
 
 def _rotular(palavras: tuple[str, ...]) -> str:
-    """Rótulo do tema: as três palavras mais fortes, separadas por barra.
+    """Rótulo do tema: as três palavras mais fortes que não sejam palavrão.
 
     Nada de rótulo "bonito" inventado por LLM: o rótulo é o que o método achou,
     e a banca precisa poder conferir a origem dele na lista de palavras-chave.
+
+    **O palavrão é pulado aqui e SÓ aqui.** Ele continua no vocabulário e nas
+    `palavras_chave`, porque é sinal legítimo de reclamação e apagá-lo maquiaria
+    o resultado. O que muda é que o rótulo — o nome curto que a PME leva para um
+    relatório ou uma reunião — pega a próxima palavra forte no lugar. Na
+    conferência sobre o corpus real o tema da operadora vinha com "merda" e
+    "bosta" entre as dez mais fortes; com este filtro ele se chama
+    "claro / net / internet" e não perde nenhuma informação.
+
+    Se as dez palavras forem todas palavrão (não aconteceu no corpus real, mas é
+    possível num tema de puro xingamento), o rótulo usa as três primeiras mesmo
+    assim: um tema sem nome nenhum seria pior que um tema com nome feio.
     """
-    return " / ".join(palavras[:3])
+    limpas = tuple(p for p in palavras if _sem_acento(p.lower()) not in PALAVROES)
+    escolhidas = limpas if len(limpas) >= 3 else palavras
+    return " / ".join(escolhidas[:3])
 
 
 def modelar(

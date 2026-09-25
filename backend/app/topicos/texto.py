@@ -64,55 +64,99 @@ def _sem_acento(palavra: str) -> str:
     return "".join(c for c in decomposta if unicodedata.category(c) != "Mn")
 
 
-# Stopwords do português. Lista própria, e não NLTK ou spaCy, porque o backend
-# de produção não carrega pacote de NLP para isso — a lista é dado, não código,
-# e cabe aqui (CLAUDE.md Seção 10: nada de dependência que não paga o próprio
-# peso). Escrita SEM acento: a comparação normaliza os dois lados.
-_STOPWORDS_BASE = """
-a agora ai ainda algo alguem alguma algumas alguns ali ampla amplas amplo amplos
-ante antes ao aos apos aquela aquelas aquele aqueles aquilo as ate atraves
-cada coisa coisas com como contra contudo da daquele daqueles das de dela delas
-dele deles depois dessa dessas desse desses desta destas deste destes deve devem
-devendo dever devera deverao deveria deveriam devia deviam disse disso disto dito
-diz dizem do dos e ela elas ele eles em enquanto entao entre era essa essas esse
-esses esta estamos estao estas estava estavam estavamos este esteja estejam
-estes esteve estive estivemos estiveram estou eu fazendo fazer feita feitas feito
-feitos foi for foram forem formos fosse fossem fui ha isso isto ja la lhe lhes lo
-logo mas me mesma mesmas mesmo mesmos meu meus minha minhas muita muitas muito
-muitos na nao nas nem nenhum nessa nessas nesta nestas ninguem no nos nossa
-nossas nosso nossos num numa nunca o os ou outra outras outro outros para pela
-pelas pelo pelos pequena pequenas pequeno pequenos per perante pode podendo poder
-poderia poderiam podia podiam pois por porem porque posso pouca poucas pouco
-poucos primeiro primeiros propria proprias proprio proprios quais qual qualquer
-quando quanto quanta quantas quantos que quem quer querem quem sao se seja sejam
-sem sempre sendo sera serao seria seriam seu seus si sido so sob sobre sua suas
-talvez tambem tampouco te tem tendo tenha tenham tenho ter teu teus ti tido tinha
-tinham tive tivemos tiveram toda todas todo todos tu tua tuas tudo um uma umas
-uns vai vao vendo ver vez vindo vir voce voces vos
-mais menos aqui ali la aonde onde assim entao ainda so apenas mesmo ja
-vou vem veio vamos fica ficou ficar faz fez fazia dar da deu ter tem
-coisa jeito modo forma parte lado hora dia dias ano anos vezes
+# ---------------------------------------------------------------------------
+# Stopwords
+# ---------------------------------------------------------------------------
+#
+# ORIGEM DA LISTA (citar no TC2):
+#
+#   Bird, S.; Klein, E.; Loper, E. *Natural Language Processing with Python*.
+#   O'Reilly, 2009. Corpus `stopwords`, idioma `portuguese`, do NLTK
+#   (Natural Language Toolkit), versao 3.10.3 — 207 termos.
+#   Obtida com: nltk.corpus.stopwords.words("portuguese")
+#
+# **A lista e EMBUTIDA, e o NLTK nao e dependencia de runtime.** O corpus
+# `stopwords` nao vem no pacote: exige `nltk.download("stopwords")`, que precisa
+# de rede e de diretorio gravavel no primeiro uso. Um worker que baixa corpus ao
+# subir falha no contêiner por motivo que nada tem a ver com a analise, e o
+# CLAUDE.md Secao 10 e explicito sobre nao pagar peso que nao se usa. A lista e
+# DADO, tem 207 termos e nao muda ha anos; embuti-la com a citacao acima da o
+# mesmo resultado, reproduzivel e sem rede.
+#
+# Guardada SEM ACENTO porque e assim que a comparacao acontece: o tokenizador
+# dobra o acento antes de comparar (ver `tokenizar`).
+_STOPWORDS_NLTK = """
+a ao aos aquela aquelas aquele aqueles aquilo as ate com como da das de dela
+delas dele deles depois do dos e ela elas ele eles em entre era eram eramos
+essa essas esse esses esta estamos estao estar estas estava estavam
+estavamos este esteja estejam estejamos estes esteve estive estivemos
+estiver estivera estiveram estiveramos estiverem estivermos estivesse
+estivessem estivessemos estou eu foi fomos for fora foram foramos forem
+formos fosse fossem fossemos fui ha haja hajam hajamos hao havemos haver hei
+houve houvemos houver houvera houveram houveramos houverao houverei houverem
+houveremos houveria houveriam houveriamos houvermos houvesse houvessem
+houvessemos isso isto ja lhe lhes mais mas me mesmo meu meus minha minhas
+muito na nao nas nem no nos nossa nossas nosso nossos num numa o os ou para
+pela pelas pelo pelos por qual quando que quem sao se seja sejam sejamos sem
+ser sera serao serei seremos seria seriam seriamos seu seus so somos sou sua
+suas tambem te tem temos tenha tenham tenhamos tenho tera terao terei
+teremos teria teriam teriamos teu teus teve tinha tinham tinhamos tive
+tivemos tiver tivera tiveram tiveramos tiverem tivermos tivesse tivessem
+tivessemos tu tua tuas um uma voce voces vos
 """
 
-# Ruído específico de comentário de YouTube: interjeição, riso e vocativo. Não
-# são stopwords do idioma — são stopwords DESTE corpus, e o motivo de estarem
-# aqui é que sem elas o tema mais forte de qualquer execução é "kkkk, gente, cara".
-_STOPWORDS_CORPUS = """
-kkkk kkk kk haha hahaha rsrs ne ta to pra pro vc vcs q tb tbm eh aq blz
-gente cara mano gata galera pessoal video videos comercial propaganda anuncio
-youtube canal inscrito inscritos like curtida curtidas comentario comentarios
-oi ola opa nossa caramba nao_sei
+# Acrescimos do PROJETO, que a lista de idioma nao cobre porque nao sao do
+# idioma: sao deste corpus. Cada grupo entrou por ter aparecido nos temas da
+# conferencia sobre a execucao 4 — o registro de qual defeito cada um corrige
+# esta no historico do repositorio.
+_STOPWORDS_PROJETO = """
+# abreviacao e giria de comentario
+vc vcs voces tbm tb pq pra pro porq ne ta to eh aq blz mto mt dnv tlg msm
+vdd sla pfv pfvr obg vlw flw hj agr qnd qm oq
+# cumprimento e cortesia (o tema 'boa / noite / internet' era isto)
+oi ola opa bom boa dia noite tarde manha obrigado obrigada valeu parabens
+desculpa licenca
+# vocativo e interjeicao
+gente cara mano gata galera pessoal nossa caramba deus meu uau eita aff putz
+eba ihh
+# verbo vazio (vim, ser e mto sairam nomeados na revisao)
+vim ser sendo estar ficar ficou fica parece parecer acho achei achou sei
+sabia vejo visto faz fez fazia dar deu vou vai vamos quero queria espero
+esperava tem tinha teve poder pode podia
+# conectivo, adverbio e substantivo generico que a lista da NLTK nao cobre e
+# que nao descrevem assunto nenhum. "melhor" e "pior" entram aqui de proposito:
+# sao AVALIACAO, nao assunto, e como rotulo de tema ("melhor / publicidade /
+# operadora") nao dizem a PME sobre o que o publico falou.
+assim aqui ali la onde aonde entao apenas menos agora hoje ontem amanha sempre
+nunca talvez alias enfim tipo coisa coisas jeito forma modo lado parte hora
+vez vezes ano anos dias melhor pior maior menor novo nova velho outro toda
+todo cada algum nenhum bem mal desde apos antes durante
+# demonstrativo, intensificador e verbo de suporte que a NLTK nao lista e que
+# sobraram nos rotulos da conferencia por campanha ("nome / saber / dessa",
+# "renault / boreal / tudo"). "top", "show" e "demais" entram como GIRIA
+# AVALIATIVA: dizem que o publico gostou, que e o que a outra metade do sistema
+# ja mede, e nao dizem de que ele estava falando.
+ter ver ainda tudo desse dessa deste desta nesse nessa neste nesta disso nisso
+tao sim alguem ninguem veio vir pegar top show demais legal massa foda-se
+# meta do YouTube, que fala do veiculo e nao do assunto
+video videos comercial propaganda anuncio anuncios youtube canal inscrito
+inscritos like likes curtida curtidas comentario comentarios live shorts
 """
 
 
 def _montar_stopwords() -> frozenset[str]:
-    """A lista final: idioma + ruído do corpus + as palavras que o emoji cria.
+    """A lista final: NLTK + acréscimos do projeto + as palavras que o emoji cria.
 
     As do emoji vêm de `MAPA_EMOJI` por importação, e não copiadas: um emoji
     novo no mapa entra aqui sozinho. Sem isso, a lista silenciosamente deixaria
     de cobrir o mapa na primeira vez que alguém o estendesse.
     """
-    palavras = set(_STOPWORDS_BASE.split()) | set(_STOPWORDS_CORPUS.split())
+    palavras = {
+        termo
+        for linha in (_STOPWORDS_NLTK + _STOPWORDS_PROJETO).splitlines()
+        if not linha.lstrip().startswith("#")
+        for termo in linha.split()
+    }
 
     for valor in MAPA_EMOJI.values():
         # Um valor do mapa pode ser expressão de duas palavras ("por favor").
@@ -134,6 +178,42 @@ PALAVRAS_DE_EMOJI = frozenset(
     for parte in valor.split()
     if parte.strip()
 )
+
+
+# ---------------------------------------------------------------------------
+# Palavrões
+# ---------------------------------------------------------------------------
+#
+# Estas palavras NÃO são stopwords: elas ficam no vocabulário e continuam
+# aparecendo nas `palavras_chave` do tema, porque são sinal legítimo — um tema
+# de reclamação com "merda" e "porcaria" entre as palavras fortes está dizendo
+# exatamente o que a PME precisa saber, e apagá-las maquiaria o resultado.
+#
+# O que elas não podem é entrar no RÓTULO. O rótulo é o nome curto que vai para
+# a tela e para o relatório que a PME apresenta a um cliente ou a um diretor;
+# um tema chamado "merda / net / internet" é impublicável ali, enquanto a mesma
+# informação sobrevive na lista de palavras-chave logo ao lado.
+#
+# Lista curta e explícita de propósito: filtro de palavrão por heurística erra
+# nos dois sentidos, e um falso positivo aqui apaga uma palavra legítima do
+# rótulo em silêncio. Guardada sem acento, como as stopwords.
+# "lixo" NAO entra: ele ja e stopword por vir do MAPA_EMOJI (a lixeira), entao
+# nunca chega ao vocabulario e listá-lo aqui sugeriria, falsamente, que ele
+# poderia aparecer nas palavras-chave.
+_PALAVROES_BRUTO = """
+merda bosta porcaria droga caca
+puta putaria puto putos putas caralho carai caraio porra porras
+foda fodas fodido fodida fuder foder fudeu
+buceta cuzao babaca otario otarios otaria idiota idiotas imbecil
+burro burra burros viado viados bicha corno cornos
+desgraca desgracado inferno diabo
+"""
+
+PALAVROES = frozenset(_PALAVROES_BRUTO.split())
+"""Palavras que ficam FORA do rótulo e DENTRO das palavras-chave.
+
+Sem acento, como as stopwords: a comparação normaliza os dois lados.
+"""
 
 
 def _e_emoji_ou_simbolo(caractere: str) -> bool:
