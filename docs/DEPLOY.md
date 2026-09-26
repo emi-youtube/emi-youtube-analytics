@@ -32,6 +32,23 @@ e enquanto ele volta o *reaper* devolve à fila o job que ele estava processando
 ocioso e o runner simplesmente para de existir até a próxima requisição HTTP.
 Está disponível a partir do plano Basic, que é o caso da B1.
 
+### Quem instala as dependências: o servidor
+
+O GitHub publica **código-fonte**; quem roda o `pip install` é o **Oryx**, no App
+Service. Três razões:
+
+1. `numpy`, `scipy` e `scikit-learn` são rodas **binárias**. Instaladas pela
+   plataforma, são as da imagem do App Service; instaladas no runner do GitHub,
+   a compatibilidade passaria a ser torcida.
+2. O Oryx cria e ativa o virtualenv (`antenv`). O `startup.sh` sobe dois
+   processos chamando `python` — com o `antenv` ativo isso funciona sem mexer em
+   `PYTHONPATH` em lugar nenhum.
+3. O envio fica em ~2 MB em vez de ~250 MB.
+
+O preço é que as App settings precisam dizer a mesma coisa que o workflow
+(seção A6). Mandar um pacote já montado **e** pedir build ao servidor foi o que
+derrubou o primeiro deploy: cada lado assumiu que o outro tinha feito o trabalho.
+
 ### O pacote: por que `backend/` sozinho não sobe
 
 `backend/requirements.txt` instala dois pacotes que moram **na raiz do
@@ -150,13 +167,20 @@ painéis.
    | `SENTILEX_PATH` | `/home/data/SentiLex-flex-PT02.txt` |
    | `APP_ENV` | `production` |
    | `CORS_ORIGINS` | o domínio da Vercel, ex.: `https://emi-youtube-analytics.vercel.app` |
-   | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `true` |
+   | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `1` |
+   | `ENABLE_ORYX_BUILD` | `true` |
 
-   > `SCM_DO_BUILD_DURING_DEPLOYMENT` é o que faz o Azure instalar o
-   > `requirements.txt` do pacote. Sem ele o app sobe sem dependência nenhuma.
-   > A instalação acontece no SERVIDOR de propósito: é o que garante que as
-   > rodas binárias de `numpy`, `scipy` e `scikit-learn` sejam as da plataforma
-   > do App Service, e não as da máquina que montou o pacote.
+   > **Os dois primeiros decidem QUEM instala as dependências, e precisam
+   > concordar com o workflow.** O fluxo escolhido é: o GitHub publica
+   > código-fonte, e o **Oryx instala no servidor** — é o que garante que as
+   > rodas binárias de `numpy`, `scipy` e `scikit-learn` sejam as da imagem do
+   > App Service, e é o Oryx quem cria o virtualenv (`antenv`) que o
+   > `startup.sh` usa para subir os dois processos.
+   >
+   > **`WEBSITE_RUN_FROM_PACKAGE` não pode existir.** Se estiver na lista,
+   > **apague**: ela monta o `wwwroot` como pacote só-leitura, e aí o Oryx não
+   > tem onde construir. Foi a combinação de "pacote pronto" com "build no
+   > servidor" que derrubou o primeiro deploy.
    >
    > Nenhum destes valores entra no repositório nem na imagem. O `.env` está no
    > `.gitignore` e não é publicado.
@@ -243,7 +267,45 @@ do primeiro deploy, é `alembic upgrade head` apontando para o mesmo banco.
 
 ---
 
-## 4. O que fica de fora desta etapa
+## 4. Quando o site sobe 503
+
+Estas três linhas no **Log stream** aparecem juntas e são o mesmo problema — o
+Oryx não construiu o app:
+
+```
+Could not find build manifest file at '/home/site/wwwroot/oryx-manifest.toml'
+Could not find virtual environment directory /home/site/wwwroot/antenv
+bash: /home/site/wwwroot/startup.sh: No such file or directory
+```
+
+São duas causas possíveis, e o `startup.sh` agora distingue as duas: ele imprime
+`[startup] python:` e, se faltar dependência, diz exatamente quais App settings
+conferir.
+
+**Causa 1 — os dois fluxos brigando.** O deploy manda um pacote e as App
+settings pedem build no servidor, ou vice-versa. Confira que estão assim:
+
+| Setting | Valor |
+|---|---|
+| `SCM_DO_BUILD_DURING_DEPLOYMENT` | `1` |
+| `ENABLE_ORYX_BUILD` | `true` |
+| `WEBSITE_RUN_FROM_PACKAGE` | **não deve existir** |
+
+**Causa 2 — o zip com um nível a mais.** Se o arquivo for montado a partir da
+pasta (`zip -r pacote.zip pacote`) em vez de a partir de dentro dela, tudo fica
+sob `pacote/` e o `wwwroot` fica sem `startup.sh` na raiz — que é literalmente a
+terceira linha do log. O workflow monta o zip de dentro da pasta e **falha** se
+`startup.sh` não estiver na raiz, então isto não deve voltar; a nota fica para
+quem publicar à mão.
+
+Para publicar à mão, o jeito certo é:
+
+```bash
+bash backend/scripts/montar_pacote.sh pacote
+cd pacote && zip -qr ../pacote.zip . && cd ..   # de DENTRO da pasta
+```
+
+## 5. O que fica de fora desta etapa
 
 - **Cota do YouTube não é registrada**; o cartão do painel fica oculto.
 - **Preview da Vercel não renderiza no servidor** enquanto a decisão de

@@ -15,6 +15,30 @@
 # `scripts/montar_pacote.sh` resolve os dois: leva os pacotes compartilhados
 # para dentro do pacote e tira o `-e` da cópia que vai para o servidor. O mesmo
 # script é usado na prova local, para que o que se testa seja o que se publica.
+#
+# ---------------------------------------------------------------------------
+# QUEM INSTALA AS DEPENDÊNCIAS: O SERVIDOR.
+#
+# Este workflow publica CÓDIGO-FONTE, não um app já montado. Quem roda o
+# `pip install` é o Oryx, no App Service, e é ele quem cria e ativa o virtualenv
+# (`antenv`). Três razões:
+#
+#   1. `numpy`, `scipy` e `scikit-learn` são rodas BINÁRIAS. Instaladas pela
+#      plataforma, são as da imagem do App Service; instaladas aqui, seriam as
+#      do runner do GitHub, e a compatibilidade passaria a ser torcida.
+#   2. O `startup.sh` sobe dois processos chamando `python`. Com o `antenv` que
+#      o Oryx ativa, isso funciona sem mexer em PYTHONPATH em lugar nenhum.
+#   3. O envio fica em ~2 MB em vez de ~250 MB.
+#
+# A consequência é que o pacote NÃO pode conter venv nem dependência instalada,
+# e que as App settings precisam dizer a mesma coisa (docs/DEPLOY.md, seção A6):
+# `SCM_DO_BUILD_DURING_DEPLOYMENT=1`, `ENABLE_ORYX_BUILD=true` e NENHUM
+# `WEBSITE_RUN_FROM_PACKAGE` — este último monta o wwwroot só-leitura, e aí o
+# Oryx não tem onde construir.
+#
+# Foi a mistura dos dois fluxos que derrubou o primeiro deploy: mandava-se um
+# pacote como se estivesse pronto e pedia-se build ao servidor ao mesmo tempo.
+# ---------------------------------------------------------------------------
 
 name: Deploy do backend (Azure App Service)
 
@@ -95,6 +119,34 @@ jobs:
           print(f"ok cadeia de jobs: {pipeline.PROXIMA_ETAPA}")
           PY
 
+      # O zip é montado à mão, e não pela ação, por um motivo medido: arquivar a
+      # PASTA deixa tudo um nível abaixo (`pacote/startup.sh`), e o wwwroot fica
+      # sem `startup.sh` na raiz — exatamente o
+      # `bash: /home/site/wwwroot/startup.sh: No such file or directory` do
+      # primeiro deploy. Arquivando de DENTRO da pasta, a raiz do zip é a raiz
+      # do app.
+      - name: Compactar com a raiz do app na raiz do zip
+        run: |
+          cd pacote
+          zip -qr ../pacote.zip .
+          cd ..
+          echo "Primeiro nível do zip:"
+          unzip -l pacote.zip | awk 'NR>3 {print $4}' | cut -d/ -f1 | sort -u | head -20
+
+      # Se `startup.sh` não estiver na raiz, o Startup Command do App Service
+      # aponta para o vazio e o site sobe 503. Falhar aqui é barato.
+      - name: Conferir a raiz do zip
+        run: |
+          if ! unzip -l pacote.zip | grep -qE ' startup\.sh$'; then
+            echo "ERRO: startup.sh nao esta na RAIZ do zip." >&2
+            exit 1
+          fi
+          if unzip -l pacote.zip | grep -qE ' (antenv|\.python_packages)/'; then
+            echo "ERRO: o pacote traz dependencias instaladas; quem instala e o Oryx." >&2
+            exit 1
+          fi
+          echo "ok: startup.sh na raiz e nenhuma dependencia pre-instalada"
+
       - name: Publicar no App Service
         uses: azure/webapps-deploy@v3
         with:
@@ -102,4 +154,4 @@ jobs:
           # Perfil de publicação baixado do portal e guardado como segredo do
           # repositório. Nunca aparece em log: o GitHub mascara segredos.
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: pacote
+          package: pacote.zip
