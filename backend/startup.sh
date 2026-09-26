@@ -16,7 +16,23 @@
 # estava processando (app/workers/fila.devolver_presos).
 set -euo pipefail
 
-cd "$(dirname "$0")"
+# O diretorio do app NAO e /home/site/wwwroot.
+#
+# Com build automatico, o Oryx comprime a saida em `output.tar.zst`, deixa esse
+# tarball no wwwroot e o extrai em /tmp/<uid> no arranque. O wwwroot fica so com
+# o tarball e o manifesto; o app roda de /tmp/<uid>. A propria documentacao do
+# App Service diz isso e manda usar caminho relativo:
+#
+#   "content is deployed to and served from /tmp/<uid>, not under
+#    /home/site/wwwroot. You can access this content directory by using the
+#    APP_PATH environment variable."
+#   "All commands must use paths that are relative to the project root folder."
+#   -- learn.microsoft.com/azure/app-service/configure-language-python
+#
+# Dai o `APP_PATH` primeiro: e o caminho que a plataforma define. O `dirname`
+# cobre execucao local e o caso de o script ser chamado por caminho.
+cd "${APP_PATH:-$(dirname "$0")}"
+echo "[startup] diretorio do app: $PWD"
 
 # 0. O virtualenv que o Oryx montou.
 #

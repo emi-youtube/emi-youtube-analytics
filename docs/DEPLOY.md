@@ -152,8 +152,17 @@ painéis.
 4. Criado o recurso, abra **Settings → Configuration → General settings** e
    ponha em **Startup Command**:
    ```
-   bash /home/site/wwwroot/startup.sh
+   bash startup.sh
    ```
+
+   > **Relativo, não absoluto.** Com build automático o Oryx comprime a saída em
+   > `output.tar.zst`, deixa o tarball no `wwwroot` e o extrai em `/tmp/<uid>` no
+   > arranque — o app roda de lá, e o `wwwroot` fica só com o tarball e o
+   > manifesto. A documentação do App Service é explícita: *"content is deployed
+   > to and served from `/tmp/<uid>`, not under `/home/site/wwwroot`"* e *"All
+   > commands must use paths that are relative to the project root folder."*
+   > Um `bash /home/site/wwwroot/startup.sh` dá
+   > `No such file or directory` mesmo com o build inteiro correto.
 5. Ainda em **General settings**, ligue **Always On** = `On`.
    Sem isso o runner para quando o site fica ocioso.
 6. Vá em **Settings → Environment variables → App settings** e crie, uma a uma
@@ -217,9 +226,13 @@ painéis.
     App Service do passo A3. Commit na `main` dispara o primeiro deploy; dá para
     disparar à mão em **Actions → Deploy do backend → Run workflow**.
 
-11. Depois do primeiro deploy, abra **Log stream** e confirme três linhas:
+11. Depois do primeiro deploy, abra **Log stream** e confirme, nesta ordem:
+    `[startup] diretorio do app: /tmp/...`, `[startup] python:`,
     `[sentilex] ok:`, a migration do Alembic e
     `workers iniciados etapas=coleta,inferencia,topicos`.
+
+    > O primeiro caminho apontar para `/tmp/<uid>` e não para `wwwroot` é o
+    > esperado — ver a nota do passo A4.
 
 12. Teste a API: abra `https://<nome>.azurewebsites.net/api/v1/health` — tem de
     responder `{"status":"ok","database":"connected"}`.
@@ -278,12 +291,22 @@ Could not find virtual environment directory /home/site/wwwroot/antenv
 bash: /home/site/wwwroot/startup.sh: No such file or directory
 ```
 
-São duas causas possíveis, e o `startup.sh` agora distingue as duas: ele imprime
-`[startup] python:` e, se faltar dependência, diz exatamente quais App settings
-conferir.
+A terceira linha tem **três causas possíveis**, e elas se distinguem pelas duas
+primeiras linhas do log.
 
-**Causa 1 — os dois fluxos brigando.** O deploy manda um pacote e as App
-settings pedem build no servidor, ou vice-versa. Confira que estão assim:
+**Causa 1 — o Startup Command usa caminho absoluto.** É a mais comum, e o log
+NÃO reclama do build: ele mostra `Found build manifest file`, extrai o
+`output.tar.zst` e diz `App path is set to '/tmp/<uid>'`. Tudo funcionou — o
+app só não está onde o comando procura. Com build automático o conteúdo roda de
+`/tmp/<uid>`, e o `wwwroot` guarda apenas o tarball e o manifesto.
+
+**Correção:** Startup Command = `bash startup.sh` (relativo). Ver a nota do
+passo A4.
+
+**Causa 2 — os dois fluxos brigando.** Aqui o log reclama do build:
+`Could not find build manifest file` e `Could not find virtual environment
+directory`. O deploy manda um pacote pronto e as App settings pedem build no
+servidor, ou vice-versa. Confira:
 
 | Setting | Valor |
 |---|---|
@@ -291,12 +314,15 @@ settings pedem build no servidor, ou vice-versa. Confira que estão assim:
 | `ENABLE_ORYX_BUILD` | `true` |
 | `WEBSITE_RUN_FROM_PACKAGE` | **não deve existir** |
 
-**Causa 2 — o zip com um nível a mais.** Se o arquivo for montado a partir da
+**Causa 3 — o zip com um nível a mais.** Se o arquivo for montado a partir da
 pasta (`zip -r pacote.zip pacote`) em vez de a partir de dentro dela, tudo fica
-sob `pacote/` e o `wwwroot` fica sem `startup.sh` na raiz — que é literalmente a
-terceira linha do log. O workflow monta o zip de dentro da pasta e **falha** se
-`startup.sh` não estiver na raiz, então isto não deve voltar; a nota fica para
-quem publicar à mão.
+sob `pacote/` e o `startup.sh` não fica na raiz do app extraído. O workflow monta
+o zip de dentro da pasta e **falha** se `startup.sh` não estiver na raiz, então
+isto não deve voltar; a nota fica para quem publicar à mão.
+
+O `startup.sh` ajuda a separar as três: ele imprime `[startup] diretorio do app:`
+e `[startup] python:` logo no começo e, se faltar dependência, nomeia as App
+settings a conferir.
 
 Para publicar à mão, o jeito certo é:
 
