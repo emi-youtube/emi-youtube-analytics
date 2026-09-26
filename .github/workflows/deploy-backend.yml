@@ -31,7 +31,7 @@ on:
 
 env:
   # Trocar aqui se o App Service mudar de nome.
-  NOME_DO_APP: emi-youtube-analytics-api
+  NOME_DO_APP: Emi-youtube
   VERSAO_PYTHON: "3.11"
 
 jobs:
