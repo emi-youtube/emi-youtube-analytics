@@ -13,7 +13,8 @@ python -m ml.treino.treinar --id-execucao 4 --limite 150 --sementes 42 --epocas 
 # treino oficial: busca de hiperparametros + a configuracao escolhida em 5 sementes
 python -m ml.treino.treinar --id-execucao 4 --busca
 
-# conversao para ONNX int8 e medicao de RAM/latencia
+# conversao para ONNX int8 e medicao de RAM/latencia (dependencias proprias:
+# pip install -r ml/requirements-onnx.txt)
 python -m ml.treino.exportar_onnx --id-execucao 4 --modelo ml/modelos/bertimbau-ensaio
 
 # o teste, uma unica vez, no fim: previsoes (nenhuma metrica)
@@ -25,9 +26,9 @@ reimplementa nada**: clona o repositório e chama estes módulos. Notebook com c
 próprio diverge do repositório na primeira correção, e aí o modelo publicado deixa de
 ser o que o repositório descreve.
 
-### O ambiente do Colab tem quatro armadilhas
+### O ambiente do Colab tem sete armadilhas
 
-As quatro já custaram uma sessão:
+As sete já custaram uma sessão:
 
 - **instalação editável não vale no kernel que já está rodando.** `pip install -e`
   registra um `.pth` que o interpretador lê ao iniciar; num kernel vivo, o pacote só
@@ -56,7 +57,27 @@ As quatro já custaram uma sessão:
   vivo, e `asyncio.run` dentro de um laço vivo levanta `RuntimeError: asyncio.run()
   cannot be called from a running event loop`. Em notebook a forma certa é o `await` de
   nível superior. Nos scripts (`treinar.py`, `exportar_onnx.py`) o `asyncio.run`
-  continua certo: ali o laço é só deles.
+  continua certo: ali o laço é só deles;
+- **o Python do Colab muda sem aviso.** Em 28/09 ele estava no 3.13, e o
+  `onnx==1.17.0` não tem roda para 3.13: o pip tentou compilar do fonte, falhou, e a
+  instalação inteira parou — inclusive para quem só ia treinar. Desde então o ONNX mora
+  em `ml/requirements-onnx.txt`, instalado **só pela seção 7**, que vem desligada
+  (caixa `RODAR_ONNX` no formulário da célula), e com `--only-binary=:all:`: sem roda,
+  falha em segundos e com o nome do pacote. O pino subiu para `onnx==1.18.0`, a primeira
+  com roda para 3.13;
+- **o que o Colab já traz fica órfão quando o torch é trocado.** O Colab vem com
+  `torch 2.11` e o `torchvision`/`torchaudio` compilados contra ele. Instalar
+  `torch==2.5.1` por cima deixa os dois quebrados, e o `transformers` importa o
+  `torchvision` sozinho quando o encontra — o BERT não carregava, com `operator
+  torchvision::nms does not exist`. O treino é de texto: o notebook desinstala os dois;
+- **o kernel pode ficar fora do repositório.** O `sys.path` era ajustado só no fim da
+  célula de instalação, depois do `pip`. Um `pip` que falhasse (o do onnx, por exemplo)
+  deixava o kernel fora do repositório, e quem contornasse a falha e seguisse via `No
+  module named 'ml'` na célula seguinte. O mesmo acontece quando a sessão reinicia ou
+  cai: o disco fica, a memória do kernel não. Agora `entrar_na_raiz()` (célula 0) roda
+  **antes** do `pip`, invalida o cache de busca de módulos do Python e confere de onde o
+  `ml` seria importado; a verificação a chama de novo e, num kernel reiniciado, diz para
+  usar *Executar anteriores* em vez de estourar um `ModuleNotFoundError`.
 
 A célula de verificação também compara **versão instalada com pino do requirements**. O
 Colab já vem com `torch`, e uma instalação que falhou em silêncio deixa o notebook
@@ -65,7 +86,8 @@ células depois, com uma mensagem que não fala em versão nenhuma. A mesma conf
 pegou um caso local — o `ipykernel` puxa `ipython`, que exige `psutil>=7`, e instalar o
 `requirements-dev.txt` subiu o `psutil` que mede o RSS do relatório ONNX.
 
-`ml/tests/test_ambiente_colab.py` protege as quatro coisas. Ele lê os comandos **do
+`ml/tests/test_ambiente_colab.py` protege as sete estaticamente, e
+`ml/tests/test_notebook_colab.py` as reproduz executando (abaixo). Ele lê os comandos **do
 próprio notebook** — copiar a lista de pacotes para o teste criaria uma segunda fonte
 de verdade, que é o tipo de divergência que ele deveria detectar.
 
@@ -277,8 +299,8 @@ publicado — média, desvio amostral, mediana e desempate. Fica separado do
 instalado ele se pula sozinho.
 
 `ml/tests/test_notebook.py` **executa o notebook inteiro** num kernel (`nbclient`), com
-`ENSAIO_REDUZIDO=1`: corpus de 150, grade de uma configuração, duas sementes, medição
-ONNX em 40 comentários. Ele não mede qualidade nenhuma — prova que **nenhuma célula
+`ENSAIO_REDUZIDO=1`: corpus de 150, grade de uma configuração, duas sementes (e, com
+`RODAR_ONNX=1`, medição ONNX em 40 comentários). Ele não mede qualidade nenhuma — prova que **nenhuma célula
 levanta exceção** e que **todo caminho que o notebook promete gravar existe no fim, com
 data desta execução**. É o teste que faltava: as correções anteriores do notebook
 passaram no `ruff` e nos testes estáticos, e a sessão seguinte no Colab quebrou mesmo
@@ -291,8 +313,27 @@ TESTE_NOTEBOOK=1 ml/.venv/Scripts/python.exe -m pytest ml/tests/test_notebook.py
 
 Precisa de banco e de uns 20 minutos. Rode-o depois de mexer no notebook e **antes** de
 gastar uma sessão de GPU com ele. As células que só existem no Colab (clone, `pip`,
-cofre, download) ficam atrás do `NO_COLAB` e não executam aqui — quem cobre a instalação
-é o `test_ambiente_colab.py`.
+cofre, download) ficam atrás do `NO_COLAB` e não executam aqui. A seção 7 vem desligada;
+`RODAR_ONNX=1` a liga.
+
+`ml/tests/test_notebook_colab.py` é o que executa **o caminho do Colab**. Nem o
+`test_notebook.py` (Windows, Python 3.11, sem o torchvision da casa, sem clone nem
+`pip`) nem o `test_ambiente_colab.py` (venv *limpo* — e o problema do torchvision nasce
+do que já estava instalado) pegaram os bugs de 28/09. Este monta um Colab sem GPU num
+contêiner (`ml/tests/colab/`): Python 3.13 e as versões pré-instaladas que o
+[googlecolab/backend-info](https://github.com/googlecolab/backend-info) publica
+(`pre_instalado.txt`), mais um `google.colab` falso que faz o notebook clonar, instalar
+dentro do kernel vivo, ler o cofre e baixar. Dois cenários: *Executar tudo* do zero, e
+reiniciar o kernel depois da instalação e seguir.
+
+```bash
+TESTE_COLAB=1 ml/.venv/Scripts/python.exe -m pytest ml/tests/test_notebook_colab.py
+```
+
+Precisa do Docker, do banco e de uns 30 minutos (o `torch==2.5.1` de Linux traz uns
+3 GB de bibliotecas CUDA; ficam num volume de cache a partir da segunda vez). Quando o
+Colab trocar de versão, atualize o `pre_instalado.txt` pelo backend-info e rode de novo
+antes da sessão de GPU.
 
 ## Custo de tempo
 
