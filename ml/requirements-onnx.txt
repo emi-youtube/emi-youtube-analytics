@@ -1,0 +1,24 @@
+# Dependencias da secao 7 do notebook (ml/treino/exportar_onnx.py) e de mais nada.
+# Separadas de requirements-treino.txt de proposito: quem so treina nao precisa delas,
+# e em 28/09 o onnx==1.17.0 -- sem roda para Python 3.13, o Python do Colab -- tentou
+# compilar do fonte, falhou e travou a instalacao inteira, treino incluso.
+#
+# O notebook instala este arquivo com --only-binary=:all:. Pacote sem roda para o
+# Python da sessao tem de falhar NA HORA, com o nome do pacote, e nao depois de
+# minutos compilando.
+#
+# Local: ml/.venv/Scripts/python.exe -m pip install -r ml/requirements-onnx.txt
+
+# `onnx` escreve o grafo, `onnxruntime` o executa e traz o quantize_dynamic; e o mesmo
+# runtime que o backend vai carregar -- medir com um e servir com outro nao provaria
+# nada sobre a instancia B1.
+#
+# 1.18.0 e a primeira com roda para Python 3.13. O ensaio reprovado (relatorio_onnx.json)
+# foi medido com 1.17.0; a proxima medicao, com o modelo definitivo, sai com esta.
+onnx==1.18.0
+onnxruntime==1.20.1
+
+# RSS do processo, para responder se o modelo cabe em 1,75 GB. E o numero que o
+# sistema operacional cobra: tracemalloc nao enxerga o buffer nativo do torch nem o
+# do onnxruntime, que e justamente onde o peso do modelo mora.
+psutil==6.1.0

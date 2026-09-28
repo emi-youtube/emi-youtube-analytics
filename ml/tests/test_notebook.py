@@ -13,6 +13,9 @@ comentários. O que ele prova não é a qualidade de nada — é que nenhuma cé
 exceção e que **todo caminho que o notebook promete gravar existe no fim**. Era
 exatamente esse o buraco: o notebook "rodou" e voltou sem o `.onnx` e sem o relatório.
 
+A seção 7 (ONNX) vem desligada, como no Colab; `RODAR_ONNX=1` a liga, e aí o
+`relatorio_onnx` passa a ser cobrado também.
+
 **Não roda por padrão.** Precisa de banco, de CPU e de uns 20 minutos (o fine-tuning é
 de verdade, só que pequeno; a exportação ONNX de um BERT em CPU é a parte lenta):
 
@@ -20,10 +23,12 @@ de verdade, só que pequeno; a exportação ONNX de um BERT em CPU é a parte le
 
 Rode-o depois de mexer no notebook e antes de gastar uma sessão de GPU com ele.
 
-**O que ele não cobre.** As células que só existem no Colab — clone, `pip install`,
+**O que ele não cobre — e quem cobre.** As células que só existem no Colab — clone, `pip install`,
 cofre de credenciais e `files.download` — ficam atrás do `NO_COLAB` e não executam
-aqui. Quem cobre a instalação é `ml/tests/test_ambiente_colab.py`, que monta um
-ambiente limpo com a lista que o próprio notebook declara. O download em si não é
+aqui, e o `ml/.venv` não é o Colab (outro Python, outro sistema, sem o torchvision da
+casa). Foi por isso que os três bugs de 28/09 passaram por ele. Quem executa o caminho
+do Colab é `ml/tests/test_notebook_colab.py`, num contêiner com o Python e os pacotes
+pré-instalados do Colab de verdade. O download em si não é
 testável fora do navegador; o que dá para provar — e é o que faltou — é que os arquivos
 que ele pediria estão no disco.
 """
@@ -140,7 +145,11 @@ def test_o_notebook_roda_inteiro_e_deixa_os_artefatos_no_disco():
     import nbformat
     from nbclient import NotebookClient
 
-    esperados = sorted(caminhos_do_notebook(reduzido=True).values())
+    # A secao 7 (ONNX) e opcional e vem desligada; o teste a liga com RODAR_ONNX=1.
+    caminhos = caminhos_do_notebook(reduzido=True)
+    if not os.environ.get("RODAR_ONNX"):
+        caminhos.pop("RELATORIO_ONNX")
+    esperados = sorted(caminhos.values())
     antes = {
         caminho: caminho.stat().st_mtime if caminho.exists() else None for caminho in esperados
     }

@@ -11,13 +11,6 @@
 # o teste de fumaca roda em CPU e o treino inteiro roda na T4.
 torch==2.5.1
 
-# Exportacao e quantizacao dinamica int8. `onnx` escreve o grafo, `onnxruntime` o
-# executa e traz o quantize_dynamic; e o mesmo runtime que o backend vai carregar --
-# medir com um e servir com outro nao provaria nada sobre a instancia B1.
-onnx==1.17.0
-onnxruntime==1.20.1
-
-# RSS do processo, para responder se o modelo cabe em 1,75 GB. E o numero que o
-# sistema operacional cobra: tracemalloc nao enxerga o buffer nativo do torch nem o
-# do onnxruntime, que e justamente onde o peso do modelo mora.
-psutil==6.1.0
+# ONNX e medicao de memoria (onnx, onnxruntime, psutil) moram em requirements-onnx.txt:
+# so a secao 7 do notebook os usa, e em 28/09 o onnx sem roda para o Python do Colab
+# travou a instalacao inteira -- inclusive de quem so ia treinar.

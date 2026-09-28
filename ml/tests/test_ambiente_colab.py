@@ -72,8 +72,11 @@ DISTRIBUICAO_DE = {
 }
 
 
-def comandos_de_instalacao() -> list[list[str]]:
+def comandos_de_instalacao(constante: str = "INSTALACAO") -> list[list[str]]:
     """Os argumentos de cada `pip install` do notebook, na ordem em que ele os executa.
+
+    `INSTALACAO` é o que a seção 1 instala para todo mundo; `INSTALACAO_ONNX`, o que a
+    seção 7 instala só quando vai rodar.
 
     Lidos da constante `INSTALACAO` do notebook, por AST — e não de linhas `!pip` por
     prefixo de texto. O notebook declara a instalação como DADOS justamente para que
@@ -94,7 +97,7 @@ def comandos_de_instalacao() -> list[list[str]]:
             continue
         for no in ast.walk(arvore):
             if isinstance(no, ast.Assign) and any(
-                isinstance(alvo, ast.Name) and alvo.id == "INSTALACAO" for alvo in no.targets
+                isinstance(alvo, ast.Name) and alvo.id == constante for alvo in no.targets
             ):
                 return [list(argumentos) for argumentos in ast.literal_eval(no.value)]
     return []
@@ -169,9 +172,14 @@ def requisitos_declarados(caminho: Path, vistos: set[Path] | None = None) -> set
 
 
 def distribuicoes_que_o_notebook_instala() -> set[str]:
-    """O que os comandos do notebook trazem: requirements mais caminhos locais."""
+    """O que os comandos do notebook trazem: requirements mais caminhos locais.
+
+    Soma as duas instalações: um import de `ml/treino` está coberto se ALGUMA delas o
+    traz. Qual das duas é a certa para cada pacote é o que
+    `test_a_instalacao_de_todo_mundo_nao_traz_onnx` confere.
+    """
     distribuicoes: set[str] = set()
-    for argumentos in comandos_de_instalacao():
+    for argumentos in comandos_de_instalacao() + comandos_de_instalacao("INSTALACAO_ONNX"):
         for posicao, parte in enumerate(argumentos):
             if parte == "-r" and posicao + 1 < len(argumentos):
                 distribuicoes |= requisitos_declarados(RAIZ_REPO / argumentos[posicao + 1])
@@ -186,7 +194,7 @@ def fonte_da_celula_de_instalacao() -> str:
     for celula in notebook["cells"]:
         if celula["cell_type"] == "code":
             fonte = "".join(celula["source"])
-            if "INSTALACAO" in fonte and "pip" in fonte:
+            if "INSTALACAO = (" in fonte:
                 return fonte
     raise AssertionError("o notebook nao tem mais uma celula que usa INSTALACAO")
 
@@ -267,11 +275,51 @@ def test_o_clone_do_notebook_e_idempotente():
         "rodada duas vezes, ela criava uma copia dentro da outra"
     )
     assert "pull" in fonte, "sem 'git pull' o segundo run deixa o clone desatualizado"
-    assert "os.chdir(RAIZ)" in fonte, (
+    assert "entrar_na_raiz()" in fonte, (
         "o notebook precisa entrar na RAIZ absoluta, e nao num nome relativo: era o "
         "'%cd emi-youtube-analytics' que descia para a copia aninhada"
     )
     assert "%cd" not in fonte, "'%cd' com nome relativo e exatamente o que aninhava o clone"
+
+
+def test_a_instalacao_de_todo_mundo_nao_traz_onnx():
+    """Regressão de 28/09: `onnx==1.17.0` não tem roda para o Python 3.13 do Colab, o
+    pip tentou compilar, falhou, e a instalação da seção 1 parou inteira — inclusive
+    para quem só ia treinar. ONNX é da seção 7, e só dela."""
+    comuns = set()
+    for argumentos in comandos_de_instalacao():
+        for posicao, parte in enumerate(argumentos):
+            if parte == "-r":
+                comuns |= requisitos_declarados(RAIZ_REPO / argumentos[posicao + 1])
+    intrusos = comuns & {"onnx", "onnxruntime", "psutil"}
+    assert not intrusos, f"a secao 1 instala o que so a secao 7 usa: {sorted(intrusos)}"
+
+    onnx = comandos_de_instalacao("INSTALACAO_ONNX")
+    assert onnx, "a secao 7 nao declara mais INSTALACAO_ONNX"
+    assert all("--only-binary=:all:" in argumentos for argumentos in onnx), (
+        "sem --only-binary, pacote sem roda para o Python da sessao compila do fonte "
+        "por minutos antes de falhar"
+    )
+
+
+def test_o_notebook_desinstala_o_que_o_colab_compilou_contra_outro_torch():
+    """Regressão de 28/09: o torchvision do Colab ficou órfão depois do `torch==2.5.1`,
+    e o `transformers` — que o importa sozinho — quebrou ao carregar o BERT com
+    `operator torchvision::nms does not exist`."""
+    fonte = fonte_da_celula_de_instalacao()
+    assert '"torchvision"' in fonte and '"torchaudio"' in fonte, (
+        "a celula de instalacao precisa desinstalar torchvision e torchaudio"
+    )
+    assert "uninstall" in fonte
+
+
+def test_o_kernel_entra_no_repositorio_antes_do_pip():
+    """Regressão de 28/09 (`No module named 'ml'`): com `sys.path` ajustado só DEPOIS
+    do `pip`, uma instalação que falhava deixava o kernel fora do repositório."""
+    fonte = fonte_da_celula_de_instalacao()
+    assert fonte.index("entrar_na_raiz()") < fonte.index('"install"'), (
+        "entrar_na_raiz() tem de vir antes do pip install"
+    )
 
 
 def test_o_notebook_verifica_o_ambiente_antes_de_usar():
@@ -312,7 +360,7 @@ def test_ambiente_limpo_importa_todo_o_ml_treino(tmp_path):
     python = ambiente / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     assert python.exists()
 
-    for argumentos in comandos_de_instalacao():
+    for argumentos in comandos_de_instalacao() + comandos_de_instalacao("INSTALACAO_ONNX"):
         processo = subprocess.run(
             [str(python), "-m", "pip", "install", *argumentos],
             cwd=RAIZ_REPO,

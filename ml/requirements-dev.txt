@@ -27,7 +27,7 @@ ipykernel==6.29.5
 # como se fosse do ambiente fixado e o tipo de diferenca que ninguem nota.
 #
 # O ipykernel aceita ipython>=7.23, entao a dependencia fica na linha 8 -- que nao
-# pede psutil nenhum -- e o psutil continua no 6.1.0 do requirements-treino.txt. Quem
+# pede psutil nenhum -- e o psutil continua no 6.1.0 do requirements-onnx.txt. Quem
 # confere isso na pratica e a celula de verificacao do notebook, que compara versao
 # instalada com pino e falha se divergirem.
 ipython==8.31.0
