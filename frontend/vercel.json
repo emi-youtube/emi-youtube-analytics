@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/v1/:caminho*",
-      "destination": "https://SUBSTITUA-PELO-APP-SERVICE.azurewebsites.net/api/v1/:caminho*"
+      "destination": "https://emi-youtube-hzfzgfc2gfdsfydu.mexicocentral-01.azurewebsites.net/api/v1/:caminho*"
     },
     {
       "source": "/(.*)",
