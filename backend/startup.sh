@@ -65,11 +65,6 @@ fi
 # 1. O lexico precisa estar no disco antes de o runner tentar carrega-lo.
 bash scripts/baixar_sentilex.sh
 
-# 1b. O BERTimbau, classificador de producao. Falhar aqui NAO para o arranque
-#     (por isso o `||`, contra o `set -e`): sem o modelo, o runner cai para o
-#     lexico e diz o motivo no log (app/workers/runner.montar_classificador).
-python -m app.inferencia.baixar_bertimbau || echo "[bertimbau] download falhou; o worker vai usar o lexico" >&2
-
 # 2. Migrations. Roda antes de qualquer processo atender: schema velho com
 #    codigo novo falha de formas piores que nao subir.
 python -m alembic upgrade head
@@ -77,6 +72,17 @@ python -m alembic upgrade head
 # 3. Runner supervisionado: se morrer, volta. A espera cresce ate 60s para um
 #    erro permanente (lexico ausente, banco fora) nao virar laco de reinicio.
 supervisionar_runner() {
+  # O BERTimbau (~420 MB) baixa AQUI, em segundo plano, e nao antes da API: no
+  # primeiro arranque o download pode passar do tempo limite de inicializacao do
+  # App Service, que entao daria o conteiner por travado, reiniciaria, e o download
+  # recomecaria -- um laco. Assim a API sobe na hora e responde ao health check;
+  # jobs disparados nesse meio-tempo so esperam na fila. Nos arranques seguintes a
+  # pasta em /home ja esta completa e o download e pulado.
+  #
+  # Falhar aqui NAO impede o runner (por isso o `||`): sem o modelo, ele cai para
+  # o lexico e diz o motivo no log (app/workers/runner.montar_classificador).
+  python -m app.inferencia.baixar_bertimbau || echo "[bertimbau] download falhou; o worker vai usar o lexico" >&2
+
   local espera=5
   while true; do
     echo "[runner] iniciando"

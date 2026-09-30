@@ -280,11 +280,23 @@ painéis.
 
 11. Depois do primeiro deploy, abra **Log stream** e confirme, nesta ordem:
     `[startup] diretorio do app: /tmp/...`, `[startup] python:`,
-    `[sentilex] ok:`, `[bertimbau] pasta completa e conferida`, a migration do
-    Alembic, `bertimbau carregado ... versao=1.0.0` e
-    `workers iniciados etapas=coleta,inferencia,topicos classificador=bertimbau-emi 1.0.0`.
+    `[sentilex] ok:` e a migration do Alembic. A partir daí são **duas trilhas
+    em paralelo**, e as linhas delas podem se intercalar:
+    - **API** (primeiro plano): `Uvicorn running on http://0.0.0.0:...` — sobe
+      logo depois da migration, sem esperar o modelo;
+    - **runner** (segundo plano): o download do BERTimbau (no primeiro arranque,
+      alguns minutos; nos seguintes, só a conferência), `[bertimbau] pasta
+      completa e conferida`, `[runner] iniciando`, `bertimbau carregado ...
+      versao=1.0.0`, `versao de modelo ativada ... nome=bertimbau-emi` e
+      `workers iniciados etapas=coleta,inferencia,topicos classificador=bertimbau-emi 1.0.0`.
+
+    O download fica no runner, e não antes da API, porque ~420 MB podem passar do
+    tempo limite de inicialização do App Service: o Azure reiniciaria o contêiner
+    e o download recomeçaria em laço. Execuções disparadas enquanto ele baixa só
+    esperam na fila.
     Se aparecer `classificador=lexico-sentilex`, o BERTimbau não subiu: o motivo
-    está na linha `BERTimbau indisponivel` logo acima.
+    está na linha `BERTimbau indisponivel` logo acima (ou em
+    `[bertimbau] download falhou`).
 
     > O primeiro caminho apontar para `/tmp/<uid>` e não para `wwwroot` é o
     > esperado — ver a nota do passo A4.
