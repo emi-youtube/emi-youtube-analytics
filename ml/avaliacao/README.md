@@ -56,6 +56,7 @@ arquivo, linha e id, e **nada é calculado**. Método a que falta comentário mu
 | F1 por classe | **onde** o método falha — um macro razoável esconde `negativo` em 0,30 |
 | matriz de confusão 3x3 | o mapa do erro: é dela que sai a frase sobre `neutro` × `negativo` |
 | **IC 95% do F1** (bootstrap) | se a diferença entre dois métodos existe ou é do tamanho da amostra |
+| Kappa de Cohen método × gabarito | concordância descontado o acaso; o da Gemini é o da Tabela 15 do TC2 e vai também no campo de topo `kappa_cohen_gemini_gabarito` do JSON. Usa a mesma `kappa_cohen()` de `ml/concordancia/kappa.py` |
 
 Com 334 comentários, um F1 macro de 0,71 contra 0,68 pode não ser diferença nenhuma.
 Publicar o ponto sozinho convida a banca a perguntar "e se fossem outros 334?" — e a

@@ -49,6 +49,7 @@ from ml.avaliacao.metricas import (
     avaliar_previsoes,
     intervalo_bootstrap,
 )
+from ml.concordancia.kappa import ConcordanciaDegenerada, kappa_cohen
 from ml.config import CLASSES, DIRETORIO_ML, dsn_postgres
 
 logger = logging.getLogger("avaliacao")
@@ -89,12 +90,18 @@ class Problema:
 
 @dataclass(frozen=True)
 class Avaliacao:
-    """O resultado de um método: métricas pontuais mais o intervalo do bootstrap."""
+    """O resultado de um método: métricas pontuais mais o intervalo do bootstrap.
+
+    `kappa` é a concordância de Cohen entre o método e o gabarito. É `None` só no
+    caso degenerado (os dois lados com uma única classe em tudo), em que a fórmula
+    não tem valor.
+    """
 
     metodo: str
     origem: str
     metricas: Metricas
     intervalos: dict[str, tuple[float, float]]
+    kappa: float | None
 
 
 def ler_csv(caminho: Path, fonte: str) -> tuple[dict[int, str], list[Problema]]:
@@ -222,6 +229,14 @@ def avaliar_metodo(
     verdadeiros = [gabarito[id_comentario] for id_comentario in ids]
     previstos = [previsoes[id_comentario] for id_comentario in ids]
 
+    # A mesma função da concordância entre avaliadores (ml/concordancia/kappa.py):
+    # a fórmula mora num lugar só. Aqui os "dois avaliadores" são o gabarito e o
+    # método — para a Gemini, é o Kappa rótulo fraco x rótulo humano da Tabela 15.
+    try:
+        kappa: float | None = kappa_cohen(verdadeiros, previstos)
+    except ConcordanciaDegenerada:
+        kappa = None
+
     return Avaliacao(
         metodo=metodo,
         origem=origem,
@@ -229,6 +244,7 @@ def avaliar_metodo(
         intervalos=intervalo_bootstrap(
             verdadeiros, previstos, CLASSES, reamostragens=reamostragens
         ),
+        kappa=kappa,
     )
 
 
@@ -248,18 +264,25 @@ def relatar(avaliacoes: list[Avaliacao], excluidos: int) -> None:
 
     logger.info("")
     logger.info(
-        "%-24s %9s %9s %9s %9s", "metodo", "acuracia", "P macro", "R macro", "F1 macro"
+        "%-24s %9s %9s %9s %9s %10s",
+        "metodo",
+        "acuracia",
+        "P macro",
+        "R macro",
+        "F1 macro",
+        "kappa",
     )
     logger.info("-" * 78)
     for avaliacao in avaliacoes:
         metricas = avaliacao.metricas
         logger.info(
-            "%-24s %9.4f %9.4f %9.4f %9.4f",
+            "%-24s %9.4f %9.4f %9.4f %9.4f %10s",
             avaliacao.metodo,
             metricas.acuracia,
             metricas.precisao_macro,
             metricas.revocacao_macro,
             metricas.f1_macro,
+            _formatar_kappa(avaliacao.kappa, 4),
         )
 
     logger.info("")
@@ -315,6 +338,10 @@ def relatar(avaliacoes: list[Avaliacao], excluidos: int) -> None:
     logger.info("=" * 78)
 
 
+def _formatar_kappa(kappa: float | None, casas: int) -> str:
+    return "indefinido" if kappa is None else f"{kappa:.{casas}f}"
+
+
 def _linha_metricas(avaliacao: Avaliacao, classe: str) -> dict[str, object]:
     """Uma linha da tabela longa: método x classe."""
     metricas = avaliacao.metricas.por_classe[classe]
@@ -353,16 +380,17 @@ def gravar_tabelas(avaliacoes: list[Avaliacao], diretorio: Path) -> None:
     partes.append("\n## Tabela 1 - desempenho geral por metodo\n\n")
     partes.append(
         "| metodo | acuracia | precisao macro | revocacao macro | F1 macro "
-        "| IC 95% (F1 macro) |\n"
+        "| IC 95% (F1 macro) | kappa de Cohen |\n"
     )
-    partes.append("|---|---|---|---|---|---|\n")
+    partes.append("|---|---|---|---|---|---|---|\n")
     for avaliacao in avaliacoes:
         metricas = avaliacao.metricas
         macro = avaliacao.intervalos.get("macro")
         faixa = f"[{macro[0]:.3f}; {macro[1]:.3f}]" if macro else "-"
         partes.append(
             f"| {avaliacao.metodo} | {metricas.acuracia:.3f} | {metricas.precisao_macro:.3f} "
-            f"| {metricas.revocacao_macro:.3f} | **{metricas.f1_macro:.3f}** | {faixa} |\n"
+            f"| {metricas.revocacao_macro:.3f} | **{metricas.f1_macro:.3f}** | {faixa} "
+            f"| {_formatar_kappa(avaliacao.kappa, 3)} |\n"
         )
 
     partes.append("\n## Tabela 2 - desempenho por classe (IC 95% do F1, bootstrap)\n\n")
@@ -403,11 +431,17 @@ def gravar_relatorio(
 ) -> None:
     """JSON de agregados. Só número e nome de método: nenhum texto de terceiros."""
     caminho.parent.mkdir(parents=True, exist_ok=True)
+    gemini = next(
+        (avaliacao for avaliacao in avaliacoes if avaliacao.metodo == METODO_GEMINI), None
+    )
     conteudo = {
         "data_utc": datetime.now(UTC).isoformat(),
         "gabarito": origem_gabarito,
         "total_avaliado": avaliacoes[0].metricas.total,
         "excluidos_sem_rotulo_humano": excluidos,
+        # O Kappa da Tabela 15 do TC2 em campo próprio, para não depender de achar a
+        # Gemini na lista de métodos. Ausente quando a Gemini não foi avaliada.
+        **({"kappa_cohen_gemini_gabarito": gemini.kappa} if gemini is not None else {}),
         "bootstrap": {
             "reamostragens": reamostragens,
             "confianca": CONFIANCA,
@@ -423,6 +457,7 @@ def gravar_relatorio(
                 "revocacao_macro": avaliacao.metricas.revocacao_macro,
                 "f1_macro": avaliacao.metricas.f1_macro,
                 "ic95_f1_macro": avaliacao.intervalos.get("macro"),
+                "kappa_cohen": avaliacao.kappa,
                 "por_classe": {
                     classe: {
                         "precisao": metricas.precisao,
