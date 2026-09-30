@@ -7,6 +7,8 @@ não muda uma linha, e é isso que torna a troca verificável.
 
 - `base` — a interface (`Classificador`), o que ela devolve (`Classificacao`) e o
   portão da versão do pré-processamento (CLAUDE.md regra 5);
-- `lexico` — a implementação de hoje: SentiLex-PT02, o piso do Capítulo 5;
+- `bertimbau` — a implementação de produção: o BERTimbau fine-tuned, float32;
+- `baixar_bertimbau` — traz os pesos do Hugging Face Hub e confere o sha256;
+- `lexico` — SentiLex-PT02, o piso do Capítulo 5 e a contingência do BERTimbau;
 - `versao` — a linha de VERSOES_MODELO para a qual as análises apontam.
 """

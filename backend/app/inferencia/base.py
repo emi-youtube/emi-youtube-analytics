@@ -22,7 +22,9 @@ Por isso três coisas moram aqui, e não no worker:
   VERSOES_MODELO que a produziu. Quem sabe se chama "lexico-sentilex 1.0.0" ou
   "bertimbau-emi 1.0.0" é a implementação.
 
-O que NÃO está aqui: `confianca`. A coluna não existe no schema e entra em outro card.
+O que NÃO está aqui: `confianca`. A coluna não existe no schema e entra em outro card;
+até lá, o BERTimbau escreve a confiança da softmax na `justificativa`
+(`bertimbau.formatar_confianca`).
 """
 
 from abc import ABC, abstractmethod

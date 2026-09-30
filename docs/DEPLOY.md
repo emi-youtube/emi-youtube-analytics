@@ -84,6 +84,54 @@ sozinho.
 
 Nas execuções seguintes o script encontra o arquivo já correto e não baixa nada.
 
+### Os pesos do BERTimbau — onde o modelo mora
+
+O classificador de produção é o BERTimbau `bertimbau-emi 1.0.0`
+(`backend/app/inferencia/bertimbau.py`). A pasta tem ~420 MB e **não vai para o
+git**. As alternativas consideradas:
+
+| opção | por que sim / por que não |
+|---|---|
+| **Hugging Face Hub, repositório privado** ✅ | Escolhida. É o lugar natural de um modelo `transformers`, é gratuito para repositório privado, e o download no arranque segue o mesmo padrão já provado do SentiLex. O token é de **leitura**, restrito a um repositório. |
+| Commitar no git (LFS) | A cota gratuita do LFS é de 1 GB de banda por mês: dois ou três deploys a esgotariam. |
+| Subir a pasta à mão para `/home` (Kudu/SSH) | Funciona e não precisa de conta extra, mas não é reproduzível: ninguém sabe dizer, meses depois, qual arquivo está lá. Serve de **plano B** se o Hub der problema — o worker só olha `BERTIMBAU_PATH` e o sha256, não sabe de onde veio a pasta. |
+| Azure Blob Storage | Custaria crédito e mais uma conta de serviço para gerenciar, para resolver o mesmo que o Hub resolve de graça. |
+
+**A integridade não depende da origem.** O sha256 de cada arquivo está versionado em
+`backend/app/inferencia/bertimbau_manifesto.json`. O download
+(`python -m app.inferencia.baixar_bertimbau`, chamado pelo `startup.sh`) baixa só o
+que falta ou diverge, confere antes de promover, e o worker confere de novo ao
+subir. Um repositório trocado ou um arquivo corrompido falham do mesmo jeito.
+
+**Falhar não trava nada.** Se o download falhar, se a pasta estiver incompleta, se o
+sha256 não bater ou se a `versao_preprocessamento` do cartão divergir da instalada,
+o runner **cai para o léxico** e registra o motivo em WARNING no Log stream
+(`BERTimbau indisponivel; usando o lexico como contingencia`). As análises feitas
+assim apontam para a linha `lexico-sentilex` de `VERSOES_MODELO`, então o histórico
+diz quem rotulou cada comentário. A troca só acontece na subida do worker.
+Em `VERSOES_MODELO`, `ativo` é **o classificador que o worker carregou nesta subida**:
+o runner marca a versão que subiu como `ativo` e todas as outras como `arquivado`, numa
+transação só — é o que o painel mostra como modelo em uso, e em contingência diz léxico.
+
+**Memória.** O runner com o BERTimbau em float32 fica em ~660 MB de pico
+(`ml/medicao/relatorio_tempo_inferencia.json`), somando-se aos ~150 MB da API: cabe
+na B1 (1,75 GB), com menos folga que antes.
+
+**Publicar uma versão nova do modelo** é: subir a pasta para o repositório do Hub,
+atualizar o manifesto (nome, versão e sha256 de cada arquivo — o `model_card.json`
+precisa ter `nome_modelo` e `versao` iguais aos do manifesto), apontar
+`BERTIMBAU_PATH` para uma pasta nova (`/home/modelos/<nome>-<versao>`) e fazer deploy.
+A versão nova ganha linha própria em `VERSOES_MODELO` na subida do worker.
+
+#### Uma vez: criar o repositório no Hub
+
+1. Em huggingface.co, crie o repositório de **modelo** `emi-youtube/bertimbau-emi`
+   (ou na conta pessoal), marcado como **Private**.
+2. Suba a pasta `ml/modelos/bertimbau-2026-09-30/` inteira (os 7 arquivos do
+   manifesto): `hf upload emi-youtube/bertimbau-emi ml/modelos/bertimbau-2026-09-30 .`
+3. Crie um token **fine-grained** com permissão só de **leitura** nesse repositório.
+   Ele vai para as App settings (passo A6), nunca para o repositório.
+
 ---
 
 ## 2. Frontend: o que foi VERIFICADO sobre Angular SSR na Vercel
@@ -174,6 +222,10 @@ painéis.
    | `JWT_SECRET_KEY` | gere com `openssl rand -hex 32` e cole |
    | `YOUTUBE_API_KEY` | a chave do Google Cloud |
    | `SENTILEX_PATH` | `/home/data/SentiLex-flex-PT02.txt` |
+   | `BERTIMBAU_PATH` | `/home/modelos/bertimbau-emi-1.0.0` |
+   | `BERTIMBAU_REPO_HF` | `emi-youtube/bertimbau-emi` (o repositório privado da seção 1) |
+   | `BERTIMBAU_REVISAO_HF` | `main`, ou o hash do commit no Hub, para fixar |
+   | `HF_TOKEN` | o token de **leitura** do repositório — é segredo |
    | `APP_ENV` | `production` |
    | `CORS_ORIGINS` | o domínio da Vercel, ex.: `https://emi-youtube-analytics.vercel.app` |
    | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `1` |
@@ -228,8 +280,23 @@ painéis.
 
 11. Depois do primeiro deploy, abra **Log stream** e confirme, nesta ordem:
     `[startup] diretorio do app: /tmp/...`, `[startup] python:`,
-    `[sentilex] ok:`, a migration do Alembic e
-    `workers iniciados etapas=coleta,inferencia,topicos`.
+    `[sentilex] ok:` e a migration do Alembic. A partir daí são **duas trilhas
+    em paralelo**, e as linhas delas podem se intercalar:
+    - **API** (primeiro plano): `Uvicorn running on http://0.0.0.0:...` — sobe
+      logo depois da migration, sem esperar o modelo;
+    - **runner** (segundo plano): o download do BERTimbau (no primeiro arranque,
+      alguns minutos; nos seguintes, só a conferência), `[bertimbau] pasta
+      completa e conferida`, `[runner] iniciando`, `bertimbau carregado ...
+      versao=1.0.0`, `versao de modelo ativada ... nome=bertimbau-emi` e
+      `workers iniciados etapas=coleta,inferencia,topicos classificador=bertimbau-emi 1.0.0`.
+
+    O download fica no runner, e não antes da API, porque ~420 MB podem passar do
+    tempo limite de inicialização do App Service: o Azure reiniciaria o contêiner
+    e o download recomeçaria em laço. Execuções disparadas enquanto ele baixa só
+    esperam na fila.
+    Se aparecer `classificador=lexico-sentilex`, o BERTimbau não subiu: o motivo
+    está na linha `BERTimbau indisponivel` logo acima (ou em
+    `[bertimbau] download falhou`).
 
     > O primeiro caminho apontar para `/tmp/<uid>` e não para `wwwroot` é o
     > esperado — ver a nota do passo A4.

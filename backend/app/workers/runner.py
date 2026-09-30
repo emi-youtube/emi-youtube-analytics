@@ -17,9 +17,10 @@ um worker morto deixou em `processando` (`workers/fila.devolver_presos`). Em
 produção worker morrendo é questão de quando, não de se.
 
 **O classificador é carregado ANTES do laço.** É onde o portão da regra 5 do CLAUDE.md
-e a conferência do sha256 do léxico acontecem: se o recurso não está lá, o worker se
-recusa a subir com uma mensagem que diz o caminho esperado, em vez de coletar durante
-horas e falhar na hora de classificar.
+e as conferências de sha256 acontecem. O BERTimbau é o classificador de produção; se
+ele não sobe, o léxico assume (`montar_classificador`). Se nem o léxico está lá, o
+worker se recusa a subir com uma mensagem que diz o caminho esperado, em vez de coletar
+durante horas e falhar na hora de classificar.
 """
 
 import asyncio
@@ -29,26 +30,56 @@ import signal
 import time
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import async_session_factory
 from app.inferencia.base import Classificador, ClassificadorIndisponivel
+from app.inferencia.bertimbau import ClassificadorBertimbau
 from app.inferencia.lexico import ClassificadorLexico
+from app.inferencia.versao import ativar_versao
 from app.workers import coleta, fila, inferencia, topicos
 from app.workers.youtube import ClienteYouTube
 
 logger = logging.getLogger(__name__)
 
 
-def montar_classificador() -> Classificador:
-    """Carrega a implementação em pé e roda o portão da versão do pré-processamento.
+async def montar_classificador(db: AsyncSession) -> Classificador:
+    """O BERTimbau; se ele não puder subir, o léxico. Os dois passam pelo portão.
 
-    Ponto único de troca: quando o BERTimbau oficial existir, é esta função que passa a
-    devolver `ClassificadorBertimbau.de_pasta(...)` — o resto do arquivo não muda, e o
-    `inferencia.py` não fica sabendo.
+    Ponto único de troca: o resto do arquivo não muda, e o `inferencia.py` não fica
+    sabendo qual dos dois está em pé.
+
+    **Contingência, não erro fatal.** Pasta ausente, download que falhou, sha256
+    diferente, versão de pré-processamento divergente, `torch` ausente — tudo isso vira
+    `ClassificadorIndisponivel` no BERTimbau, e o worker cai para o léxico com o motivo
+    no log em WARNING. As análises gravadas nesse estado apontam para a linha do
+    léxico em VERSOES_MODELO (o descritor é da implementação que classificou), então o
+    histórico diz a verdade sobre quem rotulou cada comentário. Um painel com o piso do
+    Capítulo 5 é melhor que uma fila parada.
+
+    A troca acontece só na subida: um worker que subiu com o léxico continua com ele
+    até reiniciar. Alternar no meio de uma execução misturaria dois classificadores
+    nos mesmos resultados.
+
+    Se o léxico também não sobe, aí sim é fatal — sobe a exceção dele.
+
+    **Quem subiu vira a versão `ativo`**, e as demais `arquivado`
+    (`inferencia.versao.ativar_versao`): é o que o painel mostra como modelo em uso,
+    então em contingência a tela diz léxico, e não o BERTimbau que falhou.
     """
-    classificador = ClassificadorLexico.de_arquivo(settings.caminho_sentilex)
-    classificador.validar()
+    classificador: Classificador
+    try:
+        classificador = ClassificadorBertimbau.de_pasta(settings.caminho_bertimbau)
+        classificador.validar()
+    except ClassificadorIndisponivel as erro:
+        logger.warning(
+            "BERTimbau indisponivel; usando o lexico como contingencia. Motivo:\n%s", erro
+        )
+        classificador = ClassificadorLexico.de_arquivo(settings.caminho_sentilex)
+        classificador.validar()
+
+    await ativar_versao(db, classificador.descritor)
     return classificador
 
 
@@ -109,7 +140,8 @@ async def main() -> None:
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     try:
-        classificador = montar_classificador()
+        async with async_session_factory() as db:
+            classificador = await montar_classificador(db)
     except ClassificadorIndisponivel as erro:
         # Recurso ausente ou trocado não é falha transitória: não há o que tentar de
         # novo no próximo ciclo. Sai com mensagem acionável em vez de subir um worker

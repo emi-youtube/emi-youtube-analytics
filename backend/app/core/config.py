@@ -37,6 +37,17 @@ class Settings(BaseSettings):
     # um erro apontando para o diretório atual.
     sentilex_path: str = ""
 
+    # Pasta com os pesos, o tokenizer e o model_card.json do BERTimbau (worker de
+    # inferência). Fora do git (~420 MB): vazio cai no padrão (ver `caminho_bertimbau`).
+    bertimbau_path: str = ""
+    # De onde `app.inferencia.baixar_bertimbau` baixa a pasta: repositório PRIVADO do
+    # Hugging Face Hub (docs/DEPLOY.md). A revisão pode ser um commit, para fixar; a
+    # integridade não depende dela, e sim do sha256 do manifesto versionado.
+    bertimbau_repo_hf: str = ""
+    bertimbau_revisao_hf: str = "main"
+    # Token de LEITURA do repositório privado. Só o download usa; nunca vai para log.
+    hf_token: str = ""
+
     worker_poll_interval_seconds: int = 5
     # Depois de quantos minutos em 'processando' um job é considerado abandonado
     # pelo worker e devolvido à fila (`workers/fila.devolver_presos`). Tem de ser
@@ -73,6 +84,18 @@ class Settings(BaseSettings):
         if self.sentilex_path.strip():
             return Path(self.sentilex_path.strip())
         return REPO_ROOT / "ml" / "lexico" / "dados" / "SentiLex-flex-PT02.txt"
+
+    @property
+    def caminho_bertimbau(self) -> Path:
+        """Onde procurar a pasta do BERTimbau, com o padrão do repositório.
+
+        O padrão é onde o modelo oficial fica depois de sair do Colab (`ml/modelos/`,
+        fora do git). No App Service a pasta `ml/` não existe: `BERTIMBAU_PATH` aponta
+        para `/home/modelos/...`, que sobrevive a restart.
+        """
+        if self.bertimbau_path.strip():
+            return Path(self.bertimbau_path.strip())
+        return REPO_ROOT / "ml" / "modelos" / "bertimbau-2026-09-30"
 
 
 @lru_cache

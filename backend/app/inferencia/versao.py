@@ -12,7 +12,7 @@ vêm do artefato e mudam sem schema mudar. Quem sabe a identidade é a implement
 
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,7 @@ from app.models.versao_modelo import VersaoModelo
 logger = logging.getLogger(__name__)
 
 STATUS_ATIVO = "ativo"
+STATUS_ARQUIVADO = "arquivado"
 
 
 async def garantir_versao(db: AsyncSession, descritor: DescritorVersao) -> VersaoModelo:
@@ -66,6 +67,55 @@ async def garantir_versao(db: AsyncSession, descritor: DescritorVersao) -> Versa
     await db.refresh(versao)
     logger.info(
         "versao de modelo registrada id_versao=%s nome=%s versao=%s",
+        versao.id_versao,
+        versao.nome_modelo,
+        versao.versao,
+    )
+    return versao
+
+
+async def ativar_versao(db: AsyncSession, descritor: DescritorVersao) -> VersaoModelo:
+    """Marca a versão do descritor como `ativo` e todas as outras como `arquivado`.
+
+    `ativo` significa "o classificador que o worker carregou nesta subida" — é o que o
+    painel mostra como modelo em uso. Sem isso, a versão ativa seria a de maior id, e
+    em contingência (BERTimbau falhou, léxico assumiu) a tela continuaria dizendo
+    BERTimbau enquanto o léxico classifica.
+
+    Uma transação só: entre arquivar as outras e ativar esta não pode existir um
+    instante com zero ou duas versões ativas visível para o painel.
+    """
+    for tentativa in range(2):
+        versao = await _buscar(db, descritor)
+        if versao is None:
+            versao = VersaoModelo(
+                nome_modelo=descritor.nome_modelo,
+                versao=descritor.versao,
+                metricas_avaliacao={"proveniencia": descritor.proveniencia},
+                status=STATUS_ATIVO,
+            )
+            db.add(versao)
+            try:
+                await db.flush()
+            except IntegrityError:
+                # Outro worker criou a mesma linha agora; relê na segunda volta.
+                await db.rollback()
+                if tentativa:
+                    raise
+                continue
+        break
+
+    await db.execute(
+        update(VersaoModelo)
+        .where(VersaoModelo.id_versao != versao.id_versao)
+        .values(status=STATUS_ARQUIVADO)
+    )
+    versao.status = STATUS_ATIVO
+    await db.commit()
+    await db.refresh(versao)
+
+    logger.info(
+        "versao de modelo ativada id_versao=%s nome=%s versao=%s (demais arquivadas)",
         versao.id_versao,
         versao.nome_modelo,
         versao.versao,
