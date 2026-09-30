@@ -4,11 +4,11 @@ Gabarito humano, 334 comentarios.
 
 ## Tabela 1 - desempenho geral por metodo
 
-| metodo | acuracia | precisao macro | revocacao macro | F1 macro | IC 95% (F1 macro) |
-|---|---|---|---|---|---|
-| lexico | 0.563 | 0.576 | 0.556 | **0.553** | [0.500; 0.608] |
-| bertimbau | 0.737 | 0.731 | 0.737 | **0.731** | [0.682; 0.776] |
-| gemini (rotulo_fraco) | 0.829 | 0.829 | 0.843 | **0.829** | [0.790; 0.870] |
+| metodo | acuracia | precisao macro | revocacao macro | F1 macro | IC 95% (F1 macro) | kappa de Cohen |
+|---|---|---|---|---|---|---|
+| lexico | 0.563 | 0.576 | 0.556 | **0.553** | [0.500; 0.608] | 0.332 |
+| bertimbau | 0.737 | 0.731 | 0.737 | **0.731** | [0.682; 0.776] | 0.601 |
+| gemini (rotulo_fraco) | 0.829 | 0.829 | 0.843 | **0.829** | [0.790; 0.870] | 0.744 |
 
 ## Tabela 2 - desempenho por classe (IC 95% do F1, bootstrap)
 

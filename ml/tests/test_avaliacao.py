@@ -20,11 +20,14 @@ onde ele não estiver instalado, esses testes são pulados e o resto continua va
 
 import argparse
 import csv
+import dataclasses
+import json
 import random
 
 import pytest
 
 from ml.avaliacao.avaliar import (
+    METODO_GEMINI,
     Avaliacao,
     avaliar_metodo,
     executar,
@@ -157,6 +160,56 @@ def test_metricas_batem_com_o_scikit_learn():
         )
         for classe, esperado in zip(CLASSES, f1_por_classe, strict=True):
             assert nossas.por_classe[classe].f1 == pytest.approx(esperado)
+
+
+def test_kappa_do_metodo_bate_com_o_scikit_learn():
+    """O Kappa método x gabarito (Tabela 15) conferido contra `cohen_kappa_score`.
+
+    A fórmula é a de `ml/concordancia/kappa.py`, já testada lá contra caso à mão; aqui
+    se confere que a avaliação a chama com gabarito e previsão alinhados.
+    """
+    metricas_sklearn = pytest.importorskip("sklearn.metrics")
+
+    for semente in range(100):
+        ids = list(range(1, 121))
+        verdadeiros = sortear_rotulos(120, semente)
+        # Método correlacionado com o gabarito, para o Kappa não ficar sempre perto de 0.
+        sorteio = random.Random(semente + 2000)
+        previstos = [
+            rotulo if sorteio.random() < 0.7 else sorteio.choice(CLASSES) for rotulo in verdadeiros
+        ]
+        # Previsões fora de ordem: o alinhamento por id é da avaliação, não do CSV.
+        previsoes = dict(reversed(list(zip(ids, previstos, strict=True))))
+        avaliacao = avaliar_metodo(
+            "m", "teste", dict(zip(ids, verdadeiros, strict=True)), previsoes, 1
+        )
+
+        assert avaliacao.kappa == pytest.approx(
+            metricas_sklearn.cohen_kappa_score(verdadeiros, previstos)
+        )
+
+
+def test_kappa_do_caso_calculado_a_mao():
+    """p_o = 5/9; cada lado tem 3 de cada classe, então p_e = 3 x (1/3 x 1/3) = 1/3.
+
+    kappa = (5/9 - 1/3) / (1 - 1/3) = (2/9) / (2/3) = 1/3
+    """
+    ids = list(range(1, 10))
+    avaliacao = avaliar_metodo(
+        "m",
+        "teste",
+        dict(zip(ids, GABARITO_MAO, strict=True)),
+        dict(zip(ids, PREVISTO_MAO, strict=True)),
+        1,
+    )
+    assert avaliacao.kappa == pytest.approx(1 / 3)
+
+
+def test_kappa_degenerado_vira_none_e_nao_estoura():
+    """Gabarito e método com uma classe só: p_e = 1 e o Kappa não tem valor."""
+    so_neutro = {1: "neutro", 2: "neutro"}
+    avaliacao = avaliar_metodo("m", "teste", so_neutro, so_neutro, 1)
+    assert avaliacao.kappa is None
 
 
 def test_matriz_de_confusao_bate_com_o_scikit_learn():
@@ -473,8 +526,29 @@ def test_grava_tabelas_e_relatorio(ensaio, tmp_path):
     assert len(linhas) == len(CLASSES)
     assert {linha["classe"] for linha in linhas} == set(CLASSES)
 
-    relatorio = (saida / "resultado_avaliacao.json").read_text(encoding="utf-8")
-    assert "f1_macro" in relatorio and "ic95_f1" in relatorio
+    relatorio = json.loads((saida / "resultado_avaliacao.json").read_text(encoding="utf-8"))
+    assert "f1_macro" in relatorio["metodos"][0] and "ic95_f1_macro" in relatorio["metodos"][0]
+    assert relatorio["metodos"][0]["kappa_cohen"] == pytest.approx(avaliacoes[0].kappa)
+    # Sem Gemini avaliada, o campo da Tabela 15 não aparece.
+    assert "kappa_cohen_gemini_gabarito" not in relatorio
+
+
+def test_relatorio_destaca_o_kappa_da_gemini(ensaio, tmp_path):
+    """O campo de topo da Tabela 15 é o Kappa do método da Gemini, não de outro."""
+    argumentos = montar_argumentos(
+        ensaio,
+        gabarito=ensaio / "gabarito.csv",
+        previsoes=[f"bom={ensaio / 'bom.csv'}", f"preguicoso={ensaio / 'preguicoso.csv'}"],
+    )
+    bom, preguicoso = executar(argumentos)[0]
+    gemini = dataclasses.replace(preguicoso, metodo=METODO_GEMINI)
+
+    caminho = tmp_path / "resultado_avaliacao.json"
+    gravar_relatorio([bom, gemini], 0, "csv", 200, caminho)
+
+    relatorio = json.loads(caminho.read_text(encoding="utf-8"))
+    assert relatorio["kappa_cohen_gemini_gabarito"] == pytest.approx(gemini.kappa)
+    assert relatorio["kappa_cohen_gemini_gabarito"] != pytest.approx(bom.kappa)
 
 
 def test_gera_as_figuras_do_capitulo(ensaio, tmp_path):

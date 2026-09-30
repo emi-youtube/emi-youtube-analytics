@@ -1,8 +1,9 @@
 {
-  "data_utc": "2026-09-30T14:03:23.684974+00:00",
+  "data_utc": "2026-09-30T14:31:12.334817+00:00",
   "gabarito": "banco: exemplos_treinamento.rotulo_humano (execucao 4)",
   "total_avaliado": 334,
   "excluidos_sem_rotulo_humano": 0,
+  "kappa_cohen_gemini_gabarito": 0.7439545955832908,
   "bootstrap": {
     "reamostragens": 2000,
     "confianca": 0.95,
@@ -21,6 +22,7 @@
         0.4996866933341698,
         0.608368379726527
       ],
+      "kappa_cohen": 0.3316337719298246,
       "por_classe": {
         "positivo": {
           "precisao": 0.6483516483516484,
@@ -91,6 +93,7 @@
         0.6816467499525588,
         0.7764231410544558
       ],
+      "kappa_cohen": 0.6009666295582287,
       "por_classe": {
         "positivo": {
           "precisao": 0.7744360902255639,
@@ -161,6 +164,7 @@
         0.7899968509401764,
         0.8703806487362559
       ],
+      "kappa_cohen": 0.7439545955832908,
       "por_classe": {
         "positivo": {
           "precisao": 0.9375,

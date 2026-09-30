@@ -1,0 +1,65 @@
+{
+  "data_utc": "2026-09-30T14:44:53.380870+00:00",
+  "pergunta": "tempo de resposta da Tabela 15 do TC2: <= 3 min por lote de 1.000 comentarios",
+  "modelo": {
+    "pasta": "bertimbau-2026-09-30",
+    "versao": "0.1.0-ensaio",
+    "semente": 42,
+    "treinado_em_utc": "2026-09-30T13:44:17.996958+00:00",
+    "formato": "pytorch float32"
+  },
+  "conferencia_dos_pesos": {
+    "previsoes_publicadas": 334,
+    "iguais": 334
+  },
+  "metodologia": {
+    "onde": "maquina local simulando a B1 do Azure (1 vCPU, 1,75 GB)",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+    "nucleos_logicos_da_maquina": 16,
+    "afinidade_do_processo": [
+      0
+    ],
+    "threads_torch": 1,
+    "threads_interop_torch": 1,
+    "lote_do_modelo": 1,
+    "preparar_texto_no_tempo": true,
+    "banco_no_tempo": false,
+    "comentarios": 1000,
+    "amostra": "sorteio sem reposicao do corpus, semente 42",
+    "max_length": 128,
+    "torch": "2.5.1+cpu",
+    "python": "3.11.5",
+    "so": "Windows-10-10.0.26200-SP0"
+  },
+  "carga_do_modelo_segundos": 1.5514727999980096,
+  "rss_pico_mb": 660.4296875,
+  "rodadas": [
+    {
+      "rodada": 1,
+      "segundos_total": 90.69352879999497,
+      "comentarios_por_segundo": 11.026145009808634,
+      "latencia_ms_mediana": 76.92250000036438,
+      "latencia_ms_p95": 179.5039099961286,
+      "latencia_ms_maxima": 347.99629999906756
+    },
+    {
+      "rodada": 2,
+      "segundos_total": 103.47090049999679,
+      "comentarios_por_segundo": 9.66455298221775,
+      "latencia_ms_mediana": 87.99815000020317,
+      "latencia_ms_p95": 198.97650000093552,
+      "latencia_ms_maxima": 431.4033999980893
+    },
+    {
+      "rodada": 3,
+      "segundos_total": 96.80159609999828,
+      "comentarios_por_segundo": 10.330408178052942,
+      "latencia_ms_mediana": 81.60935000341851,
+      "latencia_ms_p95": 189.03137000561392,
+      "latencia_ms_maxima": 437.1889000030933
+    }
+  ],
+  "pior_rodada_segundos_por_1000": 103.47090049999679,
+  "meta_segundos_por_1000": 180.0,
+  "dentro_da_meta": true
+}
