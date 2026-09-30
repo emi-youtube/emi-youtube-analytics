@@ -130,6 +130,7 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 6. **Conjunto de teste é só humano.** Nunca avalie o modelo contra rótulos gerados pela Gemini — a comparação vira circular e inválida. `exemplos_treinamento.split` nasce NULO e só é atribuído depois da rotulagem fraca: a amostra humana é sorteada estratificada pelo rótulo fraco (que os avaliadores não veem) e vira `teste`; o restante vai 85/15 para treino e validação.
 7. **Tabela de infraestrutura não pode crescer sem limite.** `tentativas_login` e similares precisam de limpeza (apagar registros antigos na própria escrita). O free tier do Supabase tem cota de armazenamento.
 8. **`class_weight='balanced'` no treino.** O corpus da Sprint 1 (2.534 comentários, rótulo fraco) é 42,6% positivo / 30,1% neutro / 27,2% negativo — mais negativo que a suposição inicial do planejamento, efeito da curadoria com campanhas de recepção crítica. A métrica que importa é **F1 macro**, não acurácia.
+9. **Toda tabela nova liga RLS na própria migração que a cria:** `ALTER TABLE public."<tabela>" ENABLE ROW LEVEL SECURITY`, **sem política e sem FORCE**. Sem RLS, a API automática do Supabase (PostgREST) expõe a tabela a quem tiver a chave `anon`, que é pública. O backend não é afetado porque o papel da `DATABASE_URL` é dono das tabelas e tem BYPASSRLS; FORCE quebraria isso. `backend/tests/test_rls.py` (só contra Postgres, com `EMI_TESTE_POSTGRES_URL`) falha se alguma tabela do `public` estiver sem RLS. Ver ADR-010 em `docs/BANCO.md`.
 
 ---
 
