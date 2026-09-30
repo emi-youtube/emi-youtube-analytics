@@ -30,19 +30,21 @@ import signal
 import time
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import async_session_factory
 from app.inferencia.base import Classificador, ClassificadorIndisponivel
 from app.inferencia.bertimbau import ClassificadorBertimbau
 from app.inferencia.lexico import ClassificadorLexico
+from app.inferencia.versao import ativar_versao
 from app.workers import coleta, fila, inferencia, topicos
 from app.workers.youtube import ClienteYouTube
 
 logger = logging.getLogger(__name__)
 
 
-def montar_classificador() -> Classificador:
+async def montar_classificador(db: AsyncSession) -> Classificador:
     """O BERTimbau; se ele não puder subir, o léxico. Os dois passam pelo portão.
 
     Ponto único de troca: o resto do arquivo não muda, e o `inferencia.py` não fica
@@ -61,18 +63,23 @@ def montar_classificador() -> Classificador:
     nos mesmos resultados.
 
     Se o léxico também não sobe, aí sim é fatal — sobe a exceção dele.
+
+    **Quem subiu vira a versão `ativo`**, e as demais `arquivado`
+    (`inferencia.versao.ativar_versao`): é o que o painel mostra como modelo em uso,
+    então em contingência a tela diz léxico, e não o BERTimbau que falhou.
     """
+    classificador: Classificador
     try:
-        bertimbau = ClassificadorBertimbau.de_pasta(settings.caminho_bertimbau)
-        bertimbau.validar()
-        return bertimbau
+        classificador = ClassificadorBertimbau.de_pasta(settings.caminho_bertimbau)
+        classificador.validar()
     except ClassificadorIndisponivel as erro:
         logger.warning(
             "BERTimbau indisponivel; usando o lexico como contingencia. Motivo:\n%s", erro
         )
+        classificador = ClassificadorLexico.de_arquivo(settings.caminho_sentilex)
+        classificador.validar()
 
-    classificador = ClassificadorLexico.de_arquivo(settings.caminho_sentilex)
-    classificador.validar()
+    await ativar_versao(db, classificador.descritor)
     return classificador
 
 
@@ -133,7 +140,8 @@ async def main() -> None:
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     try:
-        classificador = montar_classificador()
+        async with async_session_factory() as db:
+            classificador = await montar_classificador(db)
     except ClassificadorIndisponivel as erro:
         # Recurso ausente ou trocado não é falha transitória: não há o que tentar de
         # novo no próximo ciclo. Sai com mensagem acionável em vez de subir um worker

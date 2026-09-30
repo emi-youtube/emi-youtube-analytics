@@ -381,21 +381,21 @@ def lexico_disponivel(tmp_path, monkeypatch):
     return caminho
 
 
-def test_sem_a_pasta_do_bertimbau_o_worker_cai_para_o_lexico(
-    lexico_disponivel, tmp_path, monkeypatch, caplog
+async def test_sem_a_pasta_do_bertimbau_o_worker_cai_para_o_lexico(
+    sessao, lexico_disponivel, tmp_path, monkeypatch, caplog
 ):
     monkeypatch.setattr(settings, "bertimbau_path", str(tmp_path / "sem-modelo"))
 
     with caplog.at_level(logging.WARNING):
-        classificador = runner.montar_classificador()
+        classificador = await runner.montar_classificador(sessao)
 
     assert isinstance(classificador, ClassificadorLexico)
     assert "contingencia" in caplog.text
     assert str(tmp_path / "sem-modelo") in caplog.text  # o motivo, não só o fato
 
 
-def test_preprocessamento_divergente_tambem_cai_para_o_lexico(
-    lexico_disponivel, pasta_sintetica, monkeypatch, caplog
+async def test_preprocessamento_divergente_tambem_cai_para_o_lexico(
+    sessao, lexico_disponivel, pasta_sintetica, monkeypatch, caplog
 ):
     """O portão da regra 5 recusa o BERTimbau; a recusa é contingência, não queda."""
     escrever_cartao(pasta_sintetica, cartao_sintetico(versao_preprocessamento="0.0.0"))
@@ -412,28 +412,100 @@ def test_preprocessamento_divergente_tambem_cai_para_o_lexico(
     monkeypatch.setattr(ClassificadorBertimbau, "de_pasta", staticmethod(carregar_sem_torch))
 
     with caplog.at_level(logging.WARNING):
-        classificador = runner.montar_classificador()
+        classificador = await runner.montar_classificador(sessao)
 
     assert isinstance(classificador, ClassificadorLexico)
     assert "preprocessamento" in caplog.text
 
 
-def test_com_o_modelo_em_pe_o_worker_usa_o_bertimbau(
-    lexico_disponivel, pasta_modelo_minusculo, monkeypatch
+async def test_com_o_modelo_em_pe_o_worker_usa_o_bertimbau(
+    sessao, lexico_disponivel, pasta_modelo_minusculo, monkeypatch
 ):
     manifesto = manifesto_da_pasta(pasta_modelo_minusculo)
     monkeypatch.setattr(modulo_bertimbau, "ler_manifesto", lambda: manifesto)
     monkeypatch.setattr(settings, "bertimbau_path", str(pasta_modelo_minusculo))
 
-    assert isinstance(runner.montar_classificador(), ClassificadorBertimbau)
+    assert isinstance(await runner.montar_classificador(sessao), ClassificadorBertimbau)
 
 
-def test_sem_bertimbau_e_sem_lexico_o_worker_nao_sobe(tmp_path, monkeypatch):
+# ---------------------------------------- status: 'ativo' é quem subiu agora
+
+
+async def _semear_versao(sessao, nome_modelo: str, status: str = "ativo") -> VersaoModelo:
+    versao = VersaoModelo(
+        nome_modelo=nome_modelo, versao="1.0.0", metricas_avaliacao={}, status=status
+    )
+    sessao.add(versao)
+    await sessao.commit()
+    return versao
+
+
+async def _status_por_modelo(sessao) -> dict[str, str]:
+    linhas = (await sessao.execute(select(VersaoModelo.nome_modelo, VersaoModelo.status))).all()
+    return dict(linhas)
+
+
+async def test_bertimbau_sobe_vira_o_unico_ativo(
+    sessao, lexico_disponivel, pasta_modelo_minusculo, monkeypatch
+):
+    """Subida anterior foi em contingência: o léxico estava ativo e é arquivado agora."""
+    await _semear_versao(sessao, lexico_producao.NOME_MODELO)
+    manifesto = manifesto_da_pasta(pasta_modelo_minusculo)
+    monkeypatch.setattr(modulo_bertimbau, "ler_manifesto", lambda: manifesto)
+    monkeypatch.setattr(settings, "bertimbau_path", str(pasta_modelo_minusculo))
+
+    classificador = await runner.montar_classificador(sessao)
+
+    assert await _status_por_modelo(sessao) == {
+        classificador.descritor.nome_modelo: "ativo",
+        lexico_producao.NOME_MODELO: "arquivado",
+    }
+
+
+async def test_bertimbau_falha_o_lexico_assume_e_vira_o_unico_ativo(
+    sessao, lexico_disponivel, tmp_path, monkeypatch
+):
+    """O caso que o painel mentia: o BERTimbau tem id maior, mas quem classifica é o léxico.
+
+    Antes, 'modelo em uso' era a versão ativa de maior id — o BERTimbau, que nem subiu.
+    """
+    await _semear_versao(sessao, lexico_producao.NOME_MODELO, status="arquivado")
+    await _semear_versao(sessao, "bertimbau-emi")
+    monkeypatch.setattr(settings, "bertimbau_path", str(tmp_path / "sem-modelo"))
+
+    classificador = await runner.montar_classificador(sessao)
+
+    assert isinstance(classificador, ClassificadorLexico)
+    assert await _status_por_modelo(sessao) == {
+        lexico_producao.NOME_MODELO: "ativo",
+        "bertimbau-emi": "arquivado",
+    }
+    # A mesma consulta do painel (services/painel.py) agora aponta para o léxico.
+    em_uso = await sessao.scalar(
+        select(VersaoModelo)
+        .where(VersaoModelo.status == "ativo")
+        .order_by(VersaoModelo.id_versao.desc())
+    )
+    assert em_uso.nome_modelo == lexico_producao.NOME_MODELO
+
+
+async def test_primeira_subida_cria_a_versao_ja_ativa(
+    sessao, lexico_disponivel, tmp_path, monkeypatch
+):
+    """Banco sem versão nenhuma: a linha nasce na subida, não na primeira inferência."""
+    monkeypatch.setattr(settings, "bertimbau_path", str(tmp_path / "sem-modelo"))
+
+    await runner.montar_classificador(sessao)
+
+    assert await _status_por_modelo(sessao) == {lexico_producao.NOME_MODELO: "ativo"}
+
+
+async def test_sem_bertimbau_e_sem_lexico_o_worker_nao_sobe(sessao, tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "bertimbau_path", str(tmp_path / "sem-modelo"))
     monkeypatch.setattr(settings, "sentilex_path", str(tmp_path / "sem-lexico.txt"))
 
     with pytest.raises(ClassificadorIndisponivel, match="SentiLex"):
-        runner.montar_classificador()
+        await runner.montar_classificador(sessao)
 
 
 async def test_analise_em_contingencia_aponta_para_a_versao_do_lexico(
@@ -441,7 +513,7 @@ async def test_analise_em_contingencia_aponta_para_a_versao_do_lexico(
 ):
     """O histórico diz quem rotulou: em contingência, é o léxico, não o BERTimbau."""
     monkeypatch.setattr(settings, "bertimbau_path", str(tmp_path / "sem-modelo"))
-    classificador = runner.montar_classificador()
+    classificador = await runner.montar_classificador(sessao)
 
     execucao = await montar_execucao_com_comentarios(sessao, ["produto ótimo", "caro"])
     await enfileirar_inferencia(sessao, execucao)

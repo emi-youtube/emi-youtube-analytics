@@ -109,6 +109,9 @@ o runner **cai para o léxico** e registra o motivo em WARNING no Log stream
 (`BERTimbau indisponivel; usando o lexico como contingencia`). As análises feitas
 assim apontam para a linha `lexico-sentilex` de `VERSOES_MODELO`, então o histórico
 diz quem rotulou cada comentário. A troca só acontece na subida do worker.
+Em `VERSOES_MODELO`, `ativo` é **o classificador que o worker carregou nesta subida**:
+o runner marca a versão que subiu como `ativo` e todas as outras como `arquivado`, numa
+transação só — é o que o painel mostra como modelo em uso, e em contingência diz léxico.
 
 **Memória.** O runner com o BERTimbau em float32 fica em ~660 MB de pico
 (`ml/medicao/relatorio_tempo_inferencia.json`), somando-se aos ~150 MB da API: cabe
@@ -118,7 +121,7 @@ na B1 (1,75 GB), com menos folga que antes.
 atualizar o manifesto (nome, versão e sha256 de cada arquivo — o `model_card.json`
 precisa ter `nome_modelo` e `versao` iguais aos do manifesto), apontar
 `BERTIMBAU_PATH` para uma pasta nova (`/home/modelos/<nome>-<versao>`) e fazer deploy.
-A versão nova ganha linha própria em `VERSOES_MODELO` na primeira análise.
+A versão nova ganha linha própria em `VERSOES_MODELO` na subida do worker.
 
 #### Uma vez: criar o repositório no Hub
 
