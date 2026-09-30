@@ -146,8 +146,8 @@ class ClassificadorLexico(Classificador):
                 # Dito aqui porque é o que a banca vai perguntar ao ver esta linha em
                 # VERSOES_MODELO: por que o sistema roda o piso do capítulo.
                 "papel": (
-                    "linha de base (piso) do Capitulo 5, em producao enquanto o "
-                    "BERTimbau oficial nao existe"
+                    "linha de base (piso) do Capitulo 5; em producao so como "
+                    "contingencia, quando o BERTimbau nao sobe"
                 ),
             },
         )

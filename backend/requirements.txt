@@ -28,9 +28,8 @@ httpx==0.28.1
 # neural ao lado do classificador (memoria do contêiner) nem agrupar por
 # sentimento sem querer (ver app/topicos/modelo.py).
 #
-# Arrasta numpy e scipy. NAO arrasta torch nem transformers: o backend de
-# producao continua sem biblioteca de deep learning -- o classificador de
-# sentimento hoje e o lexico, que e stdlib pura.
+# Arrasta numpy e scipy. O torch do classificador entra no fim do arquivo, por
+# outra decisao (o BERTimbau); tópicos nao depende dele.
 scikit-learn==1.9.1
 
 # Classificador lexico COMPARTILHADO com o ml/ (pacote proprio na raiz do repo).
@@ -41,3 +40,15 @@ scikit-learn==1.9.1
 # o caminho e SENTILEX_PATH e o sha256 esperado esta no codigo do classificador.
 # Tambem stdlib pura.
 -e ./lexico
+
+# Classificador de PRODUCAO: o BERTimbau fine-tuned (app/inferencia/bertimbau.py).
+# Decisao do CLAUDE.md Secao 2: BERTimbau rodando local, sem custo por token e sem
+# enviar comentario a terceiros. O lexico continua instalado como contingencia.
+#
+# A roda de CPU, e nao a do PyPI: no Linux o `torch` do PyPI arrasta as bibliotecas
+# CUDA (~2,5 GB) para uma B1 que nao tem GPU. O indice do PyTorch serve so a roda
+# `+cpu` (~180 MB). Mesma versao do ml/requirements-treino.txt, para o modelo rodar
+# em producao com a biblioteca com que foi medido.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1+cpu
+transformers==4.46.3

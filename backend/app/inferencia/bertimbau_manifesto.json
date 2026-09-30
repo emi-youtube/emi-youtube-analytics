@@ -1,0 +1,14 @@
+{
+  "nome_modelo": "bertimbau-emi",
+  "versao": "1.0.0",
+  "descricao": "BERTimbau oficial da Sprint 1: semente 42, treinado com rotulo fraco, F1 macro 0,731 contra o gabarito humano (ml/avaliacao/saida/resultado_avaliacao.json).",
+  "arquivos": {
+    "config.json": "2bb51793cd7ae8c8e310525a46037882088d06d2d5405092eb70fcaf6ad92ecd",
+    "model.safetensors": "acdea8d393472fc996469f88f94c9936ecbeaed12c5735757959c7fb593b1617",
+    "model_card.json": "c98548fb3b826868ce2e691a96faa1bd04067291b3a7151f0f4e877d2bf25c2a",
+    "special_tokens_map.json": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3",
+    "tokenizer.json": "bcc8fe4209dffce14189a4319759f834e84c7df0a0bee8bfc6b576d4e2c6d387",
+    "tokenizer_config.json": "0eb95891c3de474ec9ea0cd665b43f1e9fdd3604f76e8d66b3f85e9b301232a1",
+    "vocab.txt": "69c28584c67a0e5018f85ca734aa272cc38e26b5dd0d33fffa28059299f21707"
+  }
+}

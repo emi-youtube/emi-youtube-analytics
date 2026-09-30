@@ -65,6 +65,11 @@ fi
 # 1. O lexico precisa estar no disco antes de o runner tentar carrega-lo.
 bash scripts/baixar_sentilex.sh
 
+# 1b. O BERTimbau, classificador de producao. Falhar aqui NAO para o arranque
+#     (por isso o `||`, contra o `set -e`): sem o modelo, o runner cai para o
+#     lexico e diz o motivo no log (app/workers/runner.montar_classificador).
+python -m app.inferencia.baixar_bertimbau || echo "[bertimbau] download falhou; o worker vai usar o lexico" >&2
+
 # 2. Migrations. Roda antes de qualquer processo atender: schema velho com
 #    codigo novo falha de formas piores que nao subir.
 python -m alembic upgrade head
