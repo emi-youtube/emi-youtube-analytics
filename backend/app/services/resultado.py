@@ -38,6 +38,7 @@ from app.models.analise_sentimento import AnaliseSentimento
 from app.models.comentario import Comentario
 from app.models.comentario_tema import ComentarioTema
 from app.models.execucao import Execucao
+from app.models.job import Job
 from app.models.modelo_analise import ModeloAnalise
 from app.models.tema import Tema
 from app.models.usuario import Usuario
@@ -53,6 +54,7 @@ from app.schemas.resultado import (
     OrigemInsight,
     PaginaComentarios,
     PontoDeAtencao,
+    RecorteColeta,
     ResultadoDisponivel,
     ResultadoExecucao,
     TemaComSentimento,
@@ -65,6 +67,8 @@ from app.schemas.resultado import (
 )
 from app.services.execucao import get_owned
 from app.topicos.modelo import MINIMO_CARACTERES_REPRESENTATIVO
+from app.workers.coleta import CHAVE_RECORTE
+from app.workers.coleta import TIPO_JOB as TIPO_JOB_COLETA
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +234,53 @@ async def _alcance(db: AsyncSession, id_execucao: int) -> AlcanceExecucao:
         curtidas=curtidas,
         comentarios=comentarios,
         comentarios_por_mil_views=por_mil,
+    )
+
+
+async def _recorte(db: AsyncSession, execucao: Execucao, coletados: int) -> RecorteColeta:
+    """O recorte que valeu na coleta, lido do registro do worker no job de coleta.
+
+    O job mais recente de coleta da execução: num reprocessamento, é o que gerou os
+    comentários que estão no banco.
+    """
+    job = await db.scalar(
+        select(Job)
+        .where(Job.id_execucao == execucao.id_execucao, Job.tipo == TIPO_JOB_COLETA)
+        .order_by(Job.id_job.desc())
+        .limit(1)
+    )
+    registro = ((job.payload or {}) if job is not None else {}).get(CHAVE_RECORTE)
+
+    if not registro:
+        # Coleta anterior ao registro: o worker ignorava os filtros (ver schema).
+        return RecorteColeta(
+            registrado=False,
+            coletado_em=(job.reivindicado_em if job is not None else None) or execucao.iniciado_em,
+            termo_pesquisa=None,
+            publicado_apos=None,
+            limite_informado=None,
+            limite_aplicado=None,
+            comentarios_lidos=None,
+            comentarios_coletados=coletados,
+            descartados_por_data=None,
+            descartados_por_termo=None,
+            limite_atingido=False,
+        )
+
+    limite_aplicado = registro.get("limite_aplicado")
+    return RecorteColeta(
+        registrado=True,
+        coletado_em=registro.get("coletado_em"),
+        termo_pesquisa=registro.get("termo_pesquisa"),
+        publicado_apos=registro.get("publicado_apos"),
+        limite_informado=registro.get("limite_informado"),
+        limite_aplicado=limite_aplicado,
+        comentarios_lidos=registro.get("comentarios_lidos"),
+        # O que está no banco, e não o número do registro: é o que o resto da tela usa.
+        comentarios_coletados=coletados,
+        descartados_por_data=registro.get("descartados_por_data"),
+        descartados_por_termo=registro.get("descartados_por_termo"),
+        limite_atingido=bool(limite_aplicado) and coletados >= limite_aplicado,
     )
 
 
@@ -694,6 +745,7 @@ async def resultado_da_execucao(
     por_video = await _contagens_por_video(db, [id_execucao])
     por_tema = await _contagens_por_tema(db, [id_execucao])
     representantes = await representantes_dos_temas(db, id_execucao)
+    alcance = await _alcance(db, id_execucao)
 
     logger.info(
         "resultado montado id_execucao=%s comentarios_analisados=%s videos=%s temas=%s "
@@ -718,7 +770,8 @@ async def resultado_da_execucao(
                 "negativo": desta.distribuicao.negativo,
             }
         ),
-        alcance=await _alcance(db, id_execucao),
+        alcance=alcance,
+        recorte=await _recorte(db, execucao, alcance.comentarios),
         videos=[
             VideoComSentimento(
                 video=VideoResponse.model_validate(video),

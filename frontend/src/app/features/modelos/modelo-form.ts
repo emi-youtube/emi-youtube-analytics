@@ -1,6 +1,12 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 
@@ -12,6 +18,14 @@ import { escreverVideos, lerVideos } from './videos';
 
 /** Teto por execução do worker (`worker_max_comentarios_por_execucao`). */
 const LIMITE_MAXIMO = 5000;
+
+/** O backend recusa 10,5 (StrictInt); recusar aqui poupa um 422 genérico. */
+function inteiro(controle: AbstractControl): ValidationErrors | null {
+  const valor = controle.value;
+  return valor === null || valor === '' || Number.isInteger(Number(valor))
+    ? null
+    : { inteiro: true };
+}
 
 /** UC02 — cria (`POST`) e edita (`PATCH`) um modelo de análise. */
 @Component({
@@ -55,7 +69,10 @@ export class ModeloForm {
     videos: ['', [Validators.required]],
     termo_pesquisa: ['', [Validators.maxLength(255)]],
     publicado_apos: [''],
-    limite_comentarios: [null as number | null, [Validators.min(1), Validators.max(LIMITE_MAXIMO)]],
+    limite_comentarios: [
+      null as number | null,
+      [Validators.min(1), Validators.max(LIMITE_MAXIMO), inteiro],
+    ],
   });
 
   /** Linhas do textarea que não são um ID nem um endereço de vídeo. */

@@ -107,6 +107,15 @@ export class Resultado {
     return valor.toLocaleString('pt-BR');
   }
 
+  /**
+   * `2026-09-01` -> `01/09/2026`. Data CIVIL: passar por `new Date` a leria como
+   * meia-noite UTC, e no fuso do Brasil a tela mostraria o dia anterior.
+   */
+  protected dataCivil(iso: string): string {
+    const [ano, mes, dia] = iso.split('-');
+    return `${dia}/${mes}/${ano}`;
+  }
+
   protected numero(valor: number): string {
     return valor.toLocaleString('pt-BR');
   }

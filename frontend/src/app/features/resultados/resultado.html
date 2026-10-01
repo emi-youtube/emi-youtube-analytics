@@ -17,7 +17,7 @@
       <h1>{{ r.nome_modelo_analise }}</h1>
       <p class="muted">
         {{ numero(r.distribuicao.total) }} comentários de {{ r.videos.length }} vídeos · coletados
-        em {{ dataHoraLegivel(r.concluido_em) }}
+        em {{ dataHoraLegivel(r.recorte.coletado_em) }}
       </p>
     </div>
 
@@ -31,6 +31,70 @@
       Baixar relatório
     </button>
   </header>
+
+  <!-- Recorte: de onde saem os números (filtros que valeram + data da coleta) -->
+  <section class="card painel recorte" aria-labelledby="recorte-titulo">
+    <h2 class="painel__titulo" id="recorte-titulo">Recorte dos dados</h2>
+    <dl class="recorte__lista">
+      <div class="recorte__item">
+        <dt>Coletados em</dt>
+        <dd>{{ dataHoraLegivel(r.recorte.coletado_em) }}</dd>
+      </div>
+      <div class="recorte__item">
+        <dt>Termo de pesquisa</dt>
+        <dd>
+          @if (r.recorte.termo_pesquisa) {
+            contendo “{{ r.recorte.termo_pesquisa }}”
+          } @else {
+            todos os comentários
+          }
+        </dd>
+      </div>
+      <div class="recorte__item">
+        <dt>Publicados a partir de</dt>
+        <dd>
+          {{ r.recorte.publicado_apos ? dataCivil(r.recorte.publicado_apos) : 'sem data mínima' }}
+        </dd>
+      </div>
+      <div class="recorte__item">
+        <dt>Limite</dt>
+        <dd>
+          @if (r.recorte.limite_aplicado) {
+            {{ numero(r.recorte.limite_aplicado) }}
+            @if (!r.recorte.limite_informado) {
+              (teto do sistema)
+            }
+            @if (r.recorte.limite_atingido) {
+              <span class="recorte__atingido">atingido</span>
+            }
+          } @else {
+            teto do sistema (5.000)
+          }
+        </dd>
+      </div>
+      <div class="recorte__item">
+        <dt>Volume</dt>
+        <dd>
+          {{ numero(r.recorte.comentarios_coletados) }} coletados
+          @if (r.recorte.comentarios_lidos !== null) {
+            de {{ numero(r.recorte.comentarios_lidos) }} lidos
+          }
+          · {{ numero(r.distribuicao.total) }} analisados
+        </dd>
+      </div>
+    </dl>
+    @if (!r.recorte.registrado) {
+      <p class="recorte__nota muted">
+        Coleta anterior ao registro dos filtros: considerou todos os comentários dos vídeos, até o
+        teto de 5.000, sem termo de pesquisa, data mínima ou limite.
+      </p>
+    } @else if (r.recorte.limite_atingido) {
+      <p class="recorte__nota muted">
+        O limite interrompeu a coleta: havia mais comentários dentro do recorte. Os números
+        descrevem os mais recentes de cada vídeo, até completar o limite.
+      </p>
+    }
+  </section>
 
   <!-- Resumo + alcance -->
   <div class="topo">
@@ -146,8 +210,8 @@
     -->
     @if (r.temas.length === 0) {
       <p class="painel__nota muted">
-        O agrupamento por tema ainda não roda nesta versão do sistema. Os comentários já
-        estão classificados por sentimento — a lista completa está disponível abaixo.
+        O agrupamento por tema ainda não roda nesta versão do sistema. Os comentários já estão
+        classificados por sentimento — a lista completa está disponível abaixo.
       </p>
       <div class="temas__rodape">
         <a class="temas__link" [routerLink]="['/resultados', r.id_execucao, 'comentarios']">

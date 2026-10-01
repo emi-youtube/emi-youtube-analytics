@@ -19,6 +19,7 @@ from app.models.analise_sentimento import AnaliseSentimento
 from app.models.comentario import Comentario
 from app.models.comentario_tema import ComentarioTema
 from app.models.execucao import Execucao
+from app.models.job import Job
 from app.models.modelo_analise import ModeloAnalise
 from app.models.tema import Tema
 from app.models.usuario import Usuario
@@ -875,3 +876,122 @@ async def test_agregacao_nao_carrega_comentarios_para_a_memoria(cliente, sessao,
     assert len(materializados) <= 3, (
         f"{len(materializados)} comentarios materializados: a agregacao vazou para o Python"
     )
+
+
+# --------------------------------------------------------------------------- recorte da coleta
+
+
+async def _job_de_coleta(sessao, execucao, payload: dict, **campos) -> None:
+    sessao.add(
+        Job(
+            tipo="coleta",
+            id_execucao=execucao.id_execucao,
+            status="concluida",
+            payload=payload,
+            **campos,
+        )
+    )
+    await sessao.commit()
+
+
+def _sem_fuso(iso: str) -> datetime:
+    """O SQLite dos testes não guarda fuso (o Postgres guarda): compara o instante em UTC."""
+    return datetime.fromisoformat(iso).replace(tzinfo=None)
+
+
+async def _recorte_da_resposta(cliente, dados) -> dict:
+    resposta = await cliente.get(
+        f"/api/v1/execucoes/{dados['execucao'].id_execucao}/resultado", headers=dados["cabecalho"]
+    )
+    assert resposta.status_code == 200
+    return resposta.json()["recorte"]
+
+
+async def test_recorte_mostra_os_filtros_aplicados_e_a_data_da_coleta(cliente, sessao):
+    dados = await montar_cenario(cliente, sessao, email="r1@exemplo.com")
+    await _job_de_coleta(
+        sessao,
+        dados["execucao"],
+        {
+            "filtros": {"videos": [VIDEO_A, VIDEO_B]},
+            "recorte_aplicado": {
+                "coletado_em": "2026-09-24T10:01:00+00:00",
+                "termo_pesquisa": "tênis",
+                "publicado_apos": "2026-09-01",
+                "limite_informado": 6,
+                "limite_aplicado": 6,
+                "comentarios_lidos": 40,
+                "comentarios_coletados": 6,
+                "descartados_por_data": 10,
+                "descartados_por_termo": 24,
+            },
+        },
+    )
+
+    recorte = await _recorte_da_resposta(cliente, dados)
+
+    assert recorte == {
+        "registrado": True,
+        "coletado_em": "2026-09-24T10:01:00Z",
+        "termo_pesquisa": "tênis",
+        "publicado_apos": "2026-09-01",
+        "limite_informado": 6,
+        "limite_aplicado": 6,
+        "comentarios_lidos": 40,
+        "comentarios_coletados": 6,  # o que está no banco
+        "descartados_por_data": 10,
+        "descartados_por_termo": 24,
+        "limite_atingido": True,
+    }
+
+
+async def test_recorte_sem_limite_atingido(cliente, sessao):
+    dados = await montar_cenario(cliente, sessao, email="r2@exemplo.com")
+    await _job_de_coleta(
+        sessao,
+        dados["execucao"],
+        {"recorte_aplicado": {"coletado_em": "2026-09-24T10:01:00+00:00", "limite_aplicado": 5000}},
+    )
+
+    recorte = await _recorte_da_resposta(cliente, dados)
+
+    assert recorte["limite_atingido"] is False
+    assert recorte["termo_pesquisa"] is None
+
+
+async def test_coleta_antiga_nao_afirma_filtros_que_o_worker_ignorava(cliente, sessao):
+    """O modelo pediu termo, data e limite; o worker da época não aplicou nenhum."""
+    dados = await montar_cenario(cliente, sessao, email="r3@exemplo.com")
+    reivindicado = datetime(2026, 9, 24, 10, 0, 30, tzinfo=UTC)
+    await _job_de_coleta(
+        sessao,
+        dados["execucao"],
+        {
+            "termo_pesquisa": "tênis",
+            "filtros": {
+                "videos": [VIDEO_A],
+                "publicado_apos": "2026-09-01",
+                "limite_comentarios": 3,
+            },
+        },
+        reivindicado_em=reivindicado,
+    )
+
+    recorte = await _recorte_da_resposta(cliente, dados)
+
+    assert recorte["registrado"] is False
+    assert recorte["termo_pesquisa"] is None
+    assert recorte["publicado_apos"] is None
+    assert recorte["limite_informado"] is None
+    assert recorte["limite_atingido"] is False
+    assert recorte["comentarios_coletados"] == 6
+    assert _sem_fuso(recorte["coletado_em"]) == reivindicado.replace(tzinfo=None)
+
+
+async def test_sem_job_de_coleta_a_data_cai_no_inicio_da_execucao(cliente, sessao):
+    dados = await montar_cenario(cliente, sessao, email="r4@exemplo.com")
+
+    recorte = await _recorte_da_resposta(cliente, dados)
+
+    assert recorte["registrado"] is False
+    assert _sem_fuso(recorte["coletado_em"]) == datetime(2026, 9, 24, 10, 0)

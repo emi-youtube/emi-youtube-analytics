@@ -21,7 +21,7 @@ Três pontos do contrato que este arquivo resolve de propósito:
   worker chegar — mas hoje TEMAS não tem linha e a lista é `[]`.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -154,6 +154,35 @@ class AlcanceExecucao(BaseModel):
     comentarios_por_mil_views: float
 
 
+class RecorteColeta(BaseModel):
+    """De onde saem os números: os filtros que valeram naquela coleta, e quando ela rodou.
+
+    Vem do que o worker registrou no job de coleta ao terminar
+    (`payload.recorte_aplicado`), e não do pedido: o pedido diz o que o usuário quis,
+    o registro diz o que valeu.
+
+    **Coleta anterior ao registro (`registrado=False`)**: o worker daquela época
+    ignorava termo, data e limite. Mostrar o que tinha sido pedido afirmaria um
+    recorte que não aconteceu — exatamente o problema que este campo corrige. Por
+    isso os filtros vêm nulos, e a tela diz que a coleta considerou todos os
+    comentários, até o teto do worker.
+    """
+
+    registrado: bool
+    coletado_em: datetime | None
+    termo_pesquisa: str | None
+    publicado_apos: date | None
+    limite_informado: int | None
+    limite_aplicado: int | None
+    comentarios_lidos: int | None
+    comentarios_coletados: int
+    descartados_por_data: int | None
+    descartados_por_termo: int | None
+    # O limite cortou a coleta: havia mais comentários dentro do recorte do que foi
+    # coletado. Sem isso a PME leria "500 comentários" como "o vídeo tem 500".
+    limite_atingido: bool
+
+
 # --------------------------------------------------------------------------- composições
 
 
@@ -253,6 +282,7 @@ class ResultadoExecucao(BaseModel):
     concluido_em: datetime | None
     distribuicao: DistribuicaoSentimento
     alcance: AlcanceExecucao
+    recorte: RecorteColeta
     videos: list[VideoComSentimento]
     temas: list[TemaComSentimento]
     comentarios_representativos: list[ComentarioAnalisado]

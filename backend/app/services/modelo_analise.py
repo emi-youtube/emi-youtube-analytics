@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.execucao import Execucao
 from app.models.modelo_analise import ModeloAnalise
 from app.models.usuario import Usuario
-from app.schemas.modelo_analise import ModeloAnaliseCreate, ModeloAnaliseUpdate
+from app.schemas.modelo_analise import FiltrosModelo, ModeloAnaliseCreate, ModeloAnaliseUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +43,17 @@ def _validar_escopo(filtros: dict | None) -> None:
         )
 
 
+def _filtros_para_banco(filtros: FiltrosModelo | None) -> dict | None:
+    """O dicionário que vai para a coluna JSONB.
+
+    `mode="json"` porque a data de `publicado_apos` não é serializável em JSON como
+    `date`; `exclude_none` para filtro não informado não virar chave com `null`.
+    """
+    return filtros.model_dump(mode="json", exclude_none=True) if filtros is not None else None
+
+
 async def create(db: AsyncSession, usuario: Usuario, dados: ModeloAnaliseCreate) -> ModeloAnalise:
-    filtros = dados.filtros.model_dump() if dados.filtros is not None else None
+    filtros = _filtros_para_banco(dados.filtros)
     _validar_escopo(filtros)
 
     modelo = ModeloAnalise(
@@ -96,7 +105,7 @@ async def update(
     alteracoes = dados.model_dump(exclude_unset=True)
 
     if "filtros" in alteracoes:
-        filtros = dados.filtros.model_dump() if dados.filtros is not None else None
+        filtros = _filtros_para_banco(dados.filtros)
         alteracoes["filtros"] = filtros
 
     # Revalida o estado final: sem isso um PATCH conseguiria deixar o registro na

@@ -1,8 +1,8 @@
 """Schemas do modelo de análise (UC02)."""
 
-from datetime import datetime
+from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 
 
 class FiltrosModelo(BaseModel):
@@ -16,6 +16,12 @@ class FiltrosModelo(BaseModel):
     # definem o escopo da coleta, e o worker lê exatamente esta chave.
     videos: list[str] = Field(default_factory=list)
     canais: list[str] = Field(default_factory=list)
+    # "Comentários a partir de": data ISO (AAAA-MM-DD), meia-noite de Brasília.
+    publicado_apos: date | None = None
+    # Inteiro de verdade (StrictInt: nem "100" nem 100.5 nem true) e positivo. Acima
+    # do teto do worker (5.000) é aceito e aplicado como o teto — o teto é limite de
+    # infraestrutura, não regra do cadastro.
+    limite_comentarios: StrictInt | None = Field(default=None, ge=1)
 
     @field_validator("videos", "canais")
     @classmethod

@@ -4,6 +4,8 @@ Nenhum teste toca a rede: tudo passa por `httpx.MockTransport`. Gastar cota real
 num teste é inaceitável — a cota diária é compartilhada pelo projeto inteiro.
 """
 
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 
@@ -42,10 +44,16 @@ def resposta_comentarios(*, itens: list[dict], proxima_pagina: str | None = None
     return corpo
 
 
-def item_comentario(id_comentario: str, *, com_canal: bool = True) -> dict:
+def item_comentario(
+    id_comentario: str,
+    *,
+    com_canal: bool = True,
+    texto: str | None = None,
+    publicado: str = "2026-03-01T12:00:00Z",
+) -> dict:
     snippet = {
-        "textDisplay": f"texto de {id_comentario}",
-        "publishedAt": "2026-03-01T12:00:00Z",
+        "textDisplay": texto if texto is not None else f"texto de {id_comentario}",
+        "publishedAt": publicado,
         "authorDisplayName": NOME_AUTOR,
     }
     if com_canal:
@@ -137,7 +145,7 @@ async def test_autor_nunca_sai_do_cliente_em_texto_plano():
         lambda _: httpx.Response(200, json=resposta_comentarios(itens=[item_comentario("c1")]))
     )
 
-    comentarios = await cliente.listar_comentarios(VIDEO_ID, limite=10)
+    comentarios = (await cliente.listar_comentarios(VIDEO_ID, limite=10)).comentarios
 
     assert comentarios[0].autor_hash == hash_token(ID_CANAL_AUTOR)
     conteudo = repr(comentarios[0])
@@ -152,7 +160,7 @@ async def test_autor_sem_canal_usa_o_nome_exibido_tambem_hasheado():
         )
     )
 
-    comentarios = await cliente.listar_comentarios(VIDEO_ID, limite=10)
+    comentarios = (await cliente.listar_comentarios(VIDEO_ID, limite=10)).comentarios
 
     assert comentarios[0].autor_hash == hash_token(NOME_AUTOR)
 
@@ -169,7 +177,7 @@ async def test_pagina_ate_acabar_o_nextpagetoken():
 
     cliente, chamadas = cliente_com(handler)
 
-    comentarios = await cliente.listar_comentarios(VIDEO_ID, limite=100)
+    comentarios = (await cliente.listar_comentarios(VIDEO_ID, limite=100)).comentarios
 
     assert [c.youtube_comment_id for c in comentarios] == ["c1", "c2"]
     assert len(chamadas) == 2
@@ -182,7 +190,7 @@ async def test_para_de_paginar_ao_atingir_o_limite():
 
     cliente, chamadas = cliente_com(handler)
 
-    comentarios = await cliente.listar_comentarios(VIDEO_ID, limite=100)
+    comentarios = (await cliente.listar_comentarios(VIDEO_ID, limite=100)).comentarios
 
     assert len(comentarios) == 100
     assert len(chamadas) == 1
@@ -265,3 +273,105 @@ async def test_a_chave_nunca_aparece_na_url():
         assert "key=" not in url, f"chave vazou na URL: {url}"
         assert CHAVE not in url, f"chave vazou na URL: {url}"
         assert "key" not in chamada.url.params
+
+
+# --------------------------------------------------------------------------- filtros
+
+
+def paginas_infinitas(gerar_itens):
+    """Handler que sempre tem próxima página; `gerar_itens(n_da_pagina)` monta os itens."""
+    contador = {"pagina": 0}
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        contador["pagina"] += 1
+        itens = gerar_itens(contador["pagina"])
+        return httpx.Response(200, json=resposta_comentarios(itens=itens, proxima_pagina="p"))
+
+    return handler
+
+
+async def test_pede_a_ordem_do_mais_recente_explicitamente():
+    """A interrupção pela data depende da ordem; o padrão da API não fica implícito."""
+    cliente, chamadas = cliente_com(
+        lambda _: httpx.Response(200, json=resposta_comentarios(itens=[item_comentario("c1")]))
+    )
+
+    await cliente.listar_comentarios(VIDEO_ID, limite=10)
+
+    assert chamadas[0].url.params["order"] == "time"
+
+
+async def test_data_minima_descarta_os_anteriores_e_para_de_paginar():
+    """O primeiro comentário anterior à data encerra: as páginas seguintes só têm mais antigos."""
+    itens = [
+        item_comentario("novo1", publicado="2026-09-20T10:00:00Z"),
+        item_comentario("novo2", publicado="2026-09-10T10:00:00Z"),
+        item_comentario("velho1", publicado="2026-08-31T23:00:00Z"),
+        item_comentario("velho2", publicado="2026-08-01T10:00:00Z"),
+    ]
+    cliente, chamadas = cliente_com(
+        lambda _: httpx.Response(200, json=resposta_comentarios(itens=itens, proxima_pagina="p2"))
+    )
+
+    lote = await cliente.listar_comentarios(
+        VIDEO_ID, limite=100, publicado_apos=datetime(2026, 9, 1, tzinfo=UTC)
+    )
+
+    assert [c.youtube_comment_id for c in lote.comentarios] == ["novo1", "novo2"]
+    assert lote.descartados_por_data == 2
+    assert lote.parou_na_data is True
+    assert len(chamadas) == 1, "a página 2 só teria comentários anteriores à data"
+
+
+async def test_data_minima_segue_paginando_enquanto_os_comentarios_sao_posteriores():
+    def gerar(pagina: int) -> list[dict]:
+        data = "2026-09-20T10:00:00Z" if pagina == 1 else "2026-08-01T10:00:00Z"
+        return [item_comentario(f"p{pagina}c{n}", publicado=data) for n in range(100)]
+
+    cliente, chamadas = cliente_com(paginas_infinitas(gerar))
+
+    lote = await cliente.listar_comentarios(
+        VIDEO_ID, limite=5000, publicado_apos=datetime(2026, 9, 1, tzinfo=UTC)
+    )
+
+    assert len(lote.comentarios) == 100
+    assert len(chamadas) == 2
+
+
+async def test_filtro_de_texto_descarta_e_o_limite_conta_so_os_aceitos():
+    """Com filtro, o limite é de comentários ACEITOS: continua paginando até completá-lo."""
+
+    def gerar(pagina: int) -> list[dict]:
+        return [
+            item_comentario(f"p{pagina}c{n}", texto="gostei do tênis" if n % 2 else "outra coisa")
+            for n in range(100)
+        ]
+
+    cliente, chamadas = cliente_com(paginas_infinitas(gerar))
+
+    lote = await cliente.listar_comentarios(
+        VIDEO_ID, limite=120, aceitar_texto=lambda texto: "tênis" in texto
+    )
+
+    assert len(lote.comentarios) == 120
+    assert all("tênis" in c.texto for c in lote.comentarios)
+    assert len(chamadas) == 3  # 50 aceitos por página
+    assert lote.lidos == 240
+    assert lote.descartados_por_termo == 120
+    # Com filtro, a página vai cheia: custa a mesma unidade e rende mais candidatos.
+    assert all(c.url.params["maxResults"] == "100" for c in chamadas)
+
+
+async def test_teto_de_leitura_protege_a_cota_quando_o_filtro_descarta_tudo():
+    cliente, chamadas = cliente_com(
+        paginas_infinitas(lambda p: [item_comentario(f"p{p}c{n}") for n in range(100)])
+    )
+
+    lote = await cliente.listar_comentarios(
+        VIDEO_ID, limite=5000, aceitar_texto=lambda _texto: False, max_lidos=250
+    )
+
+    assert lote.comentarios == []
+    assert lote.lidos == 250
+    assert len(chamadas) == 3
+    assert chamadas[-1].url.params["maxResults"] == "50"

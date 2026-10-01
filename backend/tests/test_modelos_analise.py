@@ -373,3 +373,77 @@ async def test_remover_modelo_com_execucao_retorna_409(cliente, sessao):
 
     assert resposta.status_code == 409
     assert (await cliente.get(f"{ROTA}/{id_modelo}", headers=headers)).status_code == 200
+
+
+# --------------------------------------------------------------------------- filtros da coleta
+
+
+@pytest.mark.parametrize(
+    "limite", [0, -5, 10.5, "100", True], ids=["zero", "negativo", "fracao", "texto", "booleano"]
+)
+async def test_limite_de_comentarios_invalido_e_recusado(cliente, limite):
+    headers = await autenticar(cliente, DONO)
+
+    resposta = await criar_modelo(
+        cliente, headers, filtros={"videos": [VIDEO_A], "limite_comentarios": limite}
+    )
+
+    assert resposta.status_code == 422
+
+
+async def test_limite_acima_do_teto_e_aceito_no_cadastro(cliente):
+    """O teto (5.000) é do worker, que aplica o menor dos dois; o cadastro não o duplica."""
+    headers = await autenticar(cliente, DONO)
+
+    resposta = await criar_modelo(
+        cliente, headers, filtros={"videos": [VIDEO_A], "limite_comentarios": 20000}
+    )
+
+    assert resposta.status_code == 201
+    assert resposta.json()["filtros"]["limite_comentarios"] == 20000
+
+
+@pytest.mark.parametrize("data", ["01/09/2026", "2026-13-01", "ontem"])
+async def test_data_minima_invalida_e_recusada(cliente, data):
+    headers = await autenticar(cliente, DONO)
+
+    resposta = await criar_modelo(
+        cliente, headers, filtros={"videos": [VIDEO_A], "publicado_apos": data}
+    )
+
+    assert resposta.status_code == 422
+
+
+async def test_filtros_validos_sao_gravados_como_json(cliente):
+    """A data volta como texto ISO (é JSONB), e filtro não informado não vira `null`."""
+    headers = await autenticar(cliente, DONO)
+
+    resposta = await criar_modelo(
+        cliente,
+        headers,
+        filtros={"videos": [VIDEO_A], "publicado_apos": "2026-09-01", "limite_comentarios": 500},
+    )
+    sem_filtros = await criar_modelo(cliente, headers, filtros={"videos": [VIDEO_B]})
+
+    assert resposta.status_code == 201
+    assert resposta.json()["filtros"] == {
+        "videos": [VIDEO_A],
+        "canais": [],
+        "publicado_apos": "2026-09-01",
+        "limite_comentarios": 500,
+    }
+    assert "publicado_apos" not in sem_filtros.json()["filtros"]
+    assert "limite_comentarios" not in sem_filtros.json()["filtros"]
+
+
+async def test_patch_tambem_valida_o_limite(cliente):
+    headers = await autenticar(cliente, DONO)
+    id_modelo = (await criar_modelo(cliente, headers)).json()["id_modelo"]
+
+    resposta = await cliente.patch(
+        f"{ROTA}/{id_modelo}",
+        json={"filtros": {"videos": [VIDEO_A], "limite_comentarios": 0}},
+        headers=headers,
+    )
+
+    assert resposta.status_code == 422

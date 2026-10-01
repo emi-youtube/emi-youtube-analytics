@@ -10,8 +10,8 @@ nome, o canal ou o ID original de quem comentou.
 """
 
 import logging
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
 
 import httpx
@@ -67,6 +67,23 @@ class ComentarioColetado:
     autor_hash: str
     texto: str
     publicado_em: datetime | None
+
+
+@dataclass
+class LoteComentarios:
+    """O que `listar_comentarios` devolve: os aceitos e a conta do que foi lido.
+
+    `lidos` é o que saiu da API (e custou cota); `comentarios` é o que passou nos
+    filtros. A diferença aparece no painel como o recorte da coleta.
+    """
+
+    comentarios: list[ComentarioColetado] = field(default_factory=list)
+    lidos: int = 0
+    descartados_por_data: int = 0
+    descartados_por_termo: int = 0
+    # Paginação interrompida ao passar da data mínima (ordem do mais novo para o
+    # mais antigo), e não por fim de vídeo ou por limite.
+    parou_na_data: bool = False
 
 
 def _para_datetime(valor: str | None) -> datetime | None:
@@ -163,22 +180,45 @@ class ClienteYouTube:
         return coletados
 
     async def listar_comentarios(
-        self, youtube_video_id: str, limite: int
-    ) -> list[ComentarioColetado]:
-        """Comentários de topo do vídeo, paginando até `limite`.
+        self,
+        youtube_video_id: str,
+        limite: int,
+        *,
+        publicado_apos: datetime | None = None,
+        aceitar_texto: Callable[[str], bool] | None = None,
+        max_lidos: int | None = None,
+    ) -> LoteComentarios:
+        """Comentários de topo do vídeo, paginando até `limite` ACEITOS.
+
+        - `publicado_apos`: descarta os anteriores. A API devolve do mais recente
+          para o mais antigo (`order=time`, pedido explicitamente; conferido contra a
+          API real: 351 comentários de dois vídeos, zero inversões), então o primeiro
+          comentário anterior à data encerra a paginação: as páginas seguintes só
+          teriam comentários mais antigos e custariam cota à toa.
+        - `aceitar_texto`: filtro local sobre o texto (o termo de pesquisa).
+        - `max_lidos`: teto do que sai da API, aceito ou não — protege a cota quando
+          o filtro de texto descarta quase tudo.
 
         Levanta `ComentariosDesabilitados` quando o vídeo tem comentários desativados;
         quem chama decide o que fazer (o worker registra o vídeo com zero e segue).
         """
-        coletados: list[ComentarioColetado] = []
+        lote = LoteComentarios()
         pagina: str | None = None
+        teto_leitura = max_lidos if max_lidos is not None else float("inf")
+        # Sem filtro, pedir só o que falta poupa transferência; com filtro, a página
+        # cheia custa a mesma unidade de cota e rende mais candidatos.
+        filtra = publicado_apos is not None or aceitar_texto is not None
 
-        while len(coletados) < limite:
+        while len(lote.comentarios) < limite and lote.lidos < teto_leitura:
+            faltam = MAX_COMENTARIOS_POR_PAGINA if filtra else limite - len(lote.comentarios)
             params = {
                 "part": "snippet",
                 "videoId": youtube_video_id,
-                "maxResults": min(MAX_COMENTARIOS_POR_PAGINA, limite - len(coletados)),
+                "maxResults": int(
+                    min(MAX_COMENTARIOS_POR_PAGINA, faltam, teto_leitura - lote.lidos)
+                ),
                 "textFormat": "plainText",
+                "order": "time",
             }
             if pagina:
                 params["pageToken"] = pagina
@@ -186,22 +226,42 @@ class ClienteYouTube:
             dados = await self._get("commentThreads", params)
 
             for item in dados.get("items", []):
+                # Os dois tetos valem item a item, não só por página: não se confia
+                # que a resposta respeite o `maxResults` pedido.
+                if len(lote.comentarios) >= limite or lote.lidos >= teto_leitura:
+                    break
+                lote.lidos += 1
                 comentario = item["snippet"]["topLevelComment"]
                 snippet = comentario["snippet"]
-                coletados.append(
+                publicado_em = _para_datetime(snippet.get("publishedAt"))
+                texto = snippet.get("textDisplay", "")
+
+                if publicado_apos is not None and (
+                    publicado_em is None or publicado_em < publicado_apos
+                ):
+                    # Sem data não há como provar que é posterior: fica de fora.
+                    lote.descartados_por_data += 1
+                    if publicado_em is not None:
+                        lote.parou_na_data = True
+                    continue
+                if aceitar_texto is not None and not aceitar_texto(texto):
+                    lote.descartados_por_termo += 1
+                    continue
+
+                lote.comentarios.append(
                     ComentarioColetado(
                         youtube_comment_id=comentario["id"],
                         autor_hash=_autor_hash(snippet),
-                        texto=snippet.get("textDisplay", ""),
-                        publicado_em=_para_datetime(snippet.get("publishedAt")),
+                        texto=texto,
+                        publicado_em=publicado_em,
                     )
                 )
 
             pagina = dados.get("nextPageToken")
-            if not pagina:
+            if not pagina or lote.parou_na_data:
                 break
 
-        return coletados
+        return lote
 
 
 def _autor_hash(snippet: dict) -> str:

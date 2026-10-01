@@ -9,8 +9,8 @@
  * Conteúdo da coluna JSONB `MODELOS_ANALISE.filtros`.
  *
  * O schema do backend é `extra="allow"`, então chave nova não precisa de
- * migration. Em compensação o worker de coleta só entende `videos` e `canais`
- * (ver `CHAVES_CONHECIDAS` em `backend/app/workers/coleta.py`) — as demais são
+ * migration. Em compensação o worker de coleta só entende as chaves de
+ * `CHAVES_CONHECIDAS` em `backend/app/workers/coleta.py` — as demais são
  * registradas e ignoradas com um aviso no log.
  */
 export interface FiltrosModelo {
@@ -18,9 +18,15 @@ export interface FiltrosModelo {
   videos?: string[];
   /** Ainda não expandido pelo worker; o formulário não oferece o campo. */
   canais?: string[];
-  /** Data mínima do comentário (`YYYY-MM-DD`). Ainda não lida pelo worker. */
+  /**
+   * Data mínima do comentário (`YYYY-MM-DD`), a partir da meia-noite de
+   * Brasília. A coleta descarta os anteriores e para de paginar ao passar dela.
+   */
   publicado_apos?: string;
-  /** Teto de comentários pedido pelo usuário. Ainda não lido pelo worker. */
+  /**
+   * Máximo de comentários da execução (soma de todos os vídeos). Inteiro >= 1;
+   * acima do teto do worker (5.000), vale o teto.
+   */
   limite_comentarios?: number;
   [chave: string]: unknown;
 }
