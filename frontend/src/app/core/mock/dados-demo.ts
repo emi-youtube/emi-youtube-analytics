@@ -1153,6 +1153,20 @@ export function montarResultado(semente: SementeExecucao): ResultadoExecucao {
     concluido_em: semente.concluido_em,
     distribuicao: geral,
     alcance: montarAlcance(semente, geral.total),
+    // Coleta de demonstração sem filtro: todos os comentários, abaixo do teto.
+    recorte: {
+      registrado: true,
+      coletado_em: semente.concluido_em,
+      termo_pesquisa: null,
+      publicado_apos: null,
+      limite_informado: null,
+      limite_aplicado: 5000,
+      comentarios_lidos: geral.total,
+      comentarios_coletados: geral.total,
+      descartados_por_data: 0,
+      descartados_por_termo: 0,
+      limite_atingido: false,
+    },
     videos: porVideo,
     temas: porTema,
     comentarios_representativos: [

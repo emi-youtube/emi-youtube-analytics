@@ -87,7 +87,8 @@
           placeholder="tênis de corrida"
         />
         <p class="campo__dica">
-          Filtra os comentários que contenham este termo. Deixe em branco para analisar todos.
+          Só entram na análise os comentários que contêm este termo, sem diferenciar maiúsculas nem
+          acentos. Deixe em branco para analisar todos.
         </p>
       </div>
 
@@ -97,6 +98,7 @@
             Comentários a partir de <span class="campo__opcional">(opcional)</span>
           </label>
           <input id="desde" class="campo__entrada" type="date" formControlName="publicado_apos" />
+          <p class="campo__dica">Descarta os comentários publicados antes desta data.</p>
         </div>
 
         <div class="campo">
@@ -114,8 +116,9 @@
             placeholder="5000"
             [class.campo__entrada--invalido]="invalido('limite_comentarios')"
           />
+          <p class="campo__dica">Total da execução, somando todos os vídeos.</p>
           @if (invalido('limite_comentarios')) {
-            <p class="campo__ajuda">Informe um número entre 1 e {{ limiteMaximo }}.</p>
+            <p class="campo__ajuda">Informe um número inteiro entre 1 e {{ limiteMaximo }}.</p>
           }
         </div>
       </div>

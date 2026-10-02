@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     # Teto por execução, alinhado ao escopo do projeto (500 a 5.000 comentários).
     # Também segura a cota da YouTube API quando um vídeo tem centenas de páginas.
     worker_max_comentarios_por_execucao: int = 5000
+    # Teto de comentários LIDOS da API por execução, gravados ou não. Só pesa com o
+    # termo de pesquisa, que descarta localmente: sem ele, um termo raro faria a
+    # coleta paginar o vídeo inteiro. 20.000 lidos = 200 unidades de cota, no máximo.
+    worker_max_comentarios_lidos_por_execucao: int = 20000
     youtube_timeout_seconds: int = 30
 
     @property

@@ -311,3 +311,38 @@
     order: 3;
   }
 }
+
+/* --- Recorte dos dados: filtros que valeram + data da coleta --- */
+.recorte {
+  margin-bottom: var(--space-5);
+}
+
+.recorte__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: var(--space-3) 0 0;
+}
+
+.recorte__item dt {
+  color: var(--ink-muted);
+  font-size: 0.85em;
+}
+
+.recorte__item dd {
+  margin: var(--space-1) 0 0;
+  color: var(--ink);
+}
+
+.recorte__atingido {
+  margin-left: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--negativo-soft);
+  color: var(--negativo);
+  font-size: 0.85em;
+}
+
+.recorte__nota {
+  margin: var(--space-3) 0 0;
+}

@@ -66,6 +66,30 @@ export interface TemaComSentimento {
   comentario_representativo: ComentarioAnalisado | null;
 }
 
+/**
+ * De onde saem os números: os filtros que VALERAM naquela coleta e quando ela
+ * rodou. Espelha `RecorteColeta` em `backend/app/schemas/resultado.py`.
+ *
+ * `registrado: false` é coleta anterior ao registro do recorte: o worker daquela
+ * época ignorava termo, data e limite, então os filtros vêm nulos e a tela diz
+ * que todos os comentários foram considerados (até o teto de 5.000).
+ */
+export interface RecorteColeta {
+  registrado: boolean;
+  coletado_em: string | null;
+  termo_pesquisa: string | null;
+  /** Data civil `YYYY-MM-DD` (meia-noite de Brasília) — não passar por `new Date`. */
+  publicado_apos: string | null;
+  limite_informado: number | null;
+  limite_aplicado: number | null;
+  comentarios_lidos: number | null;
+  comentarios_coletados: number;
+  descartados_por_data: number | null;
+  descartados_por_termo: number | null;
+  /** O limite cortou a coleta: havia mais comentários no recorte do que o coletado. */
+  limite_atingido: boolean;
+}
+
 /** Somas de VIDEOS da execução. */
 export interface AlcanceExecucao {
   visualizacoes: number;
@@ -177,6 +201,7 @@ export interface ResultadoExecucao {
   concluido_em: string | null;
   distribuicao: DistribuicaoSentimento;
   alcance: AlcanceExecucao;
+  recorte: RecorteColeta;
   videos: VideoComSentimento[];
   temas: TemaComSentimento[];
   /** Amostra escolhida pelo servidor: um positivo, um negativo, um neutro. */

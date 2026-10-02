@@ -5,6 +5,7 @@ As esperas do backoff são substituídas para o teste não dormir 30s.
 """
 
 import logging
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import select
@@ -23,6 +24,7 @@ from app.workers.youtube import (
     ComentariosDesabilitados,
     ErroPermanente,
     ErroTransitorio,
+    LoteComentarios,
     VideoColetado,
 )
 
@@ -51,6 +53,7 @@ class ClienteFalso:
         self.erro_por_video = erro_por_video or {}
         self.ids_pedidos: list[list[str]] = []
         self.chamadas_de_comentario = 0
+        self.pedidos_de_comentario: list[dict] = []
 
     def _talvez_falhar(self) -> None:
         if self.erros_ate_funcionar:
@@ -61,12 +64,44 @@ class ClienteFalso:
         self._talvez_falhar()
         return [v for v in self.videos if v.youtube_video_id in set(ids)]
 
-    async def listar_comentarios(self, youtube_video_id: str, limite: int):
+    async def listar_comentarios(
+        self,
+        youtube_video_id: str,
+        limite: int,
+        *,
+        publicado_apos=None,
+        aceitar_texto=None,
+        max_lidos=None,
+    ) -> LoteComentarios:
+        """Aplica os filtros como o cliente real (a paginação é testada lá)."""
         self.chamadas_de_comentario += 1
+        self.pedidos_de_comentario.append(
+            {
+                "video": youtube_video_id,
+                "limite": limite,
+                "publicado_apos": publicado_apos,
+                "max_lidos": max_lidos,
+            }
+        )
         self._talvez_falhar()
         if youtube_video_id in self.erro_por_video:
             raise self.erro_por_video[youtube_video_id]
-        return self.comentarios.get(youtube_video_id, [])[:limite]
+
+        lote = LoteComentarios()
+        for item in self.comentarios.get(youtube_video_id, []):
+            if len(lote.comentarios) >= limite or (
+                max_lidos is not None and lote.lidos >= max_lidos
+            ):
+                break
+            lote.lidos += 1
+            if publicado_apos is not None and item.publicado_em < publicado_apos:
+                lote.descartados_por_data += 1
+                continue
+            if aceitar_texto is not None and not aceitar_texto(item.texto):
+                lote.descartados_por_termo += 1
+                continue
+            lote.comentarios.append(item)
+        return lote
 
 
 def video(youtube_video_id: str = VIDEO_A, **campos) -> VideoColetado:
@@ -80,12 +115,14 @@ def video(youtube_video_id: str = VIDEO_A, **campos) -> VideoColetado:
     return VideoColetado(youtube_video_id=youtube_video_id, **{**padrao, **campos})
 
 
-def comentario(id_comentario: str) -> ComentarioColetado:
+def comentario(
+    id_comentario: str, *, texto: str | None = None, publicado_em: datetime | None = None
+) -> ComentarioColetado:
     return ComentarioColetado(
         youtube_comment_id=id_comentario,
         autor_hash=hash_token(ID_CANAL_AUTOR),
-        texto=f"texto de {id_comentario}",
-        publicado_em=None,
+        texto=texto if texto is not None else f"texto de {id_comentario}",
+        publicado_em=publicado_em,
     )
 
 
@@ -104,7 +141,7 @@ def sem_espera(monkeypatch):
 # --------------------------------------------------------------------------- cenário
 
 
-async def montar_job(sessao, *, filtros: dict | None = None, termo: str = "tênis") -> Job:
+async def montar_job(sessao, *, filtros: dict | None = None, termo: str = "") -> Job:
     """Cria usuário -> modelo -> execução -> job de coleta pendente, direto no banco."""
     usuario = Usuario(
         nome="Dona", email=f"dona{id(filtros)}@exemplo.com", senha_hash="x", papel="usuario_pme"
@@ -521,4 +558,174 @@ async def test_o_mesmo_video_pode_ser_coletado_em_outra_execucao(sessao):
     assert len(videos) == 2
     assert len({v.id_execucao for v in videos}) == 2
     assert len((await sessao.scalars(select(Comentario))).all()) == 2
+    assert (await sessao.scalars(select(JobDlq))).all() == []
+
+
+# --------------------------------------------------------------------------- filtros
+
+
+async def _textos_gravados(sessao) -> list[str]:
+    return list(
+        (await sessao.scalars(select(Comentario.texto).order_by(Comentario.id_comentario))).all()
+    )
+
+
+async def test_limite_informado_vale_para_a_execucao_inteira(sessao):
+    """O limite é da execução, repartido entre os vídeos — não por vídeo."""
+    await montar_job(sessao, filtros={"videos": [VIDEO_A, VIDEO_B], "limite_comentarios": 4})
+    cliente = ClienteFalso(
+        videos=[video(VIDEO_A), video(VIDEO_B)],
+        comentarios={
+            VIDEO_A: [comentario(f"a{n}") for n in range(3)],
+            VIDEO_B: [comentario(f"b{n}") for n in range(3)],
+        },
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+
+    assert await _textos_gravados(sessao) == [
+        "texto de a0",
+        "texto de a1",
+        "texto de a2",
+        "texto de b0",
+    ]
+    assert [p["limite"] for p in cliente.pedidos_de_comentario] == [4, 1]
+
+
+async def test_limite_acima_do_teto_vale_o_teto(sessao, monkeypatch):
+    monkeypatch.setattr(coleta.settings, "worker_max_comentarios_por_execucao", 3)
+    job = await montar_job(sessao, filtros={"videos": [VIDEO_A], "limite_comentarios": 10})
+    cliente = ClienteFalso(
+        videos=[video()], comentarios={VIDEO_A: [comentario(f"a{n}") for n in range(5)]}
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+    await sessao.refresh(job)
+
+    assert len(await _textos_gravados(sessao)) == 3
+    recorte = job.payload[coleta.CHAVE_RECORTE]
+    assert (recorte["limite_informado"], recorte["limite_aplicado"]) == (10, 3)
+
+
+async def test_data_minima_vira_meia_noite_de_brasilia(sessao):
+    """ "A partir de 01/09" para uma PME brasileira começa às 00:00 de Brasília (03:00 UTC)."""
+    await montar_job(sessao, filtros={"videos": [VIDEO_A], "publicado_apos": "2026-09-01"})
+    brasilia = timezone(timedelta(hours=-3))
+    cliente = ClienteFalso(
+        videos=[video()],
+        comentarios={
+            VIDEO_A: [
+                comentario("dentro", publicado_em=datetime(2026, 9, 1, 0, 30, tzinfo=brasilia)),
+                # 31/08 às 23h em Brasília: já é 01/09 em UTC, e mesmo assim fica de fora.
+                comentario("fora", publicado_em=datetime(2026, 9, 1, 2, 0, tzinfo=UTC)),
+            ]
+        },
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+
+    assert cliente.pedidos_de_comentario[0]["publicado_apos"] == datetime(
+        2026, 9, 1, tzinfo=brasilia
+    )
+    assert await _textos_gravados(sessao) == ["texto de dentro"]
+
+
+async def test_termo_de_pesquisa_filtra_sem_diferenciar_maiusculas_e_acentos(sessao):
+    """A tela promete "comentários que contenham este termo": a coleta cumpre."""
+    await montar_job(sessao, termo="Tênis")
+    cliente = ClienteFalso(
+        videos=[video()],
+        comentarios={
+            VIDEO_A: [
+                comentario("c1", texto="Esse TENIS é lindo"),
+                comentario("c2", texto="não gostei da música"),
+                comentario("c3", texto="meu tênis chegou rasgado"),
+            ]
+        },
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+
+    assert await _textos_gravados(sessao) == ["Esse TENIS é lindo", "meu tênis chegou rasgado"]
+
+
+def test_normalizar_tira_acento_e_caixa():
+    assert coleta.normalizar("AÇÃO Promoção") == "acao promocao"
+    assert coleta.contem_termo("promoção")("Que PROMOCAO boa!")
+    assert not coleta.contem_termo("promoção")("que preço bom")
+
+
+async def test_recorte_aplicado_fica_registrado_no_job_sem_mexer_no_pedido(sessao):
+    job = await montar_job(
+        sessao,
+        termo="tênis",
+        filtros={"videos": [VIDEO_A], "publicado_apos": "2026-09-01", "limite_comentarios": 50},
+    )
+    pedido = dict(job.payload)
+    cliente = ClienteFalso(
+        videos=[video()],
+        comentarios={
+            VIDEO_A: [
+                comentario("c1", texto="tênis bom", publicado_em=datetime(2026, 9, 5, tzinfo=UTC)),
+                comentario("c2", texto="sapato", publicado_em=datetime(2026, 9, 4, tzinfo=UTC)),
+                comentario("c3", texto="tênis", publicado_em=datetime(2026, 8, 1, tzinfo=UTC)),
+            ]
+        },
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+    await sessao.refresh(job)
+
+    recorte = job.payload.pop(coleta.CHAVE_RECORTE)
+    assert job.payload == pedido  # o pedido congelado no disparo não muda
+    assert datetime.fromisoformat(recorte.pop("coletado_em")).tzinfo is not None
+    assert recorte == {
+        "termo_pesquisa": "tênis",
+        "publicado_apos": "2026-09-01",
+        "limite_informado": 50,
+        "limite_aplicado": 50,
+        "comentarios_lidos": 3,
+        "comentarios_coletados": 1,
+        "descartados_por_data": 1,
+        "descartados_por_termo": 1,
+    }
+
+
+async def test_teto_de_leitura_e_da_execucao(sessao, monkeypatch):
+    monkeypatch.setattr(coleta.settings, "worker_max_comentarios_lidos_por_execucao", 5)
+    await montar_job(sessao, termo="nada casa", filtros={"videos": [VIDEO_A, VIDEO_B]})
+    cliente = ClienteFalso(
+        videos=[video(VIDEO_A), video(VIDEO_B)],
+        comentarios={
+            VIDEO_A: [comentario(f"a{n}") for n in range(3)],
+            VIDEO_B: [comentario(f"b{n}") for n in range(10)],
+        },
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+
+    assert [p["max_lidos"] for p in cliente.pedidos_de_comentario] == [5, 2]
+
+
+@pytest.mark.parametrize(
+    "filtros_tortos",
+    [
+        {"publicado_apos": "01/09/2026"},
+        {"limite_comentarios": "100"},
+        {"limite_comentarios": 0},
+        {"limite_comentarios": True},
+    ],
+)
+async def test_filtro_invalido_de_modelo_antigo_e_ignorado_com_aviso(
+    sessao, caplog, filtros_tortos
+):
+    """O cadastro recusa; o que chega torto é modelo salvo antes da validação."""
+    await montar_job(sessao, filtros={"videos": [VIDEO_A], **filtros_tortos})
+    cliente = ClienteFalso(videos=[video()], comentarios={VIDEO_A: [comentario("c1")]})
+
+    with caplog.at_level(logging.WARNING):
+        await coleta.executar_proximo(sessao, cliente)
+
+    assert "invalido, ignorado" in caplog.text
+    assert len(await _textos_gravados(sessao)) == 1
     assert (await sessao.scalars(select(JobDlq))).all() == []
