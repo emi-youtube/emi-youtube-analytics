@@ -332,3 +332,19 @@ a {
   white-space: nowrap;
   border: 0;
 }
+
+/* ==========================================================================
+   Impressão (relatório exportável, features/relatorio)
+   `@page` é regra do documento, não de componente — por isso mora aqui.
+   ========================================================================== */
+
+@page {
+  size: A4;
+  margin: 16mm 15mm;
+}
+
+@media print {
+  body {
+    background: var(--surface);
+  }
+}

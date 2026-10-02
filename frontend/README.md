@@ -159,8 +159,10 @@ bloqueiam o endpoint real:
    justamente por isso — sem a fonte, o endpoint devolve `null` e o cartão não
    aparece.
 
-3. **Não há endpoint de relatório.** O botão "Baixar relatório" do
-   `Dashboard.png` está na tela, desabilitado, esperando por ele.
+3. ~~**Não há endpoint de relatório.**~~ Resolvido sem endpoint: o "Baixar
+   relatório" abre `/resultados/:id/relatorio`, uma página A4 de impressão
+   alimentada pelo mesmo `GET /execucoes/{id}/resultado`; o PDF sai do
+   "Salvar como PDF" do navegador (UC06).
 
 ### Sobre os números da demonstração
 

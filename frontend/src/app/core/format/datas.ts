@@ -66,3 +66,26 @@ export function dataLegivel(iso: string | null, agora = new Date()): string {
   const formatador = data.getFullYear() === agora.getFullYear() ? DIA_MES : DIA_MES_ANO;
   return formatador.format(data).replace(/\./g, '').replace(' de ', ' ');
 }
+
+const DATA_HORA_COMPLETA = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/**
+ * `02/10/2026 às 14:32` — data absoluta, para o que é impresso. O relatório é
+ * lido dias depois de gerado: "hoje, 14:32" num PDF estaria errado amanhã.
+ */
+export function dataHoraCompleta(iso: string | Date | null): string {
+  if (!iso) {
+    return '—';
+  }
+  const data = typeof iso === 'string' ? comoData(iso) : iso;
+  if (Number.isNaN(data.getTime())) {
+    return '—';
+  }
+  return DATA_HORA_COMPLETA.format(data).replace(', ', ' às ');
+}

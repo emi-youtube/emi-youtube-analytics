@@ -1,0 +1,353 @@
+<!-- Barra de tela: some na impressão. -->
+<div class="barra-acoes">
+  <a class="voltar" [routerLink]="['/resultados', idExecucao]">‹ Voltar aos resultados</a>
+  @if (resultado()) {
+    <button class="botao botao--pequeno" type="button" (click)="imprimir()">
+      Imprimir / salvar em PDF
+    </button>
+  }
+</div>
+
+@if (falha(); as mensagem) {
+  <div class="folha folha--estado" role="alert">
+    <p>{{ mensagem }}</p>
+    <a routerLink="/resultados">Ver resultados disponíveis</a>
+  </div>
+}
+
+@if (carregando()) {
+  <div class="folha folha--estado"><p class="muted">Montando o relatório…</p></div>
+} @else if (resultado(); as r) {
+  <article class="folha">
+    <app-selo-demo />
+
+    <header class="capa">
+      <p class="capa__sobretitulo">Relatório de sentimento · Emi YouTube Analytics</p>
+      <h1>{{ r.nome_modelo_analise }}</h1>
+    </header>
+
+    <!-- 1. Identificação e recorte -->
+    <section class="secao bloco" aria-labelledby="sec-identificacao">
+      <h2 id="sec-identificacao">1. Identificação</h2>
+      <dl class="ficha">
+        <div>
+          <dt>Campanha</dt>
+          <dd>{{ r.nome_modelo_analise }}</dd>
+        </div>
+        <div>
+          <dt>Execução</dt>
+          <dd>nº {{ r.id_execucao }}</dd>
+        </div>
+        <div>
+          <dt>Data da coleta</dt>
+          <dd>{{ dataHoraCompleta(r.recorte.coletado_em) }}</dd>
+        </div>
+        <div>
+          <dt>Vídeos</dt>
+          <dd>
+            {{ r.videos.length }}
+            @if (r.videos.length > 0) {
+              <!-- Uma string só: o prettier quebra o @for em linhas e a quebra vira
+                   espaço dentro dos parênteses ("( abc )"). -->
+              <span class="muted codigo">({{ idsDosVideos(r) }})</span>
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Termo de pesquisa</dt>
+          <dd>
+            @if (r.recorte.termo_pesquisa) {
+              contendo “{{ r.recorte.termo_pesquisa }}”
+            } @else {
+              todos os comentários
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Publicados a partir de</dt>
+          <dd>
+            {{ r.recorte.publicado_apos ? dataCivil(r.recorte.publicado_apos) : 'sem data mínima' }}
+          </dd>
+        </div>
+        <div>
+          <dt>Limite</dt>
+          <dd>
+            @if (r.recorte.limite_aplicado) {
+              {{ numero(r.recorte.limite_aplicado) }}
+              @if (!r.recorte.limite_informado) {
+                (teto do sistema)
+              }
+              @if (r.recorte.limite_atingido) {
+                — atingido
+              }
+            } @else {
+              teto do sistema (5.000)
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Volume</dt>
+          <dd>
+            {{ numero(r.recorte.comentarios_coletados) }} coletados
+            @if (r.recorte.comentarios_lidos !== null) {
+              de {{ numero(r.recorte.comentarios_lidos) }} lidos
+            }
+            · {{ numero(r.distribuicao.total) }} analisados
+          </dd>
+        </div>
+      </dl>
+      @if (!r.recorte.registrado) {
+        <p class="nota">
+          Coleta anterior ao registro dos filtros: considerou todos os comentários dos vídeos, até o
+          teto de 5.000, sem termo de pesquisa, data mínima ou limite.
+        </p>
+      } @else if (r.recorte.limite_atingido) {
+        <p class="nota">
+          O limite interrompeu a coleta: havia mais comentários dentro do recorte. Os números
+          descrevem os mais recentes de cada vídeo, até completar o limite.
+        </p>
+      }
+    </section>
+
+    <!-- 2. Sentimento geral -->
+    <section class="secao bloco" aria-labelledby="sec-geral">
+      <h2 id="sec-geral">2. Sentimento geral</h2>
+      @if (percentuaisGerais(); as p) {
+        <app-barra-sentimento [distribuicao]="r.distribuicao" [rotulos]="true" />
+        <table class="tabela tabela--geral">
+          <thead>
+            <tr>
+              <th scope="col">Sentimento</th>
+              <th scope="col" class="num">Comentários</th>
+              <th scope="col" class="num">Percentual</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="ponto ponto--positivo"></span> Positivo</td>
+              <td class="num">{{ numero(r.distribuicao.positivo) }}</td>
+              <td class="num">{{ p.positivo }}%</td>
+            </tr>
+            <tr>
+              <td><span class="ponto ponto--neutro"></span> Neutro</td>
+              <td class="num">{{ numero(r.distribuicao.neutro) }}</td>
+              <td class="num">{{ p.neutro }}%</td>
+            </tr>
+            <tr>
+              <td><span class="ponto ponto--negativo"></span> Negativo</td>
+              <td class="num">{{ numero(r.distribuicao.negativo) }}</td>
+              <td class="num">{{ p.negativo }}%</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">Total</th>
+              <td class="num">{{ numero(r.distribuicao.total) }}</td>
+              <td class="num">100%</td>
+            </tr>
+          </tfoot>
+        </table>
+      }
+    </section>
+
+    <!-- 3. Por vídeo -->
+    <section class="secao" aria-labelledby="sec-videos">
+      <h2 id="sec-videos">3. Resultado por vídeo</h2>
+      @if (r.videos.length === 0) {
+        <p class="nota">Nenhum vídeo foi coletado nesta execução.</p>
+      } @else {
+        <table class="tabela tabela--videos">
+          <thead>
+            <tr>
+              <th scope="col">Vídeo</th>
+              <th scope="col" class="num">Comentários</th>
+              <th scope="col" class="num">Pos.</th>
+              <th scope="col" class="num">Neu.</th>
+              <th scope="col" class="num">Neg.</th>
+              <th scope="col" class="col-barra"><span class="sr-only">Distribuição</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of r.videos; track item.video.id_video) {
+              <tr class="bloco">
+                <td>
+                  <span class="video__titulo">{{ item.video.titulo }}</span>
+                  <span class="video__sub muted">
+                    {{ item.video.canal }} ·
+                    <span class="codigo">{{ item.video.youtube_video_id }}</span>
+                  </span>
+                </td>
+                <td class="num">{{ numero(item.distribuicao.total) }}</td>
+                <td class="num">
+                  {{ percentual(item.distribuicao.positivo, item.distribuicao.total) }}%
+                </td>
+                <td class="num">
+                  {{ percentual(item.distribuicao.neutro, item.distribuicao.total) }}%
+                </td>
+                <td class="num">{{ negativos(item.distribuicao) }}%</td>
+                <td class="col-barra">
+                  <app-barra-sentimento [distribuicao]="item.distribuicao" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+
+    <!-- 4. Temas -->
+    <section class="secao" aria-labelledby="sec-temas">
+      @if (r.temas.length === 0) {
+        <div class="bloco">
+          <h2 id="sec-temas">4. Temas</h2>
+          <p class="nota">
+            @if (r.distribuicao.total < minimoTemas) {
+              Esta execução não tem temas: foram {{ numero(r.distribuicao.total) }} comentários
+              analisados, abaixo do mínimo de {{ minimoTemas }} para agrupar assuntos com segurança.
+              Com poucos comentários, o agrupamento separaria frases soltas, não assuntos.
+            } @else {
+              Esta execução não tem temas registrados — ela foi processada antes de o agrupamento
+              por tema existir, ou o agrupamento não encontrou assuntos recorrentes.
+            }
+          </p>
+        </div>
+      } @else {
+        <!--
+          Título, frase de abertura e PRIMEIRO tema num bloco só: o Chrome ignora
+          break-after: avoid entre o parágrafo e a lista, e o título ficava no pé
+          da página com o conteúdo começando na seguinte (medido na execução 10).
+        -->
+        <div class="bloco">
+          <h2 id="sec-temas">4. Temas</h2>
+          <p class="nota">
+            {{ r.temas.length }} temas agrupados automaticamente a partir das palavras dos
+            comentários. Um comentário pode pertencer a mais de um tema.
+          </p>
+          <ng-container *ngTemplateOutlet="blocoTema; context: { $implicit: r.temas[0] }" />
+        </div>
+        @for (item of r.temas.slice(1); track item.tema.id_tema) {
+          <ng-container *ngTemplateOutlet="blocoTema; context: { $implicit: item }" />
+        }
+      }
+    </section>
+
+    <ng-template #blocoTema let-item>
+      <div class="tema bloco">
+        <div class="tema__cabeca">
+          <h3>{{ item.tema.rotulo_tema }}</h3>
+          <span class="tema__numeros">
+            {{ numero(item.distribuicao.total) }} comentários ·
+            <strong class="tema__negativos">{{ negativos(item.distribuicao) }}% negativos</strong>
+          </span>
+        </div>
+        @if (item.tema.palavras_chave; as palavras) {
+          <p class="tema__palavras muted">{{ palavras.join(' · ') }}</p>
+        }
+        <app-barra-sentimento [distribuicao]="item.distribuicao" />
+        @if (item.comentario_representativo; as rep) {
+          <blockquote class="citacao">
+            <p>“{{ rep.comentario.texto }}”</p>
+            <footer class="muted">
+              Comentário mais representativo do tema · classificado como
+              {{ rotuloSentimento(rep.analise.sentimento).toLowerCase() }}
+            </footer>
+          </blockquote>
+        } @else {
+          <p class="nota">Nenhum comentário com tamanho suficiente para representar o tema.</p>
+        }
+      </div>
+    </ng-template>
+
+    <!-- 5. Insights -->
+    <section class="secao" aria-labelledby="sec-insights">
+      <h2 id="sec-insights">5. Insights</h2>
+
+      <h3 class="subtitulo">Desta execução</h3>
+      @if (r.insights.length === 0) {
+        <p class="nota bloco">
+          Nenhuma afirmação atingiu a amostra mínima exigida. O sistema não emite insight sobre
+          poucos comentários.
+        </p>
+      } @else {
+        <ul class="insights">
+          @for (fato of r.insights; track $index) {
+            <li class="insight bloco">
+              <p>{{ fato.texto }}</p>
+              <p class="insight__amostra muted">Amostra: {{ amostra(fato) }}</p>
+            </li>
+          }
+        </ul>
+      }
+
+      <h3 class="subtitulo">Da campanha (comparação com coletas anteriores)</h3>
+      @if (r.insights_da_campanha.length === 0) {
+        <p class="nota bloco">
+          Nenhuma variação entre coletas superou a margem de incerteza — ou esta é a primeira coleta
+          da campanha.
+        </p>
+      } @else {
+        <ul class="insights">
+          @for (fato of r.insights_da_campanha; track $index) {
+            <li class="insight bloco">
+              <p>{{ fato.texto }}</p>
+              <p class="insight__amostra muted">Amostra: {{ amostra(fato) }}</p>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- 6. Como ler -->
+    <section class="secao bloco" aria-labelledby="sec-leitura">
+      <h2 id="sec-leitura">6. Como ler este relatório</h2>
+      <dl class="ficha">
+        <div>
+          <dt>Classificador</dt>
+          <dd>
+            @if (r.versao_modelo; as v) {
+              <!-- Nome e versão vêm de VERSOES_MODELO, nunca fixos aqui. -->
+              {{ v.nome_modelo }} {{ v.versao }}
+            } @else {
+              nenhuma versão registrada
+            }
+          </dd>
+        </div>
+        @if (r.versao_modelo?.metricas_avaliacao; as m) {
+          <div>
+            <dt>F1 macro</dt>
+            <dd>
+              {{ m.f1_macro.toFixed(2).replace('.', ',') }}
+              @if (m.exemplos_teste) {
+                <span class="muted"
+                  >({{ numero(m.exemplos_teste) }} exemplos rotulados por pessoas)</span
+                >
+              }
+            </dd>
+          </div>
+        }
+      </dl>
+      <ul class="limitacoes">
+        <li>
+          Os resultados descrevem <strong>quem comentou</strong>, não todo o público que assistiu.
+          Quem comenta tende a ter opinião mais forte — positiva ou negativa — do que a média.
+        </li>
+        <li>
+          A classificação é automática e tem margem de erro. A classe <strong>neutra</strong> é a
+          mais difícil: ironia, pergunta e comentário misto costumam cair nela ou sair dela por
+          engano.
+        </li>
+        <li>
+          Os insights só são emitidos acima de uma amostra mínima, indicada em cada um, e herdam o
+          erro do classificador: não afirmam além dos números.
+        </li>
+        <li>Os autores dos comentários não são identificados neste relatório nem no sistema.</li>
+      </ul>
+    </section>
+
+    <!-- 7. Rodapé -->
+    <footer class="rodape">
+      Gerado em {{ dataHoraCompleta(geradoEm()) }} · Emi YouTube Analytics · execução nº
+      {{ r.id_execucao }}
+    </footer>
+  </article>
+}
