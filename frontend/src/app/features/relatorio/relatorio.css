@@ -1,0 +1,315 @@
+/* Relatório: na tela, uma folha A4 sobre o fundo; no papel, só a folha.
+   As cores de sentimento precisam sair impressas — sem print-color-adjust o
+   navegador descarta fundos e as barras viram contornos vazios. */
+:host {
+  display: block;
+  padding: var(--space-5) var(--space-4) var(--space-7);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.barra-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: 210mm;
+  margin: 0 auto var(--space-4);
+}
+
+.voltar {
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.folha {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 18mm 16mm;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.folha--estado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}
+
+.capa {
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
+  border-bottom: 2px solid var(--ink);
+}
+
+.capa__sobretitulo {
+  margin-bottom: var(--space-1);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.capa h1 {
+  font-size: 28px;
+}
+
+.secao {
+  margin-bottom: var(--space-6);
+}
+
+.secao h2 {
+  margin-bottom: var(--space-3);
+  font-size: 18px;
+}
+
+.subtitulo {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: 14px;
+}
+
+.nota {
+  margin-top: var(--space-2);
+  color: var(--ink-muted);
+}
+
+.codigo {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+}
+
+/* --- Ficha de identificação: rótulo à esquerda, valor à direita --- */
+.ficha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+}
+
+.ficha div {
+  display: grid;
+  grid-template-columns: 9.5em minmax(0, 1fr);
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.ficha dt {
+  color: var(--ink-muted);
+}
+
+.ficha dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- Tabelas --- */
+.tabela {
+  width: 100%;
+  margin-top: var(--space-3);
+  border-collapse: collapse;
+}
+
+.tabela th,
+.tabela td {
+  padding: 6px var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.tabela thead th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.tabela tfoot th,
+.tabela tfoot td {
+  border-bottom: 0;
+  font-weight: 600;
+}
+
+.tabela .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela--geral {
+  max-width: 360px;
+}
+
+.col-barra {
+  width: 26%;
+}
+
+.video__titulo {
+  display: block;
+  font-weight: 600;
+}
+
+.video__sub {
+  display: block;
+  font-size: 11px;
+}
+
+.ponto {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-1);
+  border-radius: 50%;
+}
+
+.ponto--positivo {
+  background: var(--positivo);
+}
+.ponto--neutro {
+  background: var(--neutro);
+}
+.ponto--negativo {
+  background: var(--negativo);
+}
+
+/* --- Temas --- */
+.insights,
+.limitacoes {
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tema {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.tema__cabeca {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.tema__cabeca h3 {
+  font-size: 15px;
+}
+
+.tema__numeros {
+  white-space: nowrap;
+}
+
+.tema__negativos {
+  color: var(--negativo);
+}
+
+.tema__palavras {
+  font-size: 12px;
+}
+
+.citacao {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--border);
+}
+
+.citacao p {
+  font-style: italic;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.citacao footer {
+  margin-top: var(--space-1);
+  font-size: 11px;
+}
+
+/* --- Insights e limitações --- */
+.insight {
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-muted);
+}
+
+.insight__amostra {
+  margin-top: var(--space-1);
+  font-size: 11px;
+}
+
+.limitacoes li {
+  position: relative;
+  padding-left: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.limitacoes li::before {
+  content: '–';
+  position: absolute;
+  left: 0;
+  color: var(--ink-muted);
+}
+
+.rodape {
+  margin-top: var(--space-6);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+@media (max-width: 640px) {
+  .folha {
+    padding: var(--space-5) var(--space-4);
+  }
+
+  .ficha {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Papel A4 (o @page fica em styles.css: é regra do documento inteiro) --- */
+@media print {
+  :host {
+    padding: 0;
+  }
+
+  .barra-acoes {
+    display: none;
+  }
+
+  .folha {
+    max-width: none;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Nenhum bloco partido ao meio; título nunca sozinho no pé da página. */
+  .bloco {
+    break-inside: avoid;
+  }
+
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  .tabela thead {
+    display: table-header-group;
+  }
+}

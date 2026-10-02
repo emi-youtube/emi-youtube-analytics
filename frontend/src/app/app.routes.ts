@@ -21,6 +21,15 @@ export const routes: Routes = [
     loadComponent: () => import('./features/cadastro/cadastro').then((m) => m.Cadastro),
   },
   {
+    // Relatório de impressão (UC06): fora do Shell para sair sem o menu lateral,
+    // e por isso repete o `authGuard` — é a única tela interna que não o herda.
+    // Vem antes da árvore do Shell para não depender da ordem de casamento dela.
+    path: 'resultados/:id/relatorio',
+    title: 'Relatório · Emi YouTube Analytics',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/relatorio/relatorio').then((m) => m.Relatorio),
+  },
+  {
     path: '',
     canActivate: [authGuard],
     loadComponent: () => import('./layout/shell/shell').then((m) => m.Shell),

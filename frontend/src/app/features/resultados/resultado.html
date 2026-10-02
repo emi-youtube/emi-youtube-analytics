@@ -21,15 +21,14 @@
       </p>
     </div>
 
-    <!-- Sem endpoint de relatório ainda; ver README. -->
-    <button
+    <!-- Página de impressão (UC06): o PDF sai do "Salvar como PDF" do navegador. -->
+    <a
       class="botao botao--secundario"
-      type="button"
-      disabled
-      title="O relatório em arquivo depende de um endpoint que ainda não existe."
+      [routerLink]="['/resultados', r.id_execucao, 'relatorio']"
+      title="Abre o relatório em formato A4, pronto para imprimir ou salvar em PDF."
     >
       Baixar relatório
-    </button>
+    </a>
   </header>
 
   <!-- Recorte: de onde saem os números (filtros que valeram + data da coleta) -->
