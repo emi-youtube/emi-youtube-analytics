@@ -31,11 +31,13 @@ from dataclasses import dataclass
 from ml.concordancia.kappa import matriz_confusao
 
 __all__ = [
+    "DeltaPareado",
     "Metricas",
     "MetricasClasse",
     "acuracia",
     "avaliar_previsoes",
     "intervalo_bootstrap",
+    "intervalo_bootstrap_pareado",
     "matriz_confusao",
     "percentil",
 ]
@@ -279,3 +281,76 @@ def intervalo_bootstrap(
         for chave, valores in amostras.items()
         if valores
     }
+
+
+def _f1_macro_presentes(
+    verdadeiros: Sequence[str], previstos: Sequence[str], classes: Sequence[str]
+) -> float | None:
+    """F1 macro sobre as classes com suporte — a mesma conta do laço de cima."""
+    valores = []
+    for classe in classes:
+        f1, suporte = _f1_de_uma_classe(verdadeiros, previstos, classe)
+        if suporte:
+            valores.append(f1)
+    return sum(valores) / len(valores) if valores else None
+
+
+@dataclass(frozen=True)
+class DeltaPareado:
+    """F1 macro de B menos o de A, nos mesmos comentários, com o IC do bootstrap."""
+
+    f1_macro_a: float
+    f1_macro_b: float
+    delta: float
+    ic: tuple[float, float]
+    reamostragens: int
+
+
+def intervalo_bootstrap_pareado(
+    verdadeiros: Sequence[str],
+    previstos_a: Sequence[str],
+    previstos_b: Sequence[str],
+    classes: Sequence[str],
+    reamostragens: int = REAMOSTRAGENS,
+    semente: int = SEMENTE,
+    confianca: float = CONFIANCA,
+) -> DeltaPareado:
+    """IC percentil da diferença de F1 macro entre dois métodos (B - A), pareado.
+
+    **Pareado** quer dizer que cada reamostragem sorteia UM conjunto de índices e
+    calcula os dois métodos sobre ele. Os dois classificam os mesmos 334 comentários,
+    e a dificuldade de cada comentário é compartilhada: um sorteio que caiu nos
+    comentários difíceis derruba os dois juntos. Comparar os dois IC separados ignora
+    essa correlação e superestima a incerteza da diferença — dois intervalos que se
+    sobrepõem podem esconder um delta pareado inteiramente acima de zero.
+
+    O delta pontual é o das métricas completas (`avaliar_previsoes`), denominador 3;
+    a reamostragem pula a classe ausente do sorteio, como `intervalo_bootstrap`.
+    """
+    _conferir_alinhamento(verdadeiros, previstos_a)
+    _conferir_alinhamento(verdadeiros, previstos_b)
+    if reamostragens < 1:
+        raise ValueError("bootstrap exige ao menos uma reamostragem")
+
+    f1_a = avaliar_previsoes(verdadeiros, previstos_a, classes).f1_macro
+    f1_b = avaliar_previsoes(verdadeiros, previstos_b, classes).f1_macro
+
+    sorteio = random.Random(semente)
+    total = len(verdadeiros)
+    deltas: list[float] = []
+    for _ in range(reamostragens):
+        posicoes = [sorteio.randrange(total) for _ in range(total)]
+        reais = [verdadeiros[posicao] for posicao in posicoes]
+        macro_a = _f1_macro_presentes(reais, [previstos_a[p] for p in posicoes], classes)
+        macro_b = _f1_macro_presentes(reais, [previstos_b[p] for p in posicoes], classes)
+        if macro_a is not None and macro_b is not None:
+            deltas.append(macro_b - macro_a)
+
+    margem = (1 - confianca) / 2
+    return DeltaPareado(
+        f1_macro_a=f1_a,
+        f1_macro_b=f1_b,
+        delta=f1_b - f1_a,
+        ic=(percentil(deltas, margem), percentil(deltas, 1 - margem)),
+        reamostragens=reamostragens,
+    )
