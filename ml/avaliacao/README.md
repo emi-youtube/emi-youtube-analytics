@@ -120,7 +120,7 @@ A leitura do `rotulo_humano` e do `rotulo_fraco` é a única coisa que o script 
 ## Comparação pareada (`comparar.py`)
 
 ```bash
-python -m ml.avaliacao.comparar --id-execucao 4 \
+python -m ml.avaliacao.comparar --id-execucao 4 --so-sem-gemeo \
     --a bertimbau=ml/dados/previsoes_bertimbau.csv \
     --b bertimbau_rodada2=ml/dados/previsoes_bertimbau_rodada2.csv \
     --saida ml/treino/historico/comparacao_rodada2.json
@@ -133,9 +133,12 @@ pareado** (`intervalo_bootstrap_pareado` em `metricas.py`): cada reamostragem so
 conjunto de índices e calcula os dois métodos sobre ele. Mesmas 2.000 reamostragens,
 mesma semente 42.
 
-É a conta da regra de decisão da rodada 2 (`ml/treino/historico/regra_decisao_rodada2.md`),
-que o script imprime no fim: B substitui A se o F1 macro for maior e o IC do delta não
-ficar inteiramente abaixo de zero.
+É a conta da regra de decisão da rodada 2 (`ml/treino/historico/regra_decisao_rodada2.md`,
+seção "Revisão"). Com `--so-sem-gemeo`, a comparação principal é nos comentários do
+teste sem gêmeo no treino+validação (os ids saem de `saida_vazamento/`), os 334 entram
+como secundária, e o fim da saída aplica a regra: **adota** B se o delta pontual da
+principal for ≥ +0,010; **afirma** "melhorou" só se o limite inferior do IC for > 0,
+senão "não distinguível".
 
 ## Vazamento entre treino, validação e teste (`vazamento.py`)
 

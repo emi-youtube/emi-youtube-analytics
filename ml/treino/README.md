@@ -60,9 +60,12 @@ O teste entra no filtro **sem rótulo** (`carregar_teste`). Os ids que saíram v
 dois relatórios da rodada e para o `model_card.json` (`dados.filtro_vazamento`).
 
 **A regra de decisão** foi gravada antes do treino, em
-[`historico/regra_decisao_rodada2.md`](historico/regra_decisao_rodada2.md): o modelo novo
-só substitui o 1.0.0 se o F1 macro no teste for maior e o IC 95% do delta pareado não
-ficar inteiramente abaixo de zero; as duas rodadas entram no TCC em qualquer caso.
+[`historico/regra_decisao_rodada2.md`](historico/regra_decisao_rodada2.md), e revisada
+em 04/10, também antes do treino (seção "Revisão"). A comparação principal é nos
+comentários do teste **sem gêmeo** no treino+validação (309), com os 334 reportados
+junto. O modelo novo substitui o 1.0.0 se o delta pontual de F1 macro na principal for
+**≥ +0,010**; o TCC só diz "melhorou" se o limite inferior do IC 95% do delta for > 0,
+senão "não distinguível". As duas rodadas entram no TCC em qualquer caso.
 
 ### A rodada 2 no Colab, passo a passo
 
@@ -92,7 +95,7 @@ padrão 2).
        --previsoes lexico=ml/dados/previsoes_lexico.csv \
        --previsoes bertimbau=ml/dados/previsoes_bertimbau.csv \
        --previsoes bertimbau_rodada2=ml/dados/previsoes_bertimbau_rodada2.csv
-   python -m ml.avaliacao.comparar --id-execucao 4 \
+   python -m ml.avaliacao.comparar --id-execucao 4 --so-sem-gemeo \
        --a bertimbau=ml/dados/previsoes_bertimbau.csv \
        --b bertimbau_rodada2=ml/dados/previsoes_bertimbau_rodada2.csv \
        --saida ml/treino/historico/comparacao_rodada2.json
@@ -100,9 +103,14 @@ padrão 2).
 
    `--saida ml/avaliacao/saida_rodada2` é obrigatório: sem ele, a avaliação grava por
    cima de `ml/avaliacao/saida/`, que é a evidência da rodada 1.
-9. Preencha a linha da rodada 2 no `historico_treinos.md` e aplique a regra. Se o modelo
-   novo vencer, a publicação segue `docs/DEPLOY.md` (nome e versão no cartão iguais aos
-   do manifesto).
+
+   `--so-sem-gemeo` é o que aplica a regra: a comparação principal sai nos 309 sem
+   gêmeo (ids de `ml/avaliacao/saida_vazamento/resultado_vazamento.json`), a secundária
+   nos 334, e o fim da saída diz se adota e qual é a afirmação para o TCC. Sem a flag,
+   o script só compara os 334 e não decide nada.
+9. Preencha a linha da rodada 2 no `historico_treinos.md` com as duas comparações e a
+   decisão. Se a regra adotar o modelo novo, a publicação segue `docs/DEPLOY.md` (nome e
+   versão no cartão iguais aos do manifesto).
 
 **Tempo na T4**, a partir das medições da rodada 1 (~31 s por época com 1.870 exemplos):
 busca de 45 épocas ≈ 25 min; cinco sementes da escolhida ≈ 10 a 15 min (4 a 6 épocas

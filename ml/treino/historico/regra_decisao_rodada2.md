@@ -53,3 +53,50 @@ coisas, ambas decididas antes do treino:
   semente publicada;
 - avaliar mais de um candidato da rodada 2 no teste e ficar com o melhor;
 - trocar o critério de gêmeo depois de ver o resultado no teste.
+
+---
+
+## Revisão (04/10/2026)
+
+Feita **antes de qualquer treino da rodada 2**, como a regra original: nenhum resultado
+de teste da rodada 2 existia quando ela foi escrita. O texto acima fica como estava,
+para registro; onde os dois divergem, **vale esta seção**.
+
+### Os dois defeitos da regra original
+
+1. **A segunda condição do item 4 não acrescentava nada.** Com IC percentil do
+   bootstrap, o limite superior do delta fica acima do delta pontual. Se o F1 do modelo
+   novo é maior (delta > 0), o limite superior também é > 0 e o IC nunca fica
+   "inteiramente abaixo de zero". A regra tinha virado só "F1 maior", sem margem
+   nenhuma para o acaso.
+2. **A comparação nos 334 favorecia a rodada 1.** A rodada 1 treinou com os gêmeos de
+   25 comentários do teste (`ml/avaliacao/saida_vazamento/`), e nesses ela acerta por
+   memória: F1 macro 0,913 com gêmeo contra 0,720 sem. A rodada 2 remove esses gêmeos
+   antes de treinar. Comparar as duas nos 334 dá à rodada 1 uma vantagem que não é de
+   leitura, e o 0,731 dela vira 0,720 quando os gêmeos saem.
+
+### A regra que vale
+
+- **Comparação principal:** os comentários do teste **sem gêmeo** no treino+validação
+  (309 de 334; os ids com gêmeo estão em
+  `ml/avaliacao/saida_vazamento/resultado_vazamento.json`, em
+  `teste_x_treino_validacao.pares`). Delta pareado de F1 macro (rodada 2 − 1.0.0), IC 95%
+  por bootstrap pareado, 2.000 reamostragens, semente 42.
+- **Comparação secundária:** os 334, com a mesma conta, sempre reportada junto da
+  principal.
+- **Adotar em produção:** o modelo da rodada 2 substitui o `bertimbau-emi 1.0.0` se o
+  **delta pontual da comparação principal for ≥ +0,010**, que é aproximadamente o desvio
+  padrão do F1 macro de validação entre as cinco sementes da rodada 1 (0,011). Abaixo
+  disso, a diferença é do tamanho do que a semente sozinha já muda, e o 1.0.0 fica.
+- **Afirmação científica:** o TCC só escreve "a rodada 2 melhorou" se o **limite inferior
+  do IC 95% do delta for > 0**; senão, o texto diz "não distinguível". Adotar e afirmar
+  são perguntas separadas: dá para adotar um modelo cuja melhora não é distinguível (o
+  delta passou do limiar operacional) e dá para não adotar uma melhora real e pequena
+  demais.
+- **Mantém-se:** hiperparâmetro só pela validação; teste avaliado uma única vez; as duas
+  rodadas no TCC, em qualquer caso.
+
+A conta é `python -m ml.avaliacao.comparar --so-sem-gemeo` (passo 8 do
+`ml/treino/README.md`), que imprime as duas comparações e aplica esta regra no fim. A
+regra está escrita como código em `decidir_rodada2` e testada em
+`ml/tests/test_comparar.py`.
