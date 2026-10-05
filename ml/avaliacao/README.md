@@ -114,3 +114,80 @@ contra o papel.
 ## Nada é gravado no banco
 
 A leitura do `rotulo_humano` e do `rotulo_fraco` é a única coisa que o script faz lá.
+
+---
+
+## Comparação pareada (`comparar.py`)
+
+```bash
+python -m ml.avaliacao.comparar --id-execucao 4 --so-sem-gemeo \
+    --a bertimbau=ml/dados/previsoes_bertimbau.csv \
+    --b bertimbau_rodada2=ml/dados/previsoes_bertimbau_rodada2.csv \
+    --saida ml/treino/historico/comparacao_rodada2.json
+```
+
+Dois intervalos que se sobrepõem não demonstram diferença — mas também não a descartam:
+os dois métodos classificam **os mesmos** 334 comentários, e um sorteio que caiu nos
+difíceis derruba os dois juntos. O IC certo para a diferença é o do **bootstrap
+pareado** (`intervalo_bootstrap_pareado` em `metricas.py`): cada reamostragem sorteia um
+conjunto de índices e calcula os dois métodos sobre ele. Mesmas 2.000 reamostragens,
+mesma semente 42.
+
+É a conta da regra de decisão da rodada 2 (`ml/treino/historico/regra_decisao_rodada2.md`,
+seção "Revisão"). Com `--so-sem-gemeo`, a comparação principal é nos comentários do
+teste sem gêmeo no treino+validação (os ids saem de `saida_vazamento/`), os 334 entram
+como secundária, e o fim da saída aplica a regra: **adota** B se o delta pontual da
+principal for ≥ +0,010; **afirma** "melhorou" só se o limite inferior do IC for > 0,
+senão "não distinguível".
+
+## Vazamento entre treino, validação e teste (`vazamento.py`)
+
+```bash
+python -m ml.avaliacao.vazamento --id-execucao 4
+```
+
+Um comentário do teste que tem **gêmeo** no treino não mede generalização. A régua de
+gêmeo (`gemeos.py`) tem dois níveis, sobre o `texto_modelo` (o que o BERTimbau lê):
+
+- **exato** — o mesmo texto depois de normalizar (minúsculas, sem acento, sem pontuação,
+  letra repetida reduzida a uma);
+- **quase** — Jaccard de trigramas de caractere ≥ **0,8**. A justificativa do limiar,
+  com os pares do corpus que o sustentam, está na docstring do módulo, e o histograma da
+  maior similaridade de cada comentário do teste vai no JSON.
+
+`gemeos.py` é stdlib pura porque é também o **filtro** da rodada 2 do treino, que roda no
+Colab: medição e filtro usam a mesma régua.
+
+### O que a medição deu (04/10/2026)
+
+| cruzamento | universo | com gêmeo | exato | quase | do mesmo vídeo | curtos (≤ 3 palavras) |
+|---|---|---|---|---|---|---|
+| (a) teste × treino+validação | 334 | **25 (7,5%)** | 18 | 7 | 13 | 16 |
+| (b) validação × treino | 330 | 18 | 15 | 3 | 12 | 12 |
+| (c) treino × treino | 1.870 | 96 | 62 | 34 | 61 | 57 |
+
+No (a), 23 dos 25 têm o gêmeo no treino. Dois tipos aparecem: o **genérico curto**
+("Parabéns", "Que carro lindo", "galinha caipira" — 16 dos 25), que qualquer pessoa
+escreveria, e a **cópia real** — o mesmo comentário longo postado duas vezes no mesmo
+vídeo.
+
+F1 macro no teste, separando quem tem gêmeo (IC 95%, bootstrap):
+
+| método | todos (334) | com gêmeo (25) | sem gêmeo (309) |
+|---|---|---|---|
+| léxico | 0,553 | 0,464 [0,260; 0,699] | 0,558 [0,500; 0,615] |
+| TF-IDF + logreg | 0,699 | 0,884 [0,726; 0,971] | 0,688 [0,636; 0,735] |
+| BERTimbau 1.0.0 | 0,731 | **0,913** [0,782; 1,000] | **0,720** [0,666; 0,769] |
+| Gemini (rótulo fraco) | 0,829 | 0,854 [0,679; 0,958] | 0,831 [0,786; 0,870] |
+
+**Léxico e Gemini não treinam com o corpus — são o controle.** Eles não ganham nada no
+grupo com gêmeo (o léxico até perde); os dois modelos **supervisionados** ganham ~19
+pontos. É a assinatura de memória: entre os 23 com gêmeo no treino, o BERTimbau devolve o
+rótulo fraco do gêmeo em 21, mais do que o próprio gabarito concorda com ele (18).
+
+O efeito no número do capítulo é pequeno — **0,731 → 0,720** sem os gêmeos —, porque são
+só 25 de 334, mas tem sinal certo e vai para o texto. A rodada 2 do treino remove esses
+gêmeos antes de treinar.
+
+O JSON (`saida_vazamento/resultado_vazamento.json`) guarda contagens, os pares por id e
+as métricas — nenhum texto. Os exemplos de cada nível saem só no console (`--exemplos`).

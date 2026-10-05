@@ -1,0 +1,30 @@
+{
+  "data_utc": "2026-10-05T00:47:12.931483+00:00",
+  "configuracao": {
+    "c": 10.0,
+    "ngramas_palavra": [
+      1,
+      2
+    ],
+    "caractere": true
+  },
+  "treinado_em": "1870 exemplos (treino da particao semente 42)",
+  "total_avaliado": 334,
+  "a": {
+    "metodo": "tfidf_logreg",
+    "f1_macro": 0.6993955833196339
+  },
+  "b": {
+    "metodo": "bertimbau",
+    "f1_macro": 0.7313726152097715
+  },
+  "delta_bertimbau_menos_baseline": 0.031977031890137564,
+  "ic95_delta_pareado": [
+    -0.01983356643475579,
+    0.0855485878013571
+  ],
+  "bootstrap": {
+    "reamostragens": 2000,
+    "metodo": "percentil pareado"
+  }
+}

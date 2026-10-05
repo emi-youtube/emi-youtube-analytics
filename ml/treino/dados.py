@@ -25,10 +25,12 @@ import logging
 import random
 from collections import Counter
 from dataclasses import dataclass
+from typing import Any
 
 import asyncpg
 from preprocessamento import preparar_texto
 
+from ml.avaliacao.gemeos import LIMIAR_QUASE, buscar_gemeos
 from ml.config import CLASSES, SEMENTE, dsn_postgres
 
 logger = logging.getLogger("treino")
@@ -206,6 +208,97 @@ def dividir_estratificado(
     return Particao(treino=treino, validacao=validacao)
 
 
+@dataclass(frozen=True)
+class FiltroVazamento:
+    """Quem o filtro da rodada 2 tirou, e de onde. Só ids e contagens.
+
+    As três listas são disjuntas e estão na ordem em que o filtro age: primeiro os
+    gêmeos do teste (dos dois lados), depois, no treino que sobrou, os gêmeos da
+    validação que sobrou.
+    """
+
+    limiar: float
+    gemeo_teste_no_treino: tuple[int, ...]
+    gemeo_teste_na_validacao: tuple[int, ...]
+    gemeo_validacao_no_treino: tuple[int, ...]
+
+    def como_dicionario(self) -> dict[str, Any]:
+        return {
+            "criterio": (
+                "ml/avaliacao/gemeos.py: texto normalizado identico, ou Jaccard de "
+                f"trigramas de caractere >= {self.limiar}"
+            ),
+            "removidos": {
+                "treino_com_gemeo_no_teste": len(self.gemeo_teste_no_treino),
+                "validacao_com_gemeo_no_teste": len(self.gemeo_teste_na_validacao),
+                "treino_com_gemeo_na_validacao": len(self.gemeo_validacao_no_treino),
+            },
+            "ids_removidos": {
+                "treino_com_gemeo_no_teste": list(self.gemeo_teste_no_treino),
+                "validacao_com_gemeo_no_teste": list(self.gemeo_teste_na_validacao),
+                "treino_com_gemeo_na_validacao": list(self.gemeo_validacao_no_treino),
+            },
+        }
+
+
+def remover_vazamento(
+    particao: Particao, teste: list[Exemplo], limiar: float = LIMIAR_QUASE
+) -> tuple[Particao, FiltroVazamento]:
+    """Tira da partição os gêmeos do teste e a duplicidade entre treino e validação.
+
+    O filtro da rodada 2 (`ml/treino/historico/regra_decisao_rodada2.md`):
+
+    1. sai do treino **e** da validação quem tem gêmeo entre os comentários do teste.
+       No treino, porque o modelo veria o texto do teste com um rótulo; na validação,
+       porque ela escolhe hiperparâmetro, e um gêmeo do teste ali puxaria a escolha
+       na direção do teste;
+    2. sai do treino quem tem gêmeo na validação. Senão a validação mede, em parte,
+       memória — e é ela que escolhe a configuração.
+
+    **Em memória.** O `split` e o `rotulo_humano` do banco não mudam: a partição
+    continua sendo a da semente 42, só que menor. `teste` chega sem rótulo
+    (`carregar_teste`) — o filtro lê o texto do teste, nunca o gabarito.
+
+    A régua de gêmeo é a mesma da medição (`ml/avaliacao/vazamento.py`), e os ids que
+    saem vão para os relatórios da rodada: o que foi removido é auditável.
+    """
+
+    def pares(exemplos: list[Exemplo]) -> list[tuple[int, str]]:
+        return [(exemplo.id_comentario, exemplo.texto_modelo) for exemplo in exemplos]
+
+    no_treino = buscar_gemeos(pares(particao.treino), pares(teste), limiar)
+    na_validacao = buscar_gemeos(pares(particao.validacao), pares(teste), limiar)
+    treino = [exemplo for exemplo in particao.treino if exemplo.id_comentario not in no_treino]
+    validacao = [
+        exemplo for exemplo in particao.validacao if exemplo.id_comentario not in na_validacao
+    ]
+
+    da_validacao = buscar_gemeos(pares(treino), pares(validacao), limiar)
+    treino = [exemplo for exemplo in treino if exemplo.id_comentario not in da_validacao]
+
+    filtro = FiltroVazamento(
+        limiar=limiar,
+        gemeo_teste_no_treino=tuple(sorted(no_treino)),
+        gemeo_teste_na_validacao=tuple(sorted(na_validacao)),
+        gemeo_validacao_no_treino=tuple(sorted(da_validacao)),
+    )
+    return Particao(treino=treino, validacao=validacao), filtro
+
+
+def relatar_filtro(filtro: FiltroVazamento, antes: Particao, depois: Particao) -> None:
+    """Imprime quantos saíram de cada lado. Vai para a saída do notebook."""
+    removidos = filtro.como_dicionario()["removidos"]
+    logger.info("=" * 66)
+    logger.info("FILTRO DE VAZAMENTO (rodada 2) - em memoria, o banco nao muda")
+    logger.info("=" * 66)
+    for chave, quantidade in removidos.items():
+        logger.info("  %-36s %5d", chave, quantidade)
+    logger.info("-" * 66)
+    logger.info("  treino ..... %5d -> %5d", len(antes.treino), len(depois.treino))
+    logger.info("  validacao .. %5d -> %5d", len(antes.validacao), len(depois.validacao))
+    logger.info("=" * 66)
+
+
 def pesos_de_classe(exemplos: list[Exemplo], classes: tuple[str, ...] = CLASSES) -> list[float]:
     """`class_weight='balanced'` do scikit-learn, escrito à mão (CLAUDE.md regra 8).
 
@@ -252,7 +345,7 @@ def distribuicao(exemplos: list[Exemplo]) -> dict[str, int]:
 def relatar_particao(particao: Particao, pesos: list[float]) -> None:
     """Imprime o que entrou em cada lado. É o que se confere antes de gastar GPU."""
     logger.info("=" * 66)
-    logger.info("DADOS DO ENSAIO - rotulo fraco (Gemini), split NULL")
+    logger.info("DADOS DO TREINO - rotulo fraco (Gemini), split NULL")
     logger.info("=" * 66)
     logger.info("  treino ..... %5d", len(particao.treino))
     logger.info("  validacao .. %5d", len(particao.validacao))

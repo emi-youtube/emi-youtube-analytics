@@ -1,0 +1,299 @@
+{
+  "data_utc": "2026-10-05T00:47:09.901333+00:00",
+  "gabarito": "banco: exemplos_treinamento.rotulo_humano (execucao 4)",
+  "total_avaliado": 334,
+  "excluidos_sem_rotulo_humano": 0,
+  "kappa_cohen_gemini_gabarito": 0.7439545955832908,
+  "bootstrap": {
+    "reamostragens": 2000,
+    "confianca": 0.95,
+    "semente": 42,
+    "metodo": "percentil"
+  },
+  "metodos": [
+    {
+      "metodo": "lexico",
+      "origem": "csv: previsoes_lexico.csv",
+      "acuracia": 0.562874251497006,
+      "precisao_macro": 0.5763912635023019,
+      "revocacao_macro": 0.5555453909705959,
+      "f1_macro": 0.5534613315056469,
+      "ic95_f1_macro": [
+        0.4996866933341698,
+        0.608368379726527
+      ],
+      "kappa_cohen": 0.3316337719298246,
+      "por_classe": {
+        "positivo": {
+          "precisao": 0.6483516483516484,
+          "revocacao": 0.4609375,
+          "f1": 0.5388127853881279,
+          "ic95_f1": [
+            0.4576841818305732,
+            0.6180296527506828
+          ],
+          "suporte": 128,
+          "verdadeiros_positivos": 59,
+          "falsos_positivos": 32,
+          "falsos_negativos": 69
+        },
+        "negativo": {
+          "precisao": 0.5633802816901409,
+          "revocacao": 0.47619047619047616,
+          "f1": 0.5161290322580645,
+          "ic95_f1": [
+            0.41789434124342323,
+            0.6111111111111112
+          ],
+          "suporte": 84,
+          "verdadeiros_positivos": 40,
+          "falsos_positivos": 31,
+          "falsos_negativos": 44
+        },
+        "neutro": {
+          "precisao": 0.5174418604651163,
+          "revocacao": 0.7295081967213115,
+          "f1": 0.6054421768707483,
+          "ic95_f1": [
+            0.5395543139956119,
+            0.6688322439150254
+          ],
+          "suporte": 122,
+          "verdadeiros_positivos": 89,
+          "falsos_positivos": 83,
+          "falsos_negativos": 33
+        }
+      },
+      "matriz_confusao": {
+        "positivo": {
+          "positivo": 59,
+          "negativo": 16,
+          "neutro": 53
+        },
+        "negativo": {
+          "positivo": 14,
+          "negativo": 40,
+          "neutro": 30
+        },
+        "neutro": {
+          "positivo": 18,
+          "negativo": 15,
+          "neutro": 89
+        }
+      }
+    },
+    {
+      "metodo": "bertimbau",
+      "origem": "csv: previsoes_bertimbau.csv",
+      "acuracia": 0.7365269461077845,
+      "precisao_macro": 0.7308636173767753,
+      "revocacao_macro": 0.7368084016393442,
+      "f1_macro": 0.7313726152097715,
+      "ic95_f1_macro": [
+        0.6816467499525588,
+        0.7764231410544558
+      ],
+      "kappa_cohen": 0.6009666295582287,
+      "por_classe": {
+        "positivo": {
+          "precisao": 0.7744360902255639,
+          "revocacao": 0.8046875,
+          "f1": 0.7892720306513409,
+          "ic95_f1": [
+            0.7324854686073882,
+            0.8402825064850843
+          ],
+          "suporte": 128,
+          "verdadeiros_positivos": 103,
+          "falsos_positivos": 30,
+          "falsos_negativos": 25
+        },
+        "negativo": {
+          "precisao": 0.65625,
+          "revocacao": 0.75,
+          "f1": 0.7,
+          "ic95_f1": [
+            0.6190410418310971,
+            0.770053475935829
+          ],
+          "suporte": 84,
+          "verdadeiros_positivos": 63,
+          "falsos_positivos": 33,
+          "falsos_negativos": 21
+        },
+        "neutro": {
+          "precisao": 0.7619047619047619,
+          "revocacao": 0.6557377049180327,
+          "f1": 0.7048458149779736,
+          "ic95_f1": [
+            0.6346036585365853,
+            0.7692307692307692
+          ],
+          "suporte": 122,
+          "verdadeiros_positivos": 80,
+          "falsos_positivos": 25,
+          "falsos_negativos": 42
+        }
+      },
+      "matriz_confusao": {
+        "positivo": {
+          "positivo": 103,
+          "negativo": 8,
+          "neutro": 17
+        },
+        "negativo": {
+          "positivo": 13,
+          "negativo": 63,
+          "neutro": 8
+        },
+        "neutro": {
+          "positivo": 17,
+          "negativo": 25,
+          "neutro": 80
+        }
+      }
+    },
+    {
+      "metodo": "tfidf_logreg",
+      "origem": "csv: previsoes_baseline.csv",
+      "acuracia": 0.7005988023952096,
+      "precisao_macro": 0.7028630180322682,
+      "revocacao_macro": 0.7127183352849337,
+      "f1_macro": 0.6993955833196339,
+      "ic95_f1_macro": [
+        0.6488554614492037,
+        0.7448723251318765
+      ],
+      "kappa_cohen": 0.55205064241839,
+      "por_classe": {
+        "positivo": {
+          "precisao": 0.8532110091743119,
+          "revocacao": 0.7265625,
+          "f1": 0.7848101265822784,
+          "ic95_f1": [
+            0.7207027027027026,
+            0.8387157182554066
+          ],
+          "suporte": 128,
+          "verdadeiros_positivos": 93,
+          "falsos_positivos": 16,
+          "falsos_negativos": 35
+        },
+        "negativo": {
+          "precisao": 0.5948275862068966,
+          "revocacao": 0.8214285714285714,
+          "f1": 0.69,
+          "ic95_f1": [
+            0.6101694915254238,
+            0.7582938388625592
+          ],
+          "suporte": 84,
+          "verdadeiros_positivos": 69,
+          "falsos_positivos": 47,
+          "falsos_negativos": 15
+        },
+        "neutro": {
+          "precisao": 0.6605504587155964,
+          "revocacao": 0.5901639344262295,
+          "f1": 0.6233766233766234,
+          "ic95_f1": [
+            0.5479422275163788,
+            0.6932351240200487
+          ],
+          "suporte": 122,
+          "verdadeiros_positivos": 72,
+          "falsos_positivos": 37,
+          "falsos_negativos": 50
+        }
+      },
+      "matriz_confusao": {
+        "positivo": {
+          "positivo": 93,
+          "negativo": 9,
+          "neutro": 26
+        },
+        "negativo": {
+          "positivo": 4,
+          "negativo": 69,
+          "neutro": 11
+        },
+        "neutro": {
+          "positivo": 12,
+          "negativo": 38,
+          "neutro": 72
+        }
+      }
+    },
+    {
+      "metodo": "gemini (rotulo_fraco)",
+      "origem": "banco: exemplos_treinamento.rotulo_fraco",
+      "acuracia": 0.8293413173652695,
+      "precisao_macro": 0.8290165165165165,
+      "revocacao_macro": 0.8434999512099922,
+      "f1_macro": 0.828961703532519,
+      "ic95_f1_macro": [
+        0.7899968509401764,
+        0.8703806487362559
+      ],
+      "kappa_cohen": 0.7439545955832908,
+      "por_classe": {
+        "positivo": {
+          "precisao": 0.9375,
+          "revocacao": 0.8203125,
+          "f1": 0.875,
+          "ic95_f1": [
+            0.8310469194626432,
+            0.9172947865531598
+          ],
+          "suporte": 128,
+          "verdadeiros_positivos": 105,
+          "falsos_positivos": 7,
+          "falsos_negativos": 23
+        },
+        "negativo": {
+          "precisao": 0.7297297297297297,
+          "revocacao": 0.9642857142857143,
+          "f1": 0.8307692307692307,
+          "ic95_f1": [
+            0.7731958762886597,
+            0.8839837161965688
+          ],
+          "suporte": 84,
+          "verdadeiros_positivos": 81,
+          "falsos_positivos": 30,
+          "falsos_negativos": 3
+        },
+        "neutro": {
+          "precisao": 0.8198198198198198,
+          "revocacao": 0.7459016393442623,
+          "f1": 0.7811158798283261,
+          "ic95_f1": [
+            0.72,
+            0.8409090909090909
+          ],
+          "suporte": 122,
+          "verdadeiros_positivos": 91,
+          "falsos_positivos": 20,
+          "falsos_negativos": 31
+        }
+      },
+      "matriz_confusao": {
+        "positivo": {
+          "positivo": 105,
+          "negativo": 6,
+          "neutro": 17
+        },
+        "negativo": {
+          "positivo": 0,
+          "negativo": 81,
+          "neutro": 3
+        },
+        "neutro": {
+          "positivo": 7,
+          "negativo": 24,
+          "neutro": 91
+        }
+      }
+    }
+  ]
+}

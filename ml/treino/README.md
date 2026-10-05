@@ -10,7 +10,8 @@ não volta. O mesmo código roda no Colab (T4) e na máquina da equipe (CPU).
 # volta: ja aconteceu de um ensaio de 150 exemplos gravar por cima deles.
 python -m ml.treino.treinar --id-execucao 4 --limite 150 --sementes 42 --epocas 1 --lote 8
 
-# treino oficial: busca de hiperparametros + a configuracao escolhida em 5 sementes
+# treino oficial: busca de hiperparametros + a configuracao escolhida em 5 sementes.
+# Sem --rodada vale a atual (2); --rodada 1 refaz a de 30/09.
 python -m ml.treino.treinar --id-execucao 4 --busca
 
 # conversao para ONNX int8 e medicao de RAM/latencia (dependencias proprias:
@@ -25,6 +26,98 @@ O notebook `colab_bertimbau.ipynb` faz esses mesmos passos na T4. Ele **não
 reimplementa nada**: clona o repositório e chama estes módulos. Notebook com código
 próprio diverge do repositório na primeira correção, e aí o modelo publicado deixa de
 ser o que o repositório descreve.
+
+## Rodadas
+
+O histórico de todo treino, com a fonte de cada data, está em
+[`historico/historico_treinos.md`](historico/historico_treinos.md). O que muda de uma
+rodada para outra mora em `RODADAS` (`treinar.py`) e em nenhum outro lugar:
+
+| | rodada 1 (30/09) → `bertimbau-emi 1.0.0` | rodada 2 (BERTimbau Base) |
+|---|---|---|
+| grade | 2e-5, 3e-5, 5e-5 × 2, 3, 4 épocas | **3e-5, 4e-5, 5e-5 × 4, 5, 6 épocas** |
+| dados | 1.870 / 330 | os mesmos, **menos os gêmeos** (abaixo) |
+| pasta do modelo | `ml/modelos/bertimbau-ensaio` | `ml/modelos/bertimbau-rodada2` |
+| relatórios | `ml/treino/*.json` (versionados em `historico/`) | `historico/*_rodada2.json` |
+| versão no cartão | `0.1.0-ensaio` (renomeado `1.0.0` ao publicar) | `1.1.0-candidato` |
+
+**Por que a grade mudou.** A vencedora da rodada 1 ficou no canto da grade (5e-5 e 4
+épocas, as duas pontas), e 4 das 5 sementes tiveram a melhor época na 4ª, a última.
+Ótimo no canto quer dizer que ele pode estar do lado de fora. Lote, decaimento, warmup e
+`max_length` ficam fixos.
+
+**O filtro de vazamento** (`dados.remover_vazamento`, critério de
+`ml/avaliacao/gemeos.py`) sai em memória, sem tocar no `split` nem no `rotulo_humano`:
+
+| saem | quantos |
+|---|---|
+| do treino, por terem gêmeo entre os 334 do teste | 47 |
+| da validação, por terem gêmeo no teste | 9 |
+| do treino, por terem gêmeo na validação | 14 |
+| **fica** | **treino 1.809, validação 321** |
+
+O teste entra no filtro **sem rótulo** (`carregar_teste`). Os ids que saíram vão para os
+dois relatórios da rodada e para o `model_card.json` (`dados.filtro_vazamento`).
+
+**A regra de decisão** foi gravada antes do treino, em
+[`historico/regra_decisao_rodada2.md`](historico/regra_decisao_rodada2.md), e revisada
+em 04/10, também antes do treino (seção "Revisão"). A comparação principal é nos
+comentários do teste **sem gêmeo** no treino+validação (309), com os 334 reportados
+junto. O modelo novo substitui o 1.0.0 se o delta pontual de F1 macro na principal for
+**≥ +0,010**; o TCC só diz "melhorou" se o limite inferior do IC 95% do delta for > 0,
+senão "não distinguível". As duas rodadas entram no TCC em qualquer caso.
+
+### A rodada 2 no Colab, passo a passo
+
+Nenhuma célula precisa ser editada: a rodada vem do formulário da célula 0 (`RODADA`,
+padrão 2).
+
+1. **Antes de abrir o Colab**, localmente: o PR desta rodada precisa estar na `main` (o
+   notebook clona a `main`). Rode `TESTE_NOTEBOOK=1 ml/.venv/Scripts/python.exe -m
+   pytest ml/tests/test_notebook.py` se mexeu em algo desde então.
+2. Abra `ml/treino/colab_bertimbau.ipynb` no Colab (*Arquivo → Abrir notebook → GitHub*).
+3. *Ambiente de execução → Alterar tipo de ambiente → **GPU T4***.
+4. No cofre (🔑), confira o segredo `DATABASE_URL`, com acesso ao notebook ligado.
+5. *Ambiente de execução → **Executar tudo***. A célula 3 (dados) tem que imprimir o
+   bloco `FILTRO DE VAZAMENTO` com 47 / 9 / 14 e `treino 1870 -> 1809`; se os números
+   forem outros, o corpus mudou — pare e investigue antes de gastar GPU.
+6. No fim, o navegador baixa: `bertimbau-rodada2.zip`, `busca_hiperparametros_rodada2.json`,
+   `relatorio_sementes_rodada2.json` e `previsoes_bertimbau_rodada2.csv`.
+7. Localmente:
+   - os dois JSON → `ml/treino/historico/` (versionados);
+   - o CSV → `ml/dados/` (não versionado);
+   - o zip → descompacte em `ml/modelos/bertimbau-rodada2/` (não versionado) e anote o
+     sha256 de `model.safetensors` no `historico_treinos.md`.
+8. Avaliação, **uma vez**:
+
+   ```bash
+   python -m ml.avaliacao.avaliar --id-execucao 4 --gemini --saida ml/avaliacao/saida_rodada2 \
+       --previsoes lexico=ml/dados/previsoes_lexico.csv \
+       --previsoes bertimbau=ml/dados/previsoes_bertimbau.csv \
+       --previsoes bertimbau_rodada2=ml/dados/previsoes_bertimbau_rodada2.csv
+   python -m ml.avaliacao.comparar --id-execucao 4 --so-sem-gemeo \
+       --a bertimbau=ml/dados/previsoes_bertimbau.csv \
+       --b bertimbau_rodada2=ml/dados/previsoes_bertimbau_rodada2.csv \
+       --saida ml/treino/historico/comparacao_rodada2.json
+   ```
+
+   `--saida ml/avaliacao/saida_rodada2` é obrigatório: sem ele, a avaliação grava por
+   cima de `ml/avaliacao/saida/`, que é a evidência da rodada 1.
+
+   `--so-sem-gemeo` é o que aplica a regra: a comparação principal sai nos 309 sem
+   gêmeo (ids de `ml/avaliacao/saida_vazamento/resultado_vazamento.json`), a secundária
+   nos 334, e o fim da saída diz se adota e qual é a afirmação para o TCC. Sem a flag,
+   o script só compara os 334 e não decide nada.
+9. Preencha a linha da rodada 2 no `historico_treinos.md` com as duas comparações e a
+   decisão. Se a regra adotar o modelo novo, a publicação segue `docs/DEPLOY.md` (nome e
+   versão no cartão iguais aos do manifesto).
+
+**Tempo na T4**, a partir das medições da rodada 1 (~31 s por época com 1.870 exemplos):
+busca de 45 épocas ≈ 25 min; cinco sementes da escolhida ≈ 10 a 15 min (4 a 6 épocas
+cada); instalação, dados, cartão e previsão do teste ≈ 5 a 8 min. **Uns 45 minutos; reserve
+uma hora** — a sessão gratuita do Colab pode cair por inatividade, então deixe a aba
+aberta. Se cair no meio, *Executar anteriores* na célula onde parou: nada gravado se
+perde no disco da sessão enquanto ela existir.
 
 ### O ambiente do Colab tem sete armadilhas
 
@@ -344,6 +437,7 @@ antes da sessão de GPU.
 | treino completo, T4 | ~2 min |
 | treino oficial (5 sementes), T4 | ~10 min |
 | busca das 9 configurações, T4 | ~25 min |
+| rodada 2 inteira (busca de 45 épocas + 5 sementes), T4 | ~45 min |
 | conversão + medição ONNX, CPU | ~8 min (330 comentários) |
 | notebook inteiro reduzido, CPU (`TESTE_NOTEBOOK=1`) | ~20 min |
 
@@ -351,9 +445,10 @@ antes da sessão de GPU.
 
 | arquivo | conteúdo | versionado? |
 |---|---|---|
-| `busca_hiperparametros.json` | a grade inteira, com as métricas de validação de cada configuração | **sim** |
-| `relatorio_sementes.json` | as cinco rodadas, média e desvio, e qual semente foi publicada | **sim** |
-| `relatorio_onnx.json` | F1, divergência, latência, RAM e tamanho dos três formatos | **sim** |
+| `historico/` | os relatórios de cada rodada, o cartão do modelo de produção sem pesos, o histórico e a regra da rodada 2 | **sim** |
+| `historico/busca_hiperparametros*.json` | a grade inteira, com as métricas de validação de cada configuração | **sim** |
+| `historico/relatorio_sementes*.json` | as cinco rodadas, média e desvio, e qual semente foi publicada | **sim** |
+| `relatorio_onnx.json` | F1, divergência, latência, RAM e tamanho dos três formatos (pesos do ensaio de 23/09) | **sim** |
 | `colab_bertimbau.ipynb` | o notebook (sem saídas) | **sim** |
 | `ml/modelos/` | pesos, tokenizer, `model_card.json`, grafos ONNX | não (`.gitignore`) |
 | `ml/dados/previsoes_bertimbau.csv` | previsões do teste | não (`.gitignore`) |

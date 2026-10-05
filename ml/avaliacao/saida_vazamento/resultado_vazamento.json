@@ -1,0 +1,1464 @@
+{
+  "data_utc": "2026-10-05T00:54:28.835448+00:00",
+  "id_execucao": 4,
+  "aviso": "so contagens, ids e metricas: nenhum texto de comentario",
+  "criterio": {
+    "modulo": "ml/avaliacao/gemeos.py",
+    "texto_comparado": "texto_modelo (preparar_texto), o que o BERTimbau le",
+    "normalizacao": "minusculas, sem acento, sem pontuacao, letra repetida reduzida a uma",
+    "exato": "texto normalizado identico",
+    "quase": "nao exato e Jaccard de 3-gramas de caractere >= limiar",
+    "limiar_quase": 0.8,
+    "curto": "ate 3 palavras normalizadas"
+  },
+  "particao": "a do treino da rodada 1: dividir_estratificado, 85/15, semente 42",
+  "conjuntos": {
+    "treino": 1870,
+    "validacao": 330,
+    "teste": 334
+  },
+  "histograma_melhor_similaridade_teste_x_treino_validacao": [
+    {
+      "faixa": "[0.00; 0.05)",
+      "comentarios": 3
+    },
+    {
+      "faixa": "[0.05; 0.10)",
+      "comentarios": 8
+    },
+    {
+      "faixa": "[0.10; 0.15)",
+      "comentarios": 19
+    },
+    {
+      "faixa": "[0.15; 0.20)",
+      "comentarios": 67
+    },
+    {
+      "faixa": "[0.20; 0.25)",
+      "comentarios": 84
+    },
+    {
+      "faixa": "[0.25; 0.30)",
+      "comentarios": 43
+    },
+    {
+      "faixa": "[0.30; 0.35)",
+      "comentarios": 24
+    },
+    {
+      "faixa": "[0.35; 0.40)",
+      "comentarios": 18
+    },
+    {
+      "faixa": "[0.40; 0.45)",
+      "comentarios": 13
+    },
+    {
+      "faixa": "[0.45; 0.50)",
+      "comentarios": 12
+    },
+    {
+      "faixa": "[0.50; 0.55)",
+      "comentarios": 5
+    },
+    {
+      "faixa": "[0.55; 0.60)",
+      "comentarios": 3
+    },
+    {
+      "faixa": "[0.60; 0.65)",
+      "comentarios": 4
+    },
+    {
+      "faixa": "[0.65; 0.70)",
+      "comentarios": 3
+    },
+    {
+      "faixa": "[0.70; 0.75)",
+      "comentarios": 1
+    },
+    {
+      "faixa": "[0.75; 0.80)",
+      "comentarios": 2
+    },
+    {
+      "faixa": "[0.80; 0.85)",
+      "comentarios": 3
+    },
+    {
+      "faixa": "[0.85; 0.90)",
+      "comentarios": 0
+    },
+    {
+      "faixa": "[0.90; 0.95)",
+      "comentarios": 0
+    },
+    {
+      "faixa": "[0.95; 1.00]",
+      "comentarios": 22
+    }
+  ],
+  "teste_x_treino_validacao": {
+    "com_gemeo": 25,
+    "exato": 18,
+    "quase": 7,
+    "gemeo_do_mesmo_video": 13,
+    "curtos_ate_3_palavras": 16,
+    "pares": [
+      {
+        "id_comentario": 137,
+        "id_gemeo": 303,
+        "lado_do_gemeo": "validacao",
+        "nivel": "quase",
+        "similaridade": 0.8,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 452,
+        "id_gemeo": 159,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 693,
+        "id_gemeo": 419,
+        "lado_do_gemeo": "treino",
+        "nivel": "quase",
+        "similaridade": 0.9655,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 783,
+        "id_gemeo": 2504,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 918,
+        "id_gemeo": 995,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 936,
+        "id_gemeo": 898,
+        "lado_do_gemeo": "treino",
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1013,
+        "id_gemeo": 1012,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1258,
+        "id_gemeo": 1259,
+        "lado_do_gemeo": "validacao",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1281,
+        "id_gemeo": 972,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1298,
+        "id_gemeo": 2130,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1344,
+        "id_gemeo": 1555,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1457,
+        "id_gemeo": 1240,
+        "lado_do_gemeo": "treino",
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1474,
+        "id_gemeo": 1240,
+        "lado_do_gemeo": "treino",
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1490,
+        "id_gemeo": 1484,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1492,
+        "id_gemeo": 1486,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1529,
+        "id_gemeo": 1483,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1659,
+        "id_gemeo": 2144,
+        "lado_do_gemeo": "treino",
+        "nivel": "quase",
+        "similaridade": 0.8333,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1815,
+        "id_gemeo": 1800,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1904,
+        "id_gemeo": 1942,
+        "lado_do_gemeo": "treino",
+        "nivel": "quase",
+        "similaridade": 0.8182,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2020,
+        "id_gemeo": 1957,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2168,
+        "id_gemeo": 1760,
+        "lado_do_gemeo": "validacao",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2378,
+        "id_gemeo": 714,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2406,
+        "id_gemeo": 1200,
+        "lado_do_gemeo": "validacao",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2528,
+        "id_gemeo": 671,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2565,
+        "id_gemeo": 306,
+        "lado_do_gemeo": "treino",
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      }
+    ],
+    "com_gemeo_no_treino": 23,
+    "com_gemeo_na_validacao": 7,
+    "gabarito_igual_ao_rotulo_fraco_do_gemeo": 20
+  },
+  "validacao_x_treino": {
+    "com_gemeo": 18,
+    "exato": 15,
+    "quase": 3,
+    "gemeo_do_mesmo_video": 12,
+    "curtos_ate_3_palavras": 12,
+    "pares": [
+      {
+        "id_comentario": 50,
+        "id_gemeo": 63,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 658,
+        "id_gemeo": 1026,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 900,
+        "id_gemeo": 898,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 997,
+        "id_gemeo": 987,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1006,
+        "id_gemeo": 257,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1200,
+        "id_gemeo": 2319,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1297,
+        "id_gemeo": 1225,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1330,
+        "id_gemeo": 972,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1331,
+        "id_gemeo": 1384,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1491,
+        "id_gemeo": 1485,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1760,
+        "id_gemeo": 1762,
+        "nivel": "quase",
+        "similaridade": 0.8333,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1766,
+        "id_gemeo": 1762,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1790,
+        "id_gemeo": 1762,
+        "nivel": "quase",
+        "similaridade": 0.8824,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2037,
+        "id_gemeo": 1762,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2149,
+        "id_gemeo": 1026,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2380,
+        "id_gemeo": 2280,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2423,
+        "id_gemeo": 2422,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2495,
+        "id_gemeo": 2442,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      }
+    ],
+    "rotulo_fraco_igual_ao_do_gemeo": 16
+  },
+  "dentro_do_treino": {
+    "com_gemeo": 96,
+    "exato": 62,
+    "quase": 34,
+    "gemeo_do_mesmo_video": 61,
+    "curtos_ate_3_palavras": 57,
+    "pares": [
+      {
+        "id_comentario": 257,
+        "id_gemeo": 2125,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 270,
+        "id_gemeo": 1683,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 336,
+        "id_gemeo": 1169,
+        "nivel": "quase",
+        "similaridade": 0.8,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 401,
+        "id_gemeo": 890,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 560,
+        "id_gemeo": 828,
+        "nivel": "quase",
+        "similaridade": 0.9167,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 718,
+        "id_gemeo": 257,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 733,
+        "id_gemeo": 734,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 734,
+        "id_gemeo": 733,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 828,
+        "id_gemeo": 560,
+        "nivel": "quase",
+        "similaridade": 0.9167,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 867,
+        "id_gemeo": 1470,
+        "nivel": "quase",
+        "similaridade": 0.8333,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 886,
+        "id_gemeo": 898,
+        "nivel": "quase",
+        "similaridade": 0.8333,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 890,
+        "id_gemeo": 401,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 898,
+        "id_gemeo": 937,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 899,
+        "id_gemeo": 898,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 905,
+        "id_gemeo": 898,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 937,
+        "id_gemeo": 898,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 946,
+        "id_gemeo": 898,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 955,
+        "id_gemeo": 898,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 972,
+        "id_gemeo": 1061,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 974,
+        "id_gemeo": 401,
+        "nivel": "quase",
+        "similaridade": 0.8333,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1008,
+        "id_gemeo": 2083,
+        "nivel": "quase",
+        "similaridade": 0.8333,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1026,
+        "id_gemeo": 1054,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1050,
+        "id_gemeo": 257,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1054,
+        "id_gemeo": 1026,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1061,
+        "id_gemeo": 972,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1147,
+        "id_gemeo": 1332,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1169,
+        "id_gemeo": 1290,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1207,
+        "id_gemeo": 1403,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1227,
+        "id_gemeo": 1277,
+        "nivel": "quase",
+        "similaridade": 0.9545,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1240,
+        "id_gemeo": 1373,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1277,
+        "id_gemeo": 1227,
+        "nivel": "quase",
+        "similaridade": 0.9545,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1290,
+        "id_gemeo": 1169,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1332,
+        "id_gemeo": 1147,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1341,
+        "id_gemeo": 1240,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1361,
+        "id_gemeo": 2531,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1373,
+        "id_gemeo": 1240,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1403,
+        "id_gemeo": 1207,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1426,
+        "id_gemeo": 1207,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1462,
+        "id_gemeo": 1207,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1470,
+        "id_gemeo": 867,
+        "nivel": "quase",
+        "similaridade": 0.8333,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1472,
+        "id_gemeo": 972,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1476,
+        "id_gemeo": 1494,
+        "nivel": "quase",
+        "similaridade": 0.875,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1484,
+        "id_gemeo": 1487,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1487,
+        "id_gemeo": 1484,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1488,
+        "id_gemeo": 1484,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1489,
+        "id_gemeo": 1484,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1494,
+        "id_gemeo": 1476,
+        "nivel": "quase",
+        "similaridade": 0.875,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1555,
+        "id_gemeo": 1240,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1641,
+        "id_gemeo": 1169,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1683,
+        "id_gemeo": 270,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1695,
+        "id_gemeo": 1169,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1734,
+        "id_gemeo": 1169,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1737,
+        "id_gemeo": 2169,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1744,
+        "id_gemeo": 1812,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1762,
+        "id_gemeo": 1884,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1806,
+        "id_gemeo": 257,
+        "nivel": "quase",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1812,
+        "id_gemeo": 1744,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1835,
+        "id_gemeo": 1737,
+        "nivel": "quase",
+        "similaridade": 0.8182,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1874,
+        "id_gemeo": 1927,
+        "nivel": "quase",
+        "similaridade": 0.8254,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1879,
+        "id_gemeo": 1892,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1880,
+        "id_gemeo": 1957,
+        "nivel": "quase",
+        "similaridade": 0.8947,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1884,
+        "id_gemeo": 1762,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 1892,
+        "id_gemeo": 1879,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1901,
+        "id_gemeo": 2096,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1927,
+        "id_gemeo": 1874,
+        "nivel": "quase",
+        "similaridade": 0.8254,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1928,
+        "id_gemeo": 1940,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1940,
+        "id_gemeo": 1928,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 1957,
+        "id_gemeo": 1880,
+        "nivel": "quase",
+        "similaridade": 0.8947,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2083,
+        "id_gemeo": 1008,
+        "nivel": "quase",
+        "similaridade": 0.8333,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2085,
+        "id_gemeo": 1957,
+        "nivel": "quase",
+        "similaridade": 0.8293,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2096,
+        "id_gemeo": 1901,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2125,
+        "id_gemeo": 257,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2130,
+        "id_gemeo": 257,
+        "nivel": "quase",
+        "similaridade": 0.875,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2158,
+        "id_gemeo": 1026,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2169,
+        "id_gemeo": 1737,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2211,
+        "id_gemeo": 2212,
+        "nivel": "quase",
+        "similaridade": 0.8981,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2212,
+        "id_gemeo": 2213,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2213,
+        "id_gemeo": 2212,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2280,
+        "id_gemeo": 2610,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2302,
+        "id_gemeo": 2305,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2305,
+        "id_gemeo": 2302,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2319,
+        "id_gemeo": 2328,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2322,
+        "id_gemeo": 2395,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2328,
+        "id_gemeo": 2319,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2365,
+        "id_gemeo": 972,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2374,
+        "id_gemeo": 2319,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2395,
+        "id_gemeo": 2322,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2442,
+        "id_gemeo": 2535,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2488,
+        "id_gemeo": 972,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2531,
+        "id_gemeo": 1361,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2535,
+        "id_gemeo": 2442,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2591,
+        "id_gemeo": 2442,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2610,
+        "id_gemeo": 2280,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2652,
+        "id_gemeo": 1879,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": false
+      },
+      {
+        "id_comentario": 2747,
+        "id_gemeo": 2748,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      },
+      {
+        "id_comentario": 2748,
+        "id_gemeo": 2747,
+        "nivel": "exato",
+        "similaridade": 1.0,
+        "mesmo_video": true
+      }
+    ],
+    "grupos_de_texto_exato": 25,
+    "rotulo_fraco_igual_ao_do_gemeo": 89
+  },
+  "bootstrap": {
+    "reamostragens": 2000,
+    "confianca": 0.95,
+    "semente": 42,
+    "metodo": "percentil"
+  },
+  "grupos_do_teste": {
+    "todos": 334,
+    "com_gemeo": 25,
+    "sem_gemeo": 309,
+    "com_gemeo_exato": 18,
+    "com_gemeo_no_treino": 23
+  },
+  "metricas_teste": {
+    "lexico": {
+      "todos": {
+        "n": 334,
+        "f1_macro": 0.5534613315056469,
+        "ic95_f1_macro": [
+          0.4996866933341698,
+          0.608368379726527
+        ],
+        "acuracia": 0.562874251497006,
+        "f1_por_classe": {
+          "positivo": 0.5388127853881279,
+          "negativo": 0.5161290322580645,
+          "neutro": 0.6054421768707483
+        },
+        "kappa_cohen": 0.3316337719298246
+      },
+      "com_gemeo": {
+        "n": 25,
+        "f1_macro": 0.46438746438746437,
+        "ic95_f1_macro": [
+          0.2600984848484849,
+          0.6987525582623624
+        ],
+        "acuracia": 0.52,
+        "f1_por_classe": {
+          "positivo": 0.4444444444444444,
+          "negativo": 0.3333333333333333,
+          "neutro": 0.6153846153846154
+        },
+        "kappa_cohen": 0.23469387755102042
+      },
+      "sem_gemeo": {
+        "n": 309,
+        "f1_macro": 0.5584104088060814,
+        "ic95_f1_macro": [
+          0.5003667408562029,
+          0.6145632130243647
+        ],
+        "acuracia": 0.5663430420711975,
+        "f1_por_classe": {
+          "positivo": 0.5472636815920398,
+          "negativo": 0.523489932885906,
+          "neutro": 0.6044776119402985
+        },
+        "kappa_cohen": 0.33882634730538924
+      },
+      "com_gemeo_exato": {
+        "n": 18,
+        "f1_macro": 0.48787878787878797,
+        "ic95_f1_macro": [
+          0.3087719298245614,
+          0.7481481481481481
+        ],
+        "acuracia": 0.5555555555555556,
+        "f1_por_classe": {
+          "positivo": 0.36363636363636365,
+          "negativo": 0.4,
+          "neutro": 0.7000000000000001
+        },
+        "kappa_cohen": 0.26903553299492383
+      },
+      "com_gemeo_no_treino": {
+        "n": 23,
+        "f1_macro": 0.5368627450980392,
+        "ic95_f1_macro": [
+          0.35089098880658987,
+          0.7763253449527959
+        ],
+        "acuracia": 0.5652173913043478,
+        "f1_por_classe": {
+          "positivo": 0.47058823529411764,
+          "negativo": 0.5,
+          "neutro": 0.64
+        },
+        "kappa_cohen": 0.27215189873417717
+      }
+    },
+    "bertimbau": {
+      "todos": {
+        "n": 334,
+        "f1_macro": 0.7313726152097715,
+        "ic95_f1_macro": [
+          0.6816467499525588,
+          0.7764231410544558
+        ],
+        "acuracia": 0.7365269461077845,
+        "f1_por_classe": {
+          "positivo": 0.7892720306513409,
+          "negativo": 0.7,
+          "neutro": 0.7048458149779736
+        },
+        "kappa_cohen": 0.6009666295582287
+      },
+      "com_gemeo": {
+        "n": 25,
+        "f1_macro": 0.9130434782608696,
+        "ic95_f1_macro": [
+          0.7822853279242733,
+          1.0
+        ],
+        "acuracia": 0.88,
+        "f1_por_classe": {
+          "positivo": 0.8695652173913044,
+          "negativo": 1.0,
+          "neutro": 0.8695652173913044
+        },
+        "kappa_cohen": 0.7922437673130194
+      },
+      "sem_gemeo": {
+        "n": 309,
+        "f1_macro": 0.7203229776759189,
+        "ic95_f1_macro": [
+          0.6661085893364208,
+          0.768597184184558
+        ],
+        "acuracia": 0.7249190938511327,
+        "f1_por_classe": {
+          "positivo": 0.7815126050420168,
+          "negativo": 0.6931818181818182,
+          "neutro": 0.6862745098039216
+        },
+        "kappa_cohen": 0.5852283494409704
+      },
+      "com_gemeo_exato": {
+        "n": 18,
+        "f1_macro": 0.960233918128655,
+        "ic95_f1_macro": [
+          0.8285714285714285,
+          1.0
+        ],
+        "acuracia": 0.9444444444444444,
+        "f1_por_classe": {
+          "positivo": 0.9333333333333333,
+          "negativo": 1.0,
+          "neutro": 0.9473684210526316
+        },
+        "kappa_cohen": 0.8983050847457626
+      },
+      "com_gemeo_no_treino": {
+        "n": 23,
+        "f1_macro": 0.9089026915113871,
+        "ic95_f1_macro": [
+          0.7386228354978355,
+          1.0
+        ],
+        "acuracia": 0.8695652173913043,
+        "f1_por_classe": {
+          "positivo": 0.8571428571428571,
+          "negativo": 1.0,
+          "neutro": 0.8695652173913044
+        },
+        "kappa_cohen": 0.7620689655172413
+      }
+    },
+    "tfidf_logreg": {
+      "todos": {
+        "n": 334,
+        "f1_macro": 0.6993955833196339,
+        "ic95_f1_macro": [
+          0.6488554614492037,
+          0.7448723251318765
+        ],
+        "acuracia": 0.7005988023952096,
+        "f1_por_classe": {
+          "positivo": 0.7848101265822784,
+          "negativo": 0.69,
+          "neutro": 0.6233766233766234
+        },
+        "kappa_cohen": 0.55205064241839
+      },
+      "com_gemeo": {
+        "n": 25,
+        "f1_macro": 0.8838383838383838,
+        "ic95_f1_macro": [
+          0.7261904761904762,
+          0.9709618874773139
+        ],
+        "acuracia": 0.84,
+        "f1_por_classe": {
+          "positivo": 0.8181818181818181,
+          "negativo": 1.0,
+          "neutro": 0.8333333333333333
+        },
+        "kappa_cohen": 0.7252747252747251
+      },
+      "sem_gemeo": {
+        "n": 309,
+        "f1_macro": 0.6880342115500283,
+        "ic95_f1_macro": [
+          0.6356331470805285,
+          0.7353115327439288
+        ],
+        "acuracia": 0.6893203883495146,
+        "f1_por_classe": {
+          "positivo": 0.7813953488372092,
+          "negativo": 0.6836734693877551,
+          "neutro": 0.5990338164251209
+        },
+        "kappa_cohen": 0.5364492991420937
+      },
+      "com_gemeo_exato": {
+        "n": 18,
+        "f1_macro": 0.919047619047619,
+        "ic95_f1_macro": [
+          0.7230555555555555,
+          1.0
+        ],
+        "acuracia": 0.8888888888888888,
+        "f1_por_classe": {
+          "positivo": 0.8571428571428571,
+          "negativo": 1.0,
+          "neutro": 0.9
+        },
+        "kappa_cohen": 0.7954545454545453
+      },
+      "com_gemeo_no_treino": {
+        "n": 23,
+        "f1_macro": 0.8777777777777778,
+        "ic95_f1_macro": [
+          0.6861598440545809,
+          0.9680464778503994
+        ],
+        "acuracia": 0.8260869565217391,
+        "f1_por_classe": {
+          "positivo": 0.8,
+          "negativo": 1.0,
+          "neutro": 0.8333333333333333
+        },
+        "kappa_cohen": 0.684931506849315
+      }
+    },
+    "gemini (rotulo_fraco)": {
+      "todos": {
+        "n": 334,
+        "f1_macro": 0.828961703532519,
+        "ic95_f1_macro": [
+          0.7899968509401764,
+          0.8703806487362559
+        ],
+        "acuracia": 0.8293413173652695,
+        "f1_por_classe": {
+          "positivo": 0.875,
+          "negativo": 0.8307692307692307,
+          "neutro": 0.7811158798283261
+        },
+        "kappa_cohen": 0.7439545955832908
+      },
+      "com_gemeo": {
+        "n": 25,
+        "f1_macro": 0.8539682539682539,
+        "ic95_f1_macro": [
+          0.679468253968254,
+          0.957590026233548
+        ],
+        "acuracia": 0.8,
+        "f1_por_classe": {
+          "positivo": 0.761904761904762,
+          "negativo": 1.0,
+          "neutro": 0.8
+        },
+        "kappa_cohen": 0.6594005449591283
+      },
+      "sem_gemeo": {
+        "n": 309,
+        "f1_macro": 0.8306386778648847,
+        "ic95_f1_macro": [
+          0.7857345101137915,
+          0.8704582737868592
+        ],
+        "acuracia": 0.8317152103559871,
+        "f1_por_classe": {
+          "positivo": 0.8858447488584474,
+          "negativo": 0.8272251308900525,
+          "neutro": 0.778846153846154
+        },
+        "kappa_cohen": 0.7482727828171265
+      },
+      "com_gemeo_exato": {
+        "n": 18,
+        "f1_macro": 0.919047619047619,
+        "ic95_f1_macro": [
+          0.7339901477832513,
+          1.0
+        ],
+        "acuracia": 0.8888888888888888,
+        "f1_por_classe": {
+          "positivo": 0.8571428571428571,
+          "negativo": 1.0,
+          "neutro": 0.9
+        },
+        "kappa_cohen": 0.7954545454545453
+      },
+      "com_gemeo_no_treino": {
+        "n": 23,
+        "f1_macro": 0.8456140350877194,
+        "ic95_f1_macro": [
+          0.6166666666666667,
+          0.9528740754399982
+        ],
+        "acuracia": 0.782608695652174,
+        "f1_por_classe": {
+          "positivo": 0.7368421052631579,
+          "negativo": 1.0,
+          "neutro": 0.8
+        },
+        "kappa_cohen": 0.608843537414966
+      }
+    }
+  },
+  "repeticao_do_rotulo_do_gemeo_no_treino": {
+    "n": 23,
+    "gabarito_igual_ao_rotulo_fraco_do_gemeo": 18,
+    "lexico_igual_ao_rotulo_fraco_do_gemeo": 15,
+    "bertimbau_igual_ao_rotulo_fraco_do_gemeo": 21,
+    "tfidf_logreg_igual_ao_rotulo_fraco_do_gemeo": 22,
+    "gemini (rotulo_fraco)_igual_ao_rotulo_fraco_do_gemeo": 19
+  }
+}
