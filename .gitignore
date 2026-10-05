@@ -40,7 +40,9 @@ ml/modelos/
 # para nao passar por cima dos artefatos do treino de verdade. O que ele produz nao e
 # resultado de nada: 150 exemplos, uma configuracao, duas sementes.
 ml/treino/*-reduzido.json
+ml/treino/historico/*-reduzido.json
 bertimbau-ensaio*.zip
+bertimbau-rodada*.zip
 
 # Planilhas dos avaliadores: contem o TEXTO dos comentarios (terceiros) e o
 # repositorio e publico. Sao regeneraveis a partir do banco.

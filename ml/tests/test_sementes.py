@@ -19,6 +19,8 @@ torch = pytest.importorskip("torch", reason="pip install -r ml/requirements-trei
 
 from ml.config import SEMENTE  # noqa: E402
 from ml.treino.treinar import (  # noqa: E402
+    RODADA_ATUAL,
+    RODADAS,
     SEMENTES_OFICIAIS,
     Hiperparametros,
     Resultado,
@@ -220,3 +222,45 @@ def test_o_notebook_e_o_script_usam_o_mesmo_sufixo():
     _, _, do_script = caminhos_de_saida(150, None)
 
     assert do_notebook["MODELO"].name == do_script.name
+
+
+# ------------------------------------------------------------------- as rodadas
+
+
+@pytest.mark.parametrize("limite", [None, 150])
+def test_a_rodada_2_nao_grava_onde_a_rodada_1_gravou(limite):
+    """Os artefatos da rodada 1 são evidência do TCC: a 2 não pode passar por cima de
+    nenhum deles — nem dos relatórios, nem da pasta dos pesos."""
+    rodada1 = caminhos_de_saida(limite, None, rodada=1)
+    rodada2 = caminhos_de_saida(limite, None, rodada=2)
+
+    assert not set(rodada1) & set(rodada2)
+    assert all("rodada2" in caminho.name for caminho in rodada2)
+
+
+def test_a_rodada_2_e_a_grade_ao_redor_da_vencedora_da_rodada_1():
+    """A grade nova está escrita na regra de decisão, gravada antes do treino: o código
+    tem que bater com ela."""
+    rodada = RODADAS[2]
+
+    assert RODADA_ATUAL == 2
+    assert rodada.taxas == (3e-5, 4e-5, 5e-5)
+    assert rodada.epocas == (4, 5, 6)
+    assert rodada.remover_vazamento
+    assert not RODADAS[1].remover_vazamento
+
+
+@pytest.mark.parametrize("rodada", [1, 2])
+def test_notebook_e_script_gravam_nos_mesmos_caminhos_em_cada_rodada(rodada):
+    """A célula 0 do notebook monta os nomes sem importar `ml` (ela roda antes do
+    clone); o script, a partir de `RODADAS`. Os dois têm que dar o mesmo arquivo, com e
+    sem o ensaio reduzido."""
+    from ml.tests.test_notebook import caminhos_do_notebook
+
+    for reduzido, limite in ((False, None), (True, 150)):
+        do_notebook = caminhos_do_notebook(reduzido=reduzido, rodada=rodada)
+        busca, sementes, modelo = caminhos_de_saida(limite, None, rodada=rodada)
+
+        assert do_notebook["BUSCA"] == busca
+        assert do_notebook["SEMENTES_JSON"] == sementes
+        assert do_notebook["MODELO"] == modelo

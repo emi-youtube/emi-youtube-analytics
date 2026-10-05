@@ -29,15 +29,22 @@ A busca de hiperparâmetros continua com uma semente só, de propósito: ela com
 nove configurações entre si, e nove vezes cinco rodadas custariam a tarde inteira de
 GPU para escolher o mesmo vencedor.
 
+**Rodadas.** O que muda de uma rodada de treino para a outra — a grade, o filtro de
+vazamento, a pasta do modelo, a versão e onde os relatórios são gravados — mora em
+`RODADAS`, e nada mais. A rodada 1 (30/09) continua reproduzível com `--rodada 1`; a
+rodada 2 é a atual (`RODADA_ATUAL`) e grava com sufixo `_rodada2`, sem tocar em nenhum
+artefato da 1. A regra que decide a rodada 2 está em
+`ml/treino/historico/regra_decisao_rodada2.md`.
+
 Uso:
     # ensaio curto de fumaca, em CPU (o que roda na maquina da equipe)
     python -m ml.treino.treinar --id-execucao 4 --limite 150 --sementes 42 --epocas 1
 
-    # treino oficial: a configuracao escolhida, cinco sementes (Colab, GPU T4)
-    python -m ml.treino.treinar --id-execucao 4
-
-    # busca de hiperparametros pela validacao (uma semente)
+    # rodada 2: busca pela validacao + a escolhida em cinco sementes (Colab, GPU T4)
     python -m ml.treino.treinar --id-execucao 4 --busca
+
+    # a rodada 1, como foi feita em 30/09
+    python -m ml.treino.treinar --id-execucao 4 --busca --rodada 1
 """
 
 import argparse
@@ -69,10 +76,13 @@ from ml.treino.dados import (
     Exemplo,
     Particao,
     carregar_exemplos,
+    carregar_teste,
     distribuicao,
     dividir_estratificado,
     pesos_de_classe,
+    relatar_filtro,
     relatar_particao,
+    remover_vazamento,
 )
 
 logger = logging.getLogger("treino")
@@ -108,6 +118,70 @@ GRADE_EPOCAS = (2, 3, 4)
 # sem warmup, os primeiros passos com a cabeça de classificação aleatória sacodem os
 # pesos pré-treinados que são justamente o que se quer preservar.
 FRACAO_WARMUP = 0.1
+
+# Grade da rodada 2: ao redor da vencedora da rodada 1, que ficou no canto da grade
+# anterior (5e-5 e 4 épocas, as duas pontas; e 4 das 5 sementes com a melhor época na
+# 4ª, a última). Vencedora no canto quer dizer que o ótimo pode estar do lado de fora;
+# a grade nova estende as épocas e põe um ponto entre 3e-5 e 5e-5. Lote, decaimento,
+# warmup e max_length ficam fixos para a comparação com a rodada 1 mudar uma coisa só.
+GRADE_TAXA_APRENDIZADO_RODADA2 = (3e-5, 4e-5, 5e-5)
+GRADE_EPOCAS_RODADA2 = (4, 5, 6)
+
+
+@dataclass(frozen=True)
+class Rodada:
+    """Tudo o que distingue uma rodada de treino da outra.
+
+    `sufixo` vai no nome dos relatórios, `nome_modelo` é a pasta dos pesos: rodadas
+    diferentes nunca gravam no mesmo arquivo. A rodada 2 grava os relatórios direto em
+    `ml/treino/historico/`, onde a 1 foi guardada depois do fato.
+    """
+
+    numero: int
+    taxas: tuple[float, ...]
+    epocas: tuple[int, ...]
+    remover_vazamento: bool
+    nome_modelo: str
+    versao: str
+    diretorio_relatorios: Path
+    sufixo: str
+    observacoes: str
+
+
+RODADAS = {
+    1: Rodada(
+        numero=1,
+        taxas=GRADE_TAXA_APRENDIZADO,
+        epocas=GRADE_EPOCAS,
+        remover_vazamento=False,
+        nome_modelo=NOME_MODELO,
+        versao=VERSAO_MODELO,
+        diretorio_relatorios=DIRETORIO_TREINO,
+        sufixo="",
+        observacoes=(
+            "Ensaio da Sprint 1: treinado com rotulo fraco. O conjunto de teste "
+            "(split='teste', 334 comentarios) nao participou de nenhuma etapa."
+        ),
+    ),
+    2: Rodada(
+        numero=2,
+        taxas=GRADE_TAXA_APRENDIZADO_RODADA2,
+        epocas=GRADE_EPOCAS_RODADA2,
+        remover_vazamento=True,
+        nome_modelo="bertimbau-rodada2",
+        versao="1.1.0-candidato",
+        diretorio_relatorios=DIRETORIO_TREINO / "historico",
+        sufixo="_rodada2",
+        observacoes=(
+            "Rodada 2 do BERTimbau Base: CANDIDATO, nao e o modelo de producao. Rotulo "
+            "fraco, sem os gemeos do teste e sem a duplicidade treino x validacao "
+            "(dados.filtro_vazamento). So substitui o bertimbau-emi 1.0.0 pela regra de "
+            "ml/treino/historico/regra_decisao_rodada2.md. O conjunto de teste nao "
+            "participou do treino nem da escolha de hiperparametro."
+        ),
+    ),
+}
+RODADA_ATUAL = 2
 
 
 @dataclass(frozen=True)
@@ -550,9 +624,16 @@ def relatar_sementes(resumo: dict[str, Any]) -> None:
 
 
 def gravar_sementes(
-    resumo: dict[str, Any], hiperparametros: Hiperparametros, caminho: Path
+    resumo: dict[str, Any],
+    hiperparametros: Hiperparametros,
+    caminho: Path,
+    extra: dict[str, Any] | None = None,
 ) -> None:
-    """Grava as cinco rodadas — versionado, e só agregados."""
+    """Grava as cinco rodadas — versionado, e só agregados.
+
+    `extra` é o contexto da rodada (número, grade, filtro de vazamento com os ids
+    removidos): o relatório tem que dizer sozinho com que dados foi feito.
+    """
     caminho.parent.mkdir(parents=True, exist_ok=True)
     conteudo = {
         "aviso": (
@@ -560,6 +641,7 @@ def gravar_sementes(
             "treino, NAO a qualidade do modelo. O numero do Capitulo 5 sai de "
             "ml/avaliacao/, contra o rotulo_humano."
         ),
+        **(extra or {}),
         "hiperparametros": hiperparametros.como_dicionario(),
         **resumo,
     }
@@ -567,7 +649,12 @@ def gravar_sementes(
     logger.info("sementes -> %s", caminho)
 
 
-def gravar_busca(resultados: list[Resultado], melhor: Hiperparametros, caminho: Path) -> None:
+def gravar_busca(
+    resultados: list[Resultado],
+    melhor: Hiperparametros,
+    caminho: Path,
+    extra: dict[str, Any] | None = None,
+) -> None:
     """Grava a grade inteira — agregados, nenhum texto de terceiros."""
     caminho.parent.mkdir(parents=True, exist_ok=True)
     conteudo = {
@@ -575,6 +662,7 @@ def gravar_busca(resultados: list[Resultado], melhor: Hiperparametros, caminho: 
             "metricas de VALIDACAO com rotulo fraco (Gemini). Servem para escolher "
             "hiperparametro e checar o pipeline. NAO vao para o Capitulo 5."
         ),
+        **(extra or {}),
         "criterio": "F1 macro de validacao",
         "escolhido": melhor.como_dicionario(),
         "grade": [
@@ -600,6 +688,8 @@ def salvar_modelo(
     modelo_base: str = MODELO_BASE,
     versao: str = VERSAO_MODELO,
     sementes: dict[str, Any] | None = None,
+    filtro: dict[str, Any] | None = None,
+    observacoes: str = RODADAS[1].observacoes,
 ) -> Path:
     """Grava pesos, tokenizer e `model_card.json` na pasta do modelo.
 
@@ -609,7 +699,8 @@ def salvar_modelo(
     A semente do cartão é a do `resultado` — a rodada cujos pesos estão sendo gravados,
     e não uma constante. `sementes` é o resumo das cinco rodadas (`resumir_sementes`):
     ele entra no cartão para que quem abrir o artefato veja a média e o desvio ao lado
-    do número da rodada publicada, sem precisar do relatório separado.
+    do número da rodada publicada, sem precisar do relatório separado. `filtro` é o
+    `FiltroVazamento.como_dicionario()` da rodada 2: quem treinou sem quais exemplos.
     """
     destino.mkdir(parents=True, exist_ok=True)
 
@@ -649,20 +740,17 @@ def salvar_modelo(
             **({"sementes": sementes} if sementes else {}),
         },
         dados={
-            "fonte": "exemplos_treinamento.rotulo_fraco, split IS NULL",
+            "fonte": "exemplos_treinamento.rotulo_fraco, split IS NULL"
+            + (", sem os gemeos do teste e sem duplicidade treino x validacao" if filtro else ""),
             "treino": len(particao.treino),
             "validacao": len(particao.validacao),
             "distribuicao_treino": distribuicao(particao.treino),
             "distribuicao_validacao": distribuicao(particao.validacao),
             "particao": "85/15 estratificada, em memoria (nao gravada no banco)",
-            "pesos_de_classe": dict(
-                zip(CLASSES, pesos_de_classe(particao.treino), strict=True)
-            ),
+            "pesos_de_classe": dict(zip(CLASSES, pesos_de_classe(particao.treino), strict=True)),
+            **({"filtro_vazamento": filtro} if filtro else {}),
         },
-        observacoes=(
-            "Ensaio da Sprint 1: treinado com rotulo fraco. O conjunto de teste "
-            "(split='teste', 334 comentarios) nao participou de nenhuma etapa."
-        ),
+        observacoes=observacoes,
     )
     validar_cartao(cartao)
     (destino / "model_card.json").write_text(
@@ -675,7 +763,9 @@ def salvar_modelo(
     return destino
 
 
-def caminhos_de_saida(limite: int | None, saida: Path | None) -> tuple[Path, Path, Path]:
+def caminhos_de_saida(
+    limite: int | None, saida: Path | None, rodada: int = RODADA_ATUAL
+) -> tuple[Path, Path, Path]:
     """Onde esta rodada grava: relatório da busca, relatório das sementes e modelo.
 
     Com `--limite` os três ganham o sufixo `-reduzido`. Os dois JSON já ganhavam; a
@@ -691,18 +781,60 @@ def caminhos_de_saida(limite: int | None, saida: Path | None) -> tuple[Path, Pat
     `--saida` explicito vence o sufixo: quem escreve o caminho na mão está dizendo
     exatamente onde quer.
 
-    >>> busca, sementes, modelo = caminhos_de_saida(150, None)
+    Cada rodada tem os seus três caminhos (`RODADAS`): a rodada 2 nunca grava em cima
+    de um artefato da 1.
+
+    >>> busca, sementes, modelo = caminhos_de_saida(150, None, rodada=1)
     >>> modelo.name
     'bertimbau-ensaio-reduzido'
-    >>> caminhos_de_saida(None, None)[2].name
+    >>> caminhos_de_saida(None, None, rodada=1)[2].name
     'bertimbau-ensaio'
+    >>> [caminho.name for caminho in caminhos_de_saida(None, None, rodada=2)]
+    ['busca_hiperparametros_rodada2.json', 'relatorio_sementes_rodada2.json', 'bertimbau-rodada2']
     """
+    configuracao = RODADAS[rodada]
     sufixo = "-reduzido" if limite else ""
+    pasta = configuracao.diretorio_relatorios
     return (
-        ARQUIVO_BUSCA.with_name(f"{ARQUIVO_BUSCA.stem}{sufixo}.json"),
-        ARQUIVO_SEMENTES.with_name(f"{ARQUIVO_SEMENTES.stem}{sufixo}.json"),
-        saida or DIRETORIO_MODELOS / f"{NOME_MODELO}{sufixo}",
+        pasta / f"{ARQUIVO_BUSCA.stem}{configuracao.sufixo}{sufixo}.json",
+        pasta / f"{ARQUIVO_SEMENTES.stem}{configuracao.sufixo}{sufixo}.json",
+        saida or DIRETORIO_MODELOS / f"{configuracao.nome_modelo}{sufixo}",
     )
+
+
+def particao_da_rodada(
+    exemplos: list[Exemplo], rodada: Rodada, teste: list[Exemplo] | None
+) -> tuple[Particao, dict[str, Any] | None]:
+    """A partição 85/15 da semente 42 e, se a rodada pedir, o filtro de vazamento.
+
+    Um lugar só para o script e para o notebook: os dois carregam os dados cada um do
+    seu jeito (`asyncio.run` aqui, `await` lá), mas o que acontece com eles depois é
+    isto. `teste` chega sem rótulo (`carregar_teste`) e só é exigido quando a rodada
+    filtra.
+
+    A partição sai da semente do PROJETO, sempre, e não das sementes de treino: as
+    cinco rodadas precisam ser comparáveis entre si, e duas validações diferentes
+    dariam um desvio padrão que mistura "o treino oscila" com "a validação mudou".
+    """
+    particao = dividir_estratificado(exemplos)
+    filtro = None
+    if rodada.remover_vazamento:
+        if teste is None:
+            raise ValueError(f"a rodada {rodada.numero} filtra vazamento e precisa do teste")
+        filtrada, filtro_vazamento = remover_vazamento(particao, teste)
+        relatar_filtro(filtro_vazamento, particao, filtrada)
+        particao, filtro = filtrada, filtro_vazamento.como_dicionario()
+    relatar_particao(particao, pesos_de_classe(particao.treino))
+    return particao, filtro
+
+
+def contexto_da_rodada(rodada: Rodada, filtro: dict[str, Any] | None) -> dict[str, Any]:
+    """O bloco que abre os relatórios da rodada: qual é, com que grade, com que dados."""
+    return {
+        "rodada": rodada.numero,
+        "grade": {"taxas": list(rodada.taxas), "epocas": list(rodada.epocas)},
+        **({"filtro_vazamento": filtro} if filtro else {}),
+    }
 
 
 def main() -> None:
@@ -724,12 +856,19 @@ def main() -> None:
     )
     parser.add_argument("--modelo-base", default=MODELO_BASE)
     parser.add_argument(
+        "--rodada",
+        type=int,
+        choices=sorted(RODADAS),
+        default=RODADA_ATUAL,
+        help="grade, filtro de vazamento e caminhos de saida da rodada (padrao: a atual)",
+    )
+    parser.add_argument(
         "--saida",
         type=Path,
         default=None,
         help=(
-            "pasta do modelo (padrao: ml/modelos/bertimbau-ensaio, e "
-            "bertimbau-ensaio-reduzido quando houver --limite)"
+            "pasta do modelo (padrao: ml/modelos/<modelo da rodada>, com -reduzido "
+            "quando houver --limite)"
         ),
     )
     parser.add_argument("--dispositivo", default=None, help="cuda, cpu (padrao: detecta)")
@@ -767,15 +906,18 @@ def main() -> None:
     # (ENSAIO_REDUZIDO), e pelo mesmo motivo -- um JSON de 150 exemplos parado no lugar
     # do oficial e indistinguivel do verdadeiro seis meses depois, e os pesos por cima
     # dos quais ele gravaria estao fora do git.
+    rodada = RODADAS[argumentos.rodada]
     arquivo_busca, arquivo_sementes, destino = caminhos_de_saida(
-        argumentos.limite, argumentos.saida
+        argumentos.limite, argumentos.saida, rodada.numero
     )
 
-    # A particao sai da semente do PROJETO, sempre, e nao das sementes de treino: as
-    # cinco rodadas precisam ser comparaveis entre si, e duas validacoes diferentes
-    # dariam um desvio padrao que mistura "o treino oscila" com "a validacao mudou".
-    particao = dividir_estratificado(exemplos)
-    relatar_particao(particao, pesos_de_classe(particao.treino))
+    # O teste entra SEM rotulo (carregar_teste): o filtro le o texto dele para achar
+    # os gemeos, nunca o gabarito.
+    teste = (
+        asyncio.run(carregar_teste(argumentos.id_execucao)) if rodada.remover_vazamento else None
+    )
+    particao, filtro = particao_da_rodada(exemplos, rodada, teste)
+    contexto = contexto_da_rodada(rodada, filtro)
 
     dispositivo = escolher_dispositivo(argumentos.dispositivo)
     logger.info("dispositivo: %s", dispositivo)
@@ -786,8 +928,10 @@ def main() -> None:
             dispositivo,
             modelo_base=argumentos.modelo_base,
             lote=argumentos.lote,
+            taxas=rodada.taxas,
+            epocas=rodada.epocas,
         )
-        gravar_busca(resultados_busca, escolhido, arquivo_busca)
+        gravar_busca(resultados_busca, escolhido, arquivo_busca, contexto)
         logger.info("")
         logger.info(
             "escolhido pela validacao: lr=%.0e epocas=%d",
@@ -814,14 +958,17 @@ def main() -> None:
     publicada = escolher_semente_publicada(resultados)
     resumo = resumir_sementes(resultados, publicada)
     relatar_sementes(resumo)
-    gravar_sementes(resumo, escolhido, arquivo_sementes)
+    gravar_sementes(resumo, escolhido, arquivo_sementes, contexto)
 
     salvar_modelo(
         publicada,
         particao,
         destino,
         modelo_base=argumentos.modelo_base,
+        versao=rodada.versao,
         sementes=resumo,
+        filtro=filtro,
+        observacoes=rodada.observacoes,
     )
 
     logger.info("")

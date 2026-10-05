@@ -20,8 +20,9 @@ entra só no treino, que roda no Colab.
 
 Para rodar os testes: `pip install -r ml/requirements-dev.txt`. Ele acrescenta o
 `pytest`, o `ruff` e o `scikit-learn` — este último **só** para conferir, nos testes,
-as métricas escritas à mão em `ml/avaliacao/metricas.py`. Nenhum script do pipeline
-importa `sklearn`.
+as métricas escritas à mão em `ml/avaliacao/metricas.py`. O único script do pipeline
+que importa `sklearn` é o baseline clássico (`ml/baseline/`), com requirements próprio
+(`ml/requirements-baseline.txt`).
 
 ## Ordem de execução (Sprint 1)
 
@@ -63,7 +64,17 @@ python -m ml.treino.prever_teste --id-execucao <N> --modelo ml/modelos/bertimbau
 python -m ml.avaliacao.avaliar --id-execucao <N> --gemini \
     --previsoes lexico=ml/dados/previsoes_lexico.csv \
     --previsoes bertimbau=ml/dados/previsoes_bertimbau.csv
+
+# 9. depois da rodada 1: vazamento treino x teste e baseline classico
+python -m ml.avaliacao.vazamento --id-execucao <N>
+python -m ml.baseline.treinar_baseline selecionar --id-execucao <N>
+python -m ml.baseline.treinar_baseline avaliar-teste --id-execucao <N>   # uma vez
+
+# 10. rodada 2 do BERTimbau Base: passo a passo em ml/treino/README.md
 ```
+
+O histórico de todos os treinos, com a fonte de cada data, está em
+`ml/treino/historico/historico_treinos.md`.
 
 Os passos 7, 7b e 8 sao independentes entre si. O 7 e o 7b so precisam da amostra
 sorteada (passo 4) e rodam enquanto os avaliadores preenchem as planilhas; o 8 precisa
@@ -256,8 +267,9 @@ da metade das letras é latina — "não", "coração" e "über" passam.
 | `ml/lexico/dados/` | SentiLex-PT02 — **entrada de terceiros**, 6,9 MB, CC-BY 4.0 | não (`.gitignore`) |
 | `ml/lexico/metadados_lexico.json` | recurso, sha256, regra, distribuição e cobertura da linha de base | **sim** |
 | `ml/avaliacao/saida/` | tabelas, figuras e métricas do Capítulo 5 — **só agregados** | **sim** |
-| `ml/treino/busca_hiperparametros.json` | a grade inteira, com as métricas de validação de cada configuração | **sim** |
-| `ml/treino/relatorio_sementes.json` | as cinco rodadas do treino oficial, média e desvio, e qual semente foi publicada | **sim** |
+| `ml/treino/historico/` | relatórios de busca e de sementes de cada rodada, cartão do modelo de produção (sem pesos), histórico de treinos e regra da rodada 2 | **sim** |
+| `ml/avaliacao/saida_vazamento/` | gêmeos entre treino, validação e teste e métricas com/sem gêmeo — **só contagens, ids e métricas** | **sim** |
+| `ml/baseline/saida/` | grade, validação por vídeo e avaliação no teste do TF-IDF + logreg — **só agregados** | **sim** |
 | `ml/treino/relatorio_onnx.json` | F1, divergência, latência, RAM e tamanho de cada formato do modelo | **sim** |
 | `ml/treino/colab_bertimbau.ipynb` | notebook do Colab (sem saídas) | **sim** |
 | `ml/modelos/` | pesos, tokenizer, `model_card.json`, grafos ONNX | não (`.gitignore`) |

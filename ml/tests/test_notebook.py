@@ -66,7 +66,7 @@ def celula_das_constantes() -> str:
     raise AssertionError("o notebook nao tem mais uma celula que define RAIZ")
 
 
-def caminhos_do_notebook(reduzido: bool) -> dict[str, Path]:
+def caminhos_do_notebook(reduzido: bool, rodada: int | None = None) -> dict[str, Path]:
     """Todo `Path` que a célula de constantes define, com os valores que ela daria.
 
     **Executa a célula**, em vez de lê-la por AST. Os caminhos do ensaio reduzido saem
@@ -79,20 +79,28 @@ def caminhos_do_notebook(reduzido: bool) -> dict[str, Path]:
     É também o que prova a regra da constante única. Se uma célula adiante montar
     caminho por conta própria, o arquivo dela não aparece aqui e ninguém confere que ele
     foi gravado.
+
+    `rodada` faz o papel do formulário da célula (`EMI_RODADA`); `None` é o padrão do
+    notebook.
     """
     espaco: dict[str, object] = {}
-    anterior = os.environ.get("ENSAIO_REDUZIDO")
+    variaveis = {
+        "ENSAIO_REDUZIDO": "1" if reduzido else "",
+        "EMI_RODADA": str(rodada) if rodada else "",
+    }
+    anteriores = {nome: os.environ.get(nome) for nome in variaveis}
     diretorio = Path.cwd()
     try:
-        os.environ["ENSAIO_REDUZIDO"] = "1" if reduzido else ""
+        os.environ.update(variaveis)
         os.chdir(RAIZ_REPO)  # fora do Colab a celula usa o diretorio de trabalho
         exec(compile(celula_das_constantes(), "<celula de constantes>", "exec"), espaco)
     finally:
         os.chdir(diretorio)
-        if anterior is None:
-            os.environ.pop("ENSAIO_REDUZIDO", None)
-        else:
-            os.environ["ENSAIO_REDUZIDO"] = anterior
+        for nome, anterior in anteriores.items():
+            if anterior is None:
+                os.environ.pop(nome, None)
+            else:
+                os.environ[nome] = anterior
 
     # RAIZ fica de fora: ela é o repositório, ninguém a grava, e a conferência de data
     # de modificação acusaria como "intacta" uma pasta que não tem por que mudar.
