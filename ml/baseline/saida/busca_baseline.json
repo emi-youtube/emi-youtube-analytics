@@ -1,0 +1,414 @@
+{
+  "aviso": "metricas de VALIDACAO com rotulo fraco (Gemini): escolhem hiperparametro e estimam a queda em video inedito. NAO vao para o Capitulo 5 como acerto; o numero do capitulo sai de avaliar-teste, contra o rotulo_humano.",
+  "data_utc": "2026-10-05T00:46:53.429985+00:00",
+  "id_execucao": 4,
+  "dados": {
+    "fonte": "exemplos_treinamento.rotulo_fraco, split IS NULL",
+    "treino": 1870,
+    "validacao": 330,
+    "distribuicao_treino": {
+      "positivo": 823,
+      "negativo": 492,
+      "neutro": 555
+    },
+    "distribuicao_validacao": {
+      "positivo": 145,
+      "negativo": 87,
+      "neutro": 98
+    },
+    "particao": "dividir_estratificado, 85/15, semente 42 (a do treino oficial)",
+    "texto": "texto_modelo (preparar_texto)"
+  },
+  "modelo": {
+    "vetorizacao": "TF-IDF, sublinear_tf, palavra token (?u)\\b\\w+\\b, caractere char_wb [2, 5] quando ligado",
+    "classificador": "LogisticRegression lbfgs, class_weight='balanced', max_iter 5000",
+    "semente": 42
+  },
+  "criterio": "F1 macro de validacao; empate -> configuracao mais simples",
+  "escolhida": {
+    "c": 10.0,
+    "ngramas_palavra": [
+      1,
+      2
+    ],
+    "caractere": true
+  },
+  "grade": [
+    {
+      "c": 10.0,
+      "ngramas_palavra": [
+        1,
+        2
+      ],
+      "caractere": true,
+      "atributos": 62788,
+      "f1_macro": 0.741882959059617,
+      "acuracia": 0.7575757575757576,
+      "f1_por_classe": {
+        "positivo": 0.8322147651006712,
+        "negativo": 0.7231638418079096,
+        "neutro": 0.6702702702702703
+      }
+    },
+    {
+      "c": 1.0,
+      "ngramas_palavra": [
+        1,
+        1
+      ],
+      "caractere": true,
+      "atributos": 44782,
+      "f1_macro": 0.7390105874425661,
+      "acuracia": 0.7545454545454545,
+      "f1_por_classe": {
+        "positivo": 0.8480565371024734,
+        "negativo": 0.6918918918918919,
+        "neutro": 0.6770833333333333
+      }
+    },
+    {
+      "c": 10.0,
+      "ngramas_palavra": [
+        1,
+        1
+      ],
+      "caractere": true,
+      "atributos": 44782,
+      "f1_macro": 0.7359134369192278,
+      "acuracia": 0.7515151515151515,
+      "f1_por_classe": {
+        "positivo": 0.8282828282828283,
+        "negativo": 0.7058823529411764,
+        "neutro": 0.6735751295336787
+      }
+    },
+    {
+      "c": 1.0,
+      "ngramas_palavra": [
+        1,
+        2
+      ],
+      "caractere": true,
+      "atributos": 62788,
+      "f1_macro": 0.7282243118405702,
+      "acuracia": 0.7424242424242424,
+      "f1_por_classe": {
+        "positivo": 0.8297872340425532,
+        "negativo": 0.6847826086956522,
+        "neutro": 0.6701030927835052
+      }
+    },
+    {
+      "c": 10.0,
+      "ngramas_palavra": [
+        1,
+        1
+      ],
+      "caractere": false,
+      "atributos": 5339,
+      "f1_macro": 0.7113755357661216,
+      "acuracia": 0.7272727272727273,
+      "f1_por_classe": {
+        "positivo": 0.8166089965397922,
+        "negativo": 0.6853932584269663,
+        "neutro": 0.6321243523316062
+      }
+    },
+    {
+      "c": 10.0,
+      "ngramas_palavra": [
+        1,
+        2
+      ],
+      "caractere": false,
+      "atributos": 23345,
+      "f1_macro": 0.7032463105146477,
+      "acuracia": 0.7242424242424242,
+      "f1_por_classe": {
+        "positivo": 0.8191126279863482,
+        "negativo": 0.7010309278350515,
+        "neutro": 0.5895953757225434
+      }
+    },
+    {
+      "c": 1.0,
+      "ngramas_palavra": [
+        1,
+        1
+      ],
+      "caractere": false,
+      "atributos": 5339,
+      "f1_macro": 0.7031915349321801,
+      "acuracia": 0.7151515151515152,
+      "f1_por_classe": {
+        "positivo": 0.8118081180811808,
+        "negativo": 0.6808510638297872,
+        "neutro": 0.6169154228855721
+      }
+    },
+    {
+      "c": 1.0,
+      "ngramas_palavra": [
+        1,
+        2
+      ],
+      "caractere": false,
+      "atributos": 23345,
+      "f1_macro": 0.6796669038395659,
+      "acuracia": 0.696969696969697,
+      "f1_por_classe": {
+        "positivo": 0.7985611510791366,
+        "negativo": 0.68,
+        "neutro": 0.5604395604395606
+      }
+    },
+    {
+      "c": 0.1,
+      "ngramas_palavra": [
+        1,
+        2
+      ],
+      "caractere": true,
+      "atributos": 62788,
+      "f1_macro": 0.6746514622518126,
+      "acuracia": 0.6818181818181818,
+      "f1_por_classe": {
+        "positivo": 0.7578125,
+        "negativo": 0.6570048309178744,
+        "neutro": 0.6091370558375634
+      }
+    },
+    {
+      "c": 0.1,
+      "ngramas_palavra": [
+        1,
+        1
+      ],
+      "caractere": true,
+      "atributos": 44782,
+      "f1_macro": 0.6661468392792058,
+      "acuracia": 0.6727272727272727,
+      "f1_por_classe": {
+        "positivo": 0.7529411764705882,
+        "negativo": 0.6532663316582915,
+        "neutro": 0.5922330097087378
+      }
+    },
+    {
+      "c": 0.1,
+      "ngramas_palavra": [
+        1,
+        1
+      ],
+      "caractere": false,
+      "atributos": 5339,
+      "f1_macro": 0.6387326156002019,
+      "acuracia": 0.6424242424242425,
+      "f1_por_classe": {
+        "positivo": 0.7196652719665272,
+        "negativo": 0.616822429906542,
+        "neutro": 0.5797101449275363
+      }
+    },
+    {
+      "c": 0.1,
+      "ngramas_palavra": [
+        1,
+        2
+      ],
+      "caractere": false,
+      "atributos": 23345,
+      "f1_macro": 0.6161164647084166,
+      "acuracia": 0.6242424242424243,
+      "f1_por_classe": {
+        "positivo": 0.6987951807228916,
+        "negativo": 0.6140350877192983,
+        "neutro": 0.53551912568306
+      }
+    }
+  ],
+  "validacao_por_grupo": {
+    "aleatoria_estratificada": {
+      "f1_macro_media_das_dobras": 0.7126440972231264,
+      "f1_macro_desvio_das_dobras": 0.019971628435416482,
+      "f1_macro_fora_da_dobra": 0.7127725927630687,
+      "ic95_f1_macro_fora_da_dobra": [
+        0.6935610115391364,
+        0.7315873457612129
+      ],
+      "dobras": [
+        {
+          "dobra": 1,
+          "n": 440,
+          "videos": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "f1_macro": 0.7089128926954098
+        },
+        {
+          "dobra": 2,
+          "n": 440,
+          "videos": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "f1_macro": 0.6948989098376552
+        },
+        {
+          "dobra": 3,
+          "n": 440,
+          "videos": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "f1_macro": 0.7070624967236662
+        },
+        {
+          "dobra": 4,
+          "n": 440,
+          "videos": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "f1_macro": 0.7053232916793236
+        },
+        {
+          "dobra": 5,
+          "n": 440,
+          "videos": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "f1_macro": 0.7470228951795771
+        }
+      ]
+    },
+    "por_video_groupkfold": {
+      "f1_macro_media_das_dobras": 0.6121526184387567,
+      "f1_macro_desvio_das_dobras": 0.028133219177632608,
+      "f1_macro_fora_da_dobra": 0.6321446673029155,
+      "ic95_f1_macro_fora_da_dobra": [
+        0.61186853971297,
+        0.6526188152895306
+      ],
+      "dobras": [
+        {
+          "dobra": 1,
+          "n": 453,
+          "videos": [
+            3,
+            7,
+            10
+          ],
+          "f1_macro": 0.6443130679663187
+        },
+        {
+          "dobra": 2,
+          "n": 448,
+          "videos": [
+            1,
+            6,
+            8
+          ],
+          "f1_macro": 0.5737033813622151
+        },
+        {
+          "dobra": 3,
+          "n": 448,
+          "videos": [
+            9,
+            11,
+            14
+          ],
+          "f1_macro": 0.6348089293590639
+        },
+        {
+          "dobra": 4,
+          "n": 421,
+          "videos": [
+            12,
+            13
+          ],
+          "f1_macro": 0.6057034178547541
+        },
+        {
+          "dobra": 5,
+          "n": 430,
+          "videos": [
+            2,
+            4,
+            5
+          ],
+          "f1_macro": 0.6022342956514318
+        }
+      ]
+    },
+    "queda_estimada_em_video_inedito": {
+      "media_das_dobras": 0.1004914787843697,
+      "fora_da_dobra": 0.08062792546015318
+    },
+    "dobras": 5,
+    "rotulo": "rotulo_fraco (Gemini) - mede a QUEDA, nao o acerto contra humano"
+  }
+}

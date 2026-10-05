@@ -1,0 +1,13 @@
+metodo,classe,precisao,revocacao,f1,ic95_inferior,ic95_superior,suporte
+lexico,positivo,0.6484,0.4609,0.5388,0.4577,0.618,128
+lexico,negativo,0.5634,0.4762,0.5161,0.4179,0.6111,84
+lexico,neutro,0.5174,0.7295,0.6054,0.5396,0.6688,122
+bertimbau,positivo,0.7744,0.8047,0.7893,0.7325,0.8403,128
+bertimbau,negativo,0.6562,0.75,0.7,0.619,0.7701,84
+bertimbau,neutro,0.7619,0.6557,0.7048,0.6346,0.7692,122
+tfidf_logreg,positivo,0.8532,0.7266,0.7848,0.7207,0.8387,128
+tfidf_logreg,negativo,0.5948,0.8214,0.69,0.6102,0.7583,84
+tfidf_logreg,neutro,0.6606,0.5902,0.6234,0.5479,0.6932,122
+gemini (rotulo_fraco),positivo,0.9375,0.8203,0.875,0.831,0.9173,128
+gemini (rotulo_fraco),negativo,0.7297,0.9643,0.8308,0.7732,0.884,84
+gemini (rotulo_fraco),neutro,0.8198,0.7459,0.7811,0.72,0.8409,122

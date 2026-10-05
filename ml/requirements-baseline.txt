@@ -1,0 +1,12 @@
+# Dependencias do baseline classico (ml/baseline/): TF-IDF + regressao logistica.
+#
+# Separado de requirements.txt de proposito: o scikit-learn so entra aqui, e o
+# notebook do Colab -- que instala requirements-treino.txt e confere cada pino -- nao
+# precisa dele. O criterio de gemeo do filtro de vazamento (ml/avaliacao/gemeos.py),
+# que roda no Colab, e stdlib pura justamente para nao depender disto.
+#
+# Local: ml/.venv/Scripts/python.exe -m pip install -r ml/requirements-baseline.txt
+-r requirements.txt
+
+# A mesma versao do requirements-dev.txt, que ja a usava para conferir as metricas.
+scikit-learn==1.5.2
