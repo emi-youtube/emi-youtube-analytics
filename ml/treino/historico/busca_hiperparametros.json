@@ -1,0 +1,187 @@
+{
+  "aviso": "metricas de VALIDACAO com rotulo fraco (Gemini). Servem para escolher hiperparametro e checar o pipeline. NAO vao para o Capitulo 5.",
+  "criterio": "F1 macro de validacao",
+  "escolhido": {
+    "taxa_aprendizado": 5e-05,
+    "epocas": 4,
+    "lote": 16,
+    "decaimento_peso": 0.01,
+    "max_length": 128,
+    "fracao_warmup": 0.1,
+    "otimizador": "AdamW",
+    "agenda": "linear com warmup"
+  },
+  "grade": [
+    {
+      "taxa_aprendizado": 5e-05,
+      "epocas": 4,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.8166983253237444,
+      "acuracia": 0.8242424242424242,
+      "f1_por_classe": {
+        "positivo": 0.8686868686868687,
+        "negativo": 0.8352941176470587,
+        "neutro": 0.7461139896373057
+      },
+      "melhor_epoca": 4,
+      "segundos": 124.0
+    },
+    {
+      "taxa_aprendizado": 3e-05,
+      "epocas": 4,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.8033251217861226,
+      "acuracia": 0.8121212121212121,
+      "f1_por_classe": {
+        "positivo": 0.8552631578947368,
+        "negativo": 0.8235294117647061,
+        "neutro": 0.7311827956989247
+      },
+      "melhor_epoca": 4,
+      "segundos": 123.6
+    },
+    {
+      "taxa_aprendizado": 3e-05,
+      "epocas": 3,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7983232351697901,
+      "acuracia": 0.8090909090909091,
+      "f1_por_classe": {
+        "positivo": 0.8609271523178808,
+        "negativo": 0.8,
+        "neutro": 0.7340425531914894
+      },
+      "melhor_epoca": 2,
+      "segundos": 93.3
+    },
+    {
+      "taxa_aprendizado": 2e-05,
+      "epocas": 4,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7972520927868718,
+      "acuracia": 0.806060606060606,
+      "f1_por_classe": {
+        "positivo": 0.8523489932885906,
+        "negativo": 0.8092485549132948,
+        "neutro": 0.7301587301587302
+      },
+      "melhor_epoca": 3,
+      "segundos": 124.1
+    },
+    {
+      "taxa_aprendizado": 5e-05,
+      "epocas": 3,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7881433701898066,
+      "acuracia": 0.796969696969697,
+      "f1_por_classe": {
+        "positivo": 0.8372093023255813,
+        "negativo": 0.8089887640449438,
+        "neutro": 0.718232044198895
+      },
+      "melhor_epoca": 2,
+      "segundos": 92.4
+    },
+    {
+      "taxa_aprendizado": 3e-05,
+      "epocas": 2,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7856184006424675,
+      "acuracia": 0.796969696969697,
+      "f1_por_classe": {
+        "positivo": 0.8689655172413793,
+        "negativo": 0.7701863354037266,
+        "neutro": 0.7177033492822966
+      },
+      "melhor_epoca": 2,
+      "segundos": 62.0
+    },
+    {
+      "taxa_aprendizado": 2e-05,
+      "epocas": 3,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.78239263984878,
+      "acuracia": 0.793939393939394,
+      "f1_por_classe": {
+        "positivo": 0.8552188552188551,
+        "negativo": 0.783625730994152,
+        "neutro": 0.7083333333333333
+      },
+      "melhor_epoca": 3,
+      "segundos": 92.6
+    },
+    {
+      "taxa_aprendizado": 5e-05,
+      "epocas": 2,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7809158517363871,
+      "acuracia": 0.7909090909090909,
+      "f1_por_classe": {
+        "positivo": 0.8531468531468531,
+        "negativo": 0.7547169811320755,
+        "neutro": 0.7348837209302327
+      },
+      "melhor_epoca": 2,
+      "segundos": 62.0
+    },
+    {
+      "taxa_aprendizado": 2e-05,
+      "epocas": 2,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7756902197362324,
+      "acuracia": 0.7878787878787878,
+      "f1_por_classe": {
+        "positivo": 0.8581314878892734,
+        "negativo": 0.746987951807229,
+        "neutro": 0.721951219512195
+      },
+      "melhor_epoca": 2,
+      "segundos": 63.8
+    }
+  ]
+}

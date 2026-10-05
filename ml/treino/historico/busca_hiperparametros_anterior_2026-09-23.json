@@ -1,0 +1,188 @@
+{
+  "aviso_historico": "BUSCA ANTERIOR, NAO E DA RODADA OFICIAL. Busca do ensaio de 23/09 (modelo 0.1.0-ensaio), guardada para documentar a variacao entre execucoes: mesma grade, mesma semente (42), mesma particao e o mesmo corpus da busca oficial de 30/09 (busca_hiperparametros.json), e mesmo assim o F1 de validacao de cada configuracao mudou. Ver historico_treinos.md.",
+  "aviso": "metricas de VALIDACAO com rotulo fraco (Gemini). Servem para escolher hiperparametro e checar o pipeline. NAO vao para o Capitulo 5.",
+  "criterio": "F1 macro de validacao",
+  "escolhido": {
+    "taxa_aprendizado": 5e-05,
+    "epocas": 4,
+    "lote": 16,
+    "decaimento_peso": 0.01,
+    "max_length": 128,
+    "fracao_warmup": 0.1,
+    "otimizador": "AdamW",
+    "agenda": "linear com warmup"
+  },
+  "grade": [
+    {
+      "taxa_aprendizado": 5e-05,
+      "epocas": 4,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.8050860190819623,
+      "acuracia": 0.8181818181818182,
+      "f1_por_classe": {
+        "positivo": 0.869281045751634,
+        "negativo": 0.8333333333333334,
+        "neutro": 0.7126436781609196
+      },
+      "melhor_epoca": 3,
+      "segundos": 115.9
+    },
+    {
+      "taxa_aprendizado": 3e-05,
+      "epocas": 3,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.8021338736230907,
+      "acuracia": 0.8121212121212121,
+      "f1_por_classe": {
+        "positivo": 0.8609271523178808,
+        "negativo": 0.8047337278106508,
+        "neutro": 0.7407407407407408
+      },
+      "melhor_epoca": 2,
+      "segundos": 87.3
+    },
+    {
+      "taxa_aprendizado": 3e-05,
+      "epocas": 4,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.8011174871639989,
+      "acuracia": 0.8090909090909091,
+      "f1_por_classe": {
+        "positivo": 0.8504983388704319,
+        "negativo": 0.8255813953488372,
+        "neutro": 0.7272727272727273
+      },
+      "melhor_epoca": 4,
+      "segundos": 116.1
+    },
+    {
+      "taxa_aprendizado": 2e-05,
+      "epocas": 4,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7906704722548109,
+      "acuracia": 0.8,
+      "f1_por_classe": {
+        "positivo": 0.8494983277591973,
+        "negativo": 0.8,
+        "neutro": 0.7225130890052356
+      },
+      "melhor_epoca": 4,
+      "segundos": 116.0
+    },
+    {
+      "taxa_aprendizado": 5e-05,
+      "epocas": 3,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.787662736039342,
+      "acuracia": 0.793939393939394,
+      "f1_por_classe": {
+        "positivo": 0.8327645051194539,
+        "negativo": 0.8181818181818181,
+        "neutro": 0.7120418848167539
+      },
+      "melhor_epoca": 3,
+      "segundos": 87.3
+    },
+    {
+      "taxa_aprendizado": 3e-05,
+      "epocas": 2,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7833075813142343,
+      "acuracia": 0.793939393939394,
+      "f1_por_classe": {
+        "positivo": 0.8641114982578396,
+        "negativo": 0.7654320987654321,
+        "neutro": 0.7203791469194313
+      },
+      "melhor_epoca": 2,
+      "segundos": 58.8
+    },
+    {
+      "taxa_aprendizado": 2e-05,
+      "epocas": 2,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7824364820494513,
+      "acuracia": 0.793939393939394,
+      "f1_por_classe": {
+        "positivo": 0.8611111111111112,
+        "negativo": 0.7544910179640718,
+        "neutro": 0.7317073170731707
+      },
+      "melhor_epoca": 2,
+      "segundos": 63.2
+    },
+    {
+      "taxa_aprendizado": 2e-05,
+      "epocas": 3,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7818370696277673,
+      "acuracia": 0.793939393939394,
+      "f1_por_classe": {
+        "positivo": 0.8581081081081081,
+        "negativo": 0.7790697674418604,
+        "neutro": 0.7083333333333333
+      },
+      "melhor_epoca": 3,
+      "segundos": 85.4
+    },
+    {
+      "taxa_aprendizado": 5e-05,
+      "epocas": 2,
+      "lote": 16,
+      "decaimento_peso": 0.01,
+      "max_length": 128,
+      "fracao_warmup": 0.1,
+      "otimizador": "AdamW",
+      "agenda": "linear com warmup",
+      "f1_macro": 0.7796206737036883,
+      "acuracia": 0.7909090909090909,
+      "f1_por_classe": {
+        "positivo": 0.8571428571428571,
+        "negativo": 0.7468354430379747,
+        "neutro": 0.7348837209302327
+      },
+      "melhor_epoca": 2,
+      "segundos": 58.8
+    }
+  ]
+}

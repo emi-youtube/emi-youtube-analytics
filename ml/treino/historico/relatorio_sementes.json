@@ -1,0 +1,99 @@
+{
+  "aviso": "metricas de VALIDACAO com rotulo fraco (Gemini). Medem a estabilidade do treino, NAO a qualidade do modelo. O numero do Capitulo 5 sai de ml/avaliacao/, contra o rotulo_humano.",
+  "hiperparametros": {
+    "taxa_aprendizado": 5e-05,
+    "epocas": 4,
+    "lote": 16,
+    "decaimento_peso": 0.01,
+    "max_length": 128,
+    "fracao_warmup": 0.1,
+    "otimizador": "AdamW",
+    "agenda": "linear com warmup"
+  },
+  "sementes": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "semente_publicada": 42,
+  "criterio_publicacao": "semente mediana em F1 macro de validacao",
+  "particao": "fixa para todas as sementes (semente 42)",
+  "f1_macro": {
+    "media": 0.8148615881749254,
+    "desvio": 0.010975874061224732,
+    "minimo": 0.8026616733012082,
+    "mediana": 0.8166983253237444,
+    "maximo": 0.8302258007525438
+  },
+  "acuracia": {
+    "media": 0.8212121212121212,
+    "desvio": 0.010925912955951462,
+    "minimo": 0.8090909090909091,
+    "mediana": 0.8242424242424242,
+    "maximo": 0.8363636363636363
+  },
+  "por_semente": [
+    {
+      "semente": 42,
+      "f1_macro": 0.8166983253237444,
+      "acuracia": 0.8242424242424242,
+      "f1_por_classe": {
+        "positivo": 0.8686868686868687,
+        "negativo": 0.8352941176470587,
+        "neutro": 0.7461139896373057
+      },
+      "melhor_epoca": 4,
+      "segundos": 125.5
+    },
+    {
+      "semente": 43,
+      "f1_macro": 0.8059930445071637,
+      "acuracia": 0.8090909090909091,
+      "f1_por_classe": {
+        "positivo": 0.8384879725085911,
+        "negativo": 0.8198757763975155,
+        "neutro": 0.7596153846153846
+      },
+      "melhor_epoca": 3,
+      "segundos": 126.2
+    },
+    {
+      "semente": 44,
+      "f1_macro": 0.8302258007525438,
+      "acuracia": 0.8363636363636363,
+      "f1_por_classe": {
+        "positivo": 0.8745762711864407,
+        "negativo": 0.8383233532934132,
+        "neutro": 0.7777777777777778
+      },
+      "melhor_epoca": 4,
+      "segundos": 127.2
+    },
+    {
+      "semente": 45,
+      "f1_macro": 0.8187290969899665,
+      "acuracia": 0.8242424242424242,
+      "f1_por_classe": {
+        "positivo": 0.8561872909698997,
+        "negativo": 0.8421052631578947,
+        "neutro": 0.7578947368421053
+      },
+      "melhor_epoca": 4,
+      "segundos": 126.5
+    },
+    {
+      "semente": 46,
+      "f1_macro": 0.8026616733012082,
+      "acuracia": 0.8121212121212121,
+      "f1_por_classe": {
+        "positivo": 0.8648648648648649,
+        "negativo": 0.813953488372093,
+        "neutro": 0.7291666666666666
+      },
+      "melhor_epoca": 4,
+      "segundos": 125.7
+    }
+  ]
+}

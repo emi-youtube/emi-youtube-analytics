@@ -1,0 +1,180 @@
+{
+  "versao_cartao": "1.0",
+  "nome_modelo": "bertimbau-emi",
+  "versao": "1.0.0",
+  "modelo_base": "neuralmind/bert-base-portuguese-cased",
+  "id2label": {
+    "0": "positivo",
+    "1": "negativo",
+    "2": "neutro"
+  },
+  "label2id": {
+    "positivo": 0,
+    "negativo": 1,
+    "neutro": 2
+  },
+  "max_length": 128,
+  "versao_preprocessamento": "1.1.0",
+  "semente": 42,
+  "hiperparametros": {
+    "taxa_aprendizado": 5e-05,
+    "epocas": 4,
+    "lote": 16,
+    "decaimento_peso": 0.01,
+    "max_length": 128,
+    "fracao_warmup": 0.1,
+    "otimizador": "AdamW",
+    "agenda": "linear com warmup"
+  },
+  "dados": {
+    "fonte": "exemplos_treinamento.rotulo_fraco, split IS NULL",
+    "treino": 1870,
+    "validacao": 330,
+    "distribuicao_treino": {
+      "positivo": 823,
+      "negativo": 492,
+      "neutro": 555
+    },
+    "distribuicao_validacao": {
+      "positivo": 145,
+      "negativo": 87,
+      "neutro": 98
+    },
+    "particao": "85/15 estratificada, em memoria (nao gravada no banco)",
+    "pesos_de_classe": {
+      "positivo": 0.7573916565411097,
+      "negativo": 1.2669376693766938,
+      "neutro": 1.1231231231231231
+    }
+  },
+  "metricas_validacao": {
+    "aviso": "rotulo fraco (Gemini) — checagem de pipeline, NAO e metrica do Capitulo 5. O numero do capitulo sai de ml/avaliacao/ contra o rotulo_humano.",
+    "f1_macro": 0.8166983253237444,
+    "acuracia": 0.8242424242424242,
+    "f1_por_classe": {
+      "positivo": 0.8686868686868687,
+      "negativo": 0.8352941176470587,
+      "neutro": 0.7461139896373057
+    },
+    "melhor_epoca": 4,
+    "f1_por_epoca": [
+      0.7583527583527584,
+      0.7851541733120682,
+      0.8020906741836975,
+      0.8166983253237444
+    ],
+    "perda_treino_por_epoca": [
+      0.819108265842128,
+      0.42055090523173666,
+      0.17519300126144263,
+      0.07557939612266855
+    ],
+    "sementes": {
+      "sementes": [
+        42,
+        43,
+        44,
+        45,
+        46
+      ],
+      "semente_publicada": 42,
+      "criterio_publicacao": "semente mediana em F1 macro de validacao",
+      "particao": "fixa para todas as sementes (semente 42)",
+      "f1_macro": {
+        "media": 0.8148615881749254,
+        "desvio": 0.010975874061224732,
+        "minimo": 0.8026616733012082,
+        "mediana": 0.8166983253237444,
+        "maximo": 0.8302258007525438
+      },
+      "acuracia": {
+        "media": 0.8212121212121212,
+        "desvio": 0.010925912955951462,
+        "minimo": 0.8090909090909091,
+        "mediana": 0.8242424242424242,
+        "maximo": 0.8363636363636363
+      },
+      "por_semente": [
+        {
+          "semente": 42,
+          "f1_macro": 0.8166983253237444,
+          "acuracia": 0.8242424242424242,
+          "f1_por_classe": {
+            "positivo": 0.8686868686868687,
+            "negativo": 0.8352941176470587,
+            "neutro": 0.7461139896373057
+          },
+          "melhor_epoca": 4,
+          "segundos": 125.5
+        },
+        {
+          "semente": 43,
+          "f1_macro": 0.8059930445071637,
+          "acuracia": 0.8090909090909091,
+          "f1_por_classe": {
+            "positivo": 0.8384879725085911,
+            "negativo": 0.8198757763975155,
+            "neutro": 0.7596153846153846
+          },
+          "melhor_epoca": 3,
+          "segundos": 126.2
+        },
+        {
+          "semente": 44,
+          "f1_macro": 0.8302258007525438,
+          "acuracia": 0.8363636363636363,
+          "f1_por_classe": {
+            "positivo": 0.8745762711864407,
+            "negativo": 0.8383233532934132,
+            "neutro": 0.7777777777777778
+          },
+          "melhor_epoca": 4,
+          "segundos": 127.2
+        },
+        {
+          "semente": 45,
+          "f1_macro": 0.8187290969899665,
+          "acuracia": 0.8242424242424242,
+          "f1_por_classe": {
+            "positivo": 0.8561872909698997,
+            "negativo": 0.8421052631578947,
+            "neutro": 0.7578947368421053
+          },
+          "melhor_epoca": 4,
+          "segundos": 126.5
+        },
+        {
+          "semente": 46,
+          "f1_macro": 0.8026616733012082,
+          "acuracia": 0.8121212121212121,
+          "f1_por_classe": {
+            "positivo": 0.8648648648648649,
+            "negativo": 0.813953488372093,
+            "neutro": 0.7291666666666666
+          },
+          "melhor_epoca": 4,
+          "segundos": 125.7
+        }
+      ]
+    }
+  },
+  "treinado_em_utc": "2026-09-30T13:44:17.996958+00:00",
+  "observacoes": "Modelo OFICIAL da Sprint 1 (substitui o ensaio 0.1.0-ensaio de 23/09). Treinado com o rotulo FRACO (Gemini) do corpus fora do teste; semente 42, a mediana das 5 sementes em F1 macro de validacao. O conjunto de teste (split='teste', 334 comentarios com rotulo_humano) nao participou de nenhuma etapa do treino e e a fonte de avaliacao_gabarito_humano (CLAUDE.md regra 6).",
+  "avaliacao_gabarito_humano": {
+    "aviso": "metrica do Capitulo 5: contra o rotulo_humano do conjunto de teste, que nao participou do treino",
+    "fonte": "ml/avaliacao/saida/resultado_avaliacao.json",
+    "total_avaliado": 334,
+    "f1_macro": 0.7313726152097715,
+    "ic95_f1_macro": [
+      0.6816467499525588,
+      0.7764231410544558
+    ],
+    "acuracia": 0.7365269461077845,
+    "kappa_cohen": 0.6009666295582287,
+    "f1_por_classe": {
+      "positivo": 0.7892720306513409,
+      "negativo": 0.7,
+      "neutro": 0.7048458149779736
+    }
+  }
+}
