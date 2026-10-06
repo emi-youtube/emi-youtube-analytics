@@ -6,10 +6,12 @@ produziu para a empresa, nem dados de colegas.
 Eliminação: `excluir_conta`. O que some depende do papel, porque os dados de
 análise são da EMPRESA (ADR-011), não de quem os criou:
 
-- membro: sai a conta; os modelos que criou passam a um dono, como em
-  `empresa.remover_membro`, e as análises ficam com a empresa;
-- dono único: sai a empresa inteira, porque não sobra ninguém a quem ela pertença;
-- dono com outros membros: recusado (409). Transferir a posse não existe ainda.
+- membro, ou dono com OUTRO dono na empresa: sai a conta; os modelos que criou
+  passam ao dono mais antigo que fica (ADR-013), e as análises ficam com a empresa;
+- dono sozinho na empresa: sai a empresa inteira, porque não sobra ninguém a quem
+  ela pertença;
+- único dono com outros membros: recusado (409) — promova alguém a dono antes
+  (`PATCH /empresa/membros/{id}`), e então a saída cai no primeiro caso.
 """
 
 import logging
@@ -39,7 +41,8 @@ logger = logging.getLogger(__name__)
 
 SENHA_INCORRETA = "Senha incorreta."
 DONO_COM_MEMBROS = (
-    "Você é dono de uma empresa com outros membros. Remova os membros antes de excluir a sua conta."
+    "Você é o único dono de uma empresa com outros membros. Promova outro membro a dono "
+    "antes de sair."
 )
 EXECUCAO_EM_ANDAMENTO = (
     "Há uma análise em andamento na empresa. Aguarde terminar antes de excluir a conta."
@@ -124,14 +127,17 @@ async def excluir_conta(db: AsyncSession, usuario: Usuario, senha: str) -> None:
     await db.execute(
         select(Empresa.id_empresa).where(Empresa.id_empresa == id_empresa).with_for_update()
     )
-    outros_membros = await db.scalar(
-        select(func.count())
-        .select_from(Usuario)
-        .where(Usuario.id_empresa == id_empresa, Usuario.id_usuario != id_usuario)
+    outros = select(func.count()).where(
+        Usuario.id_empresa == id_empresa, Usuario.id_usuario != id_usuario
+    )
+    outros_membros = await db.scalar(outros.select_from(Usuario))
+    outros_donos = await db.scalar(
+        outros.select_from(Usuario).where(Usuario.papel_empresa == PAPEL_DONO)
     )
 
-    apagar_empresa = usuario.papel_empresa == PAPEL_DONO
-    if apagar_empresa and outros_membros:
+    eh_dono = usuario.papel_empresa == PAPEL_DONO
+    apagar_empresa = eh_dono and outros_membros == 0
+    if eh_dono and outros_membros and not outros_donos:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=DONO_COM_MEMBROS)
 
@@ -154,11 +160,16 @@ async def excluir_conta(db: AsyncSession, usuario: Usuario, senha: str) -> None:
         contagens = await _apagar_empresa(db, id_empresa)
     else:
         # Mesma regra de `empresa.remover_membro`: o modelo continua precisando de
-        # alguém que responda por ele, e as execuções dele seguem com a empresa.
+        # alguém que responda por ele, e as execuções dele seguem com a empresa. Vai
+        # ao dono mais antigo que FICA — quem sai pode ser dono também.
         dono = await db.scalar(
             select(Usuario.id_usuario)
-            .where(Usuario.id_empresa == id_empresa, Usuario.papel_empresa == PAPEL_DONO)
-            .order_by(Usuario.id_usuario)
+            .where(
+                Usuario.id_empresa == id_empresa,
+                Usuario.papel_empresa == PAPEL_DONO,
+                Usuario.id_usuario != id_usuario,
+            )
+            .order_by(Usuario.criado_em, Usuario.id_usuario)
             .limit(1)
         )
         transferidos = await db.execute(
@@ -168,6 +179,7 @@ async def excluir_conta(db: AsyncSession, usuario: Usuario, senha: str) -> None:
             .values(id_usuario=dono)
         )
         contagens["modelos_transferidos"] = transferidos.rowcount
+        contagens["para"] = dono
 
     # Sessões e links: o banco já os apagaria em cascata com o usuário; explícito
     # para não depender de o ORM emitir o DELETE antes de tudo o resto.

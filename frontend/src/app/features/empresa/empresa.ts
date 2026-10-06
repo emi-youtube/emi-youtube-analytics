@@ -13,8 +13,9 @@ import { mensagemDeErro } from '../../core/http/api-error';
  * Minha empresa (ADR-011): membros e convites.
  *
  * Todo membro vê a lista de membros. Só o DONO vê e usa as ações — gerar e
- * revogar convite, remover membro. Esconder os botões é conforto; quem barra
- * de verdade é o backend, que responde 403 para membro.
+ * revogar convite, remover membro, tornar dono e tirar de dono (ADR-013).
+ * Esconder os botões é conforto; quem barra de verdade é o backend, que
+ * responde 403 para membro.
  */
 @Component({
   selector: 'app-empresa',
@@ -44,6 +45,8 @@ export class Empresa {
 
   /** Membro aguardando o segundo clique de "Remover". */
   protected readonly confirmando = signal<number | null>(null);
+  /** Membro aguardando o segundo clique de "Tornar dono" / "Tirar de dono". */
+  protected readonly confirmandoPapel = signal<number | null>(null);
   protected readonly erroAcao = signal<string | null>(null);
 
   protected readonly dataLegivel = dataLegivel;
@@ -153,6 +156,45 @@ export class Empresa {
         this.erroAcao.set(mensagemDeErro(erro, 'Não foi possível remover o membro.'));
       },
     });
+  }
+
+  /**
+   * Promove ou rebaixa com dois cliques. O backend recusa (409) deixar a empresa
+   * sem dono e passar do teto de donos; a mensagem dele vai para a tela.
+   * Rebaixar a si mesmo é permitido se sobrar outro dono — e aí a sessão
+   * recarrega o próprio usuário, para a tela perder as ações de dono na hora.
+   */
+  protected alterarPapel(membro: Membro): void {
+    if (this.confirmandoPapel() !== membro.id_usuario) {
+      this.confirmandoPapel.set(membro.id_usuario);
+      return;
+    }
+
+    const novo: PapelEmpresa = membro.papel_empresa === 'dono' ? 'membro' : 'dono';
+    this.erroAcao.set(null);
+    this.api.alterarPapel(membro.id_usuario, novo).subscribe({
+      next: (atualizado) => {
+        this.confirmandoPapel.set(null);
+        this.membros.update((lista) =>
+          lista.map((m) => (m.id_usuario === atualizado.id_usuario ? atualizado : m)),
+        );
+        if (atualizado.id_usuario === this.usuario()?.id_usuario) {
+          this.auth.loadCurrentUser().subscribe({ error: () => undefined });
+        }
+      },
+      error: (erro: unknown) => {
+        this.confirmandoPapel.set(null);
+        this.erroAcao.set(mensagemDeErro(erro, 'Não foi possível alterar o papel.'));
+      },
+    });
+  }
+
+  protected rotuloPapel(membro: Membro): string {
+    const confirmar = this.confirmandoPapel() === membro.id_usuario;
+    if (membro.papel_empresa === 'dono') {
+      return confirmar ? 'Confirmar: tirar de dono' : 'Tirar de dono';
+    }
+    return confirmar ? 'Confirmar: tornar dono' : 'Tornar dono';
   }
 
   protected podeRemover(membro: Membro): boolean {

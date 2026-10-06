@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.models.convite import Convite
 from app.models.usuario import Usuario
 from app.schemas.empresa import (
+    AlterarPapelRequest,
     ConviteCreate,
     ConviteCriadoResponse,
     ConviteResponse,
@@ -30,6 +31,15 @@ Sessao = Annotated[AsyncSession, Depends(get_db)]
 async def listar_membros(usuario: UsuarioAtual, db: Sessao) -> list[Usuario]:
     """Qualquer membro vê quem está na empresa; só o dono age sobre a lista."""
     return list(await service.listar_membros(db, usuario))
+
+
+@router.patch("/membros/{id_usuario}", response_model=MembroResponse)
+async def alterar_papel(
+    id_usuario: int, dados: AlterarPapelRequest, dono: Dono, db: Sessao
+) -> Usuario:
+    """Promove a dono ou rebaixa a membro. 409 se deixaria a empresa sem dono ou
+    passaria do teto de donos."""
+    return await service.alterar_papel(db, dono, id_usuario, dados.papel_empresa)
 
 
 @router.delete("/membros/{id_usuario}", status_code=status.HTTP_204_NO_CONTENT)

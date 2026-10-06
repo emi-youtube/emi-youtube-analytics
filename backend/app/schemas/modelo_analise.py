@@ -81,3 +81,8 @@ class ModeloAnaliseResponse(BaseModel):
     termo_pesquisa: str
     filtros: dict | None
     criado_em: datetime
+    # ADR-013. Só o NOME do autor: o e-mail de um colega não sai por aqui.
+    autor_nome: str
+    # Se QUEM PERGUNTA pode editar e apagar (autor ou dono). A tela esconde os
+    # botões por este campo; o backend continua sendo quem barra (403).
+    pode_alterar: bool

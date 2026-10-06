@@ -1,12 +1,23 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
-from app.core.config import settings
+from app.core.config import avisar_configuracao_suspeita, settings
 
-app = FastAPI(title="Emi YouTube Analytics API")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # No arranque, uma vez: configuração que não derruba nada mas quebra em silêncio.
+    avisar_configuracao_suspeita(settings)
+    yield
+
+
+app = FastAPI(title="Emi YouTube Analytics API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

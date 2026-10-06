@@ -44,7 +44,9 @@
               <span>termo: “{{ modelo.termo_pesquisa }}”</span>
             }
             <span>·</span>
-            <span>criado em {{ dataLegivel(modelo.criado_em) }}</span>
+            <span data-testid="autor"
+              >criado por {{ modelo.autor_nome }} em {{ dataLegivel(modelo.criado_em) }}</span
+            >
           </p>
         </div>
 
@@ -66,7 +68,7 @@
             >
               Cancelar
             </button>
-          } @else {
+          } @else if (modelo.pode_alterar) {
             <a
               class="botao botao--secundario botao--pequeno"
               [routerLink]="['/modelos', modelo.id_modelo, 'editar']"
