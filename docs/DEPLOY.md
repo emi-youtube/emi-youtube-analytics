@@ -353,6 +353,34 @@ outra, num deploy seguinte, as torna NOT NULL.
 upgrade head` da sua máquina) enquanto a produção estiver com o código antigo: a
 janela acima deixaria de ser de segundos.
 
+### B.1.1. Azure — a migration 0012 (aceite dos termos) e a ordem segura do deploy
+
+A `0012` (ADR-012 em `docs/BANCO.md`) só CRIA uma tabela (`aceites_termos`), sem
+alterar coluna existente: o código antigo convive com ela sem efeito nenhum. Ela roda
+no arranque, antes da API nova subir, como as outras — e o código novo exige a tabela
+(`/auth/eu` e o cadastro a consultam), por isso a migração nunca pode ficar para
+depois da API.
+
+A janela que importa é entre **frontend e backend**, que publicam separados (Vercel e
+Azure):
+
+| Situação | Efeito |
+|---|---|
+| backend novo + frontend antigo | **cadastro responde 422** (o frontend antigo não envia `aceite_termos`); o resto funciona |
+| frontend novo + backend antigo | cadastro funciona, mas SEM registro de aceite (o campo extra é ignorado); `/conta/*` responde 404. Quem se cadastrar nessa janela vê o modal de aceite no próximo acesso — a pendência se corrige sozinha |
+
+Ordem recomendada: **frontend primeiro**, backend logo depois. Antes do merge:
+
+1. **`frontend/src/assets/legal/termos-v1.md` com o texto aprovado** (hoje é um
+   marcador de lugar) e os placeholders preenchidos.
+2. Ensaio num Postgres descartável:
+   `EMI_TESTE_MIGRACAO_URL=... pytest tests/test_migracao_0012.py` (upgrade, downgrade
+   com dados e a exclusão de conta contra Postgres).
+3. Depois do deploy: `EMI_TESTE_POSTGRES_URL=<Supabase> pytest tests/test_rls.py` e
+   um login com conta antiga — o modal de aceite tem de abrir.
+
+Não há variável de ambiente nova.
+
 ### B.2. E-mail transacional (convites e "esqueci minha senha")
 
 O backend envia dois e-mails: o convite para a empresa e o link de redefinição de
