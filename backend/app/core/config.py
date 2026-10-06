@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # Teto de membros por empresa, contando os convites pendentes. Projeto para PME:
     # o limite existe para um convite vazado não virar porta aberta.
     empresa_max_membros: int = 10
+    # Teto de DONOS por empresa (ADR-013), contando convites de dono pendentes: dono
+    # gerencia membros e apaga qualquer modelo, então "todo mundo é dono" é o mesmo
+    # que não ter papel nenhum.
+    empresa_max_donos: int = 3
 
     # --- E-mail transacional (convites e redefinição de senha) ---
     # "log": não envia; em desenvolvimento escreve a mensagem (com o link) no log do
