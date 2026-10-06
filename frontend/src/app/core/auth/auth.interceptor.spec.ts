@@ -28,6 +28,8 @@ describe('authInterceptor', () => {
       nome: 'Marina Rocha',
       email: 'a@b.com',
       papel: 'usuario_pme',
+      papel_empresa: 'dono',
+      empresa: { id_empresa: 1, nome: 'Loja Exemplo' },
       criado_em: '2026-09-20T00:00:00',
     });
   }
@@ -96,7 +98,7 @@ describe('authInterceptor', () => {
 
     const refresh = httpMock.expectOne(`${AUTH}/refresh`);
     expect(refresh.request.body).toEqual({ refresh_token: 'refresh-1' });
-    refresh.flush({ access_token: 'access-2', token_type: 'bearer' });
+    refresh.flush({ access_token: 'access-2', refresh_token: 'refresh-2', token_type: 'bearer' });
 
     const repetida = httpMock.expectOne('/api/v1/execucoes');
     expect(repetida.request.headers.get('Authorization')).toBe('Bearer access-2');
@@ -104,6 +106,8 @@ describe('authInterceptor', () => {
 
     expect(resultado).toHaveBeenCalledWith({ total: 3 });
     expect(auth.token()).toBe('access-2');
+    // Rotação: o refresh antigo morreu no servidor; o novo substitui o guardado.
+    expect(localStorage.getItem('emi.refresh_token')).toBe('refresh-2');
   });
 
   it('dispara um único refresh quando várias requisições tomam 401 juntas', () => {
@@ -116,7 +120,9 @@ describe('authInterceptor', () => {
     httpMock.expectOne('/api/v1/modelos').flush({}, { status: 401, statusText: 'Unauthorized' });
 
     // O ponto do teste: uma chamada de refresh, não duas.
-    httpMock.expectOne(`${AUTH}/refresh`).flush({ access_token: 'access-2', token_type: 'bearer' });
+    httpMock
+      .expectOne(`${AUTH}/refresh`)
+      .flush({ access_token: 'access-2', refresh_token: 'refresh-2', token_type: 'bearer' });
 
     httpMock.expectOne('/api/v1/execucoes').flush({});
     httpMock.expectOne('/api/v1/modelos').flush({});

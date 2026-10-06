@@ -49,6 +49,23 @@
   font-size: 14px;
 }
 
+/* "Esqueci minha senha": link discreto, alinhado à direita sob o campo. */
+.form__link {
+  align-self: flex-end;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Confirmação de um pedido que deu certo ("enviamos o link"). */
+.form__sucesso {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--positivo);
+  border-radius: var(--radius-control);
+  background: var(--positivo-soft);
+  color: var(--positivo);
+  font-size: 14px;
+}
+
 /* Campos e botões são utilitários globais (src/styles.css): as telas de
    acesso usam os mesmos do formulário de modelo de análise.
    O botão aqui ocupa a largura toda da coluna. */

@@ -1,0 +1,79 @@
+<header class="cabecalho">
+  <div class="cabecalho__texto">
+    <h1>Minha conta</h1>
+    @if (usuario(); as u) {
+      <p class="muted">{{ u.nome }} · {{ u.email }} · {{ u.empresa.nome }}</p>
+    }
+  </div>
+</header>
+
+<section class="card secao">
+  <h2 class="secao__titulo">Trocar senha</h2>
+  <p class="muted">
+    Ao trocar, as sessões abertas em outros dispositivos são encerradas. Esta continua.
+  </p>
+
+  <form class="secao__form" [formGroup]="form" (ngSubmit)="trocar()" novalidate>
+    @if (erro(); as mensagem) {
+      <p class="aviso aviso--erro" role="alert">{{ mensagem }}</p>
+    }
+    @if (sucesso()) {
+      <p class="aviso aviso--sucesso" role="status">Senha trocada.</p>
+    }
+
+    <div class="campo">
+      <label class="campo__rotulo" for="senha_atual">Senha atual</label>
+      <input
+        id="senha_atual"
+        class="campo__entrada"
+        type="password"
+        formControlName="senha_atual"
+        autocomplete="current-password"
+        [class.campo__entrada--invalido]="invalido('senha_atual')"
+      />
+      @if (invalido('senha_atual')) {
+        <p class="campo__ajuda">Informe a senha atual.</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label class="campo__rotulo" for="nova_senha">Nova senha</label>
+      <input
+        id="nova_senha"
+        class="campo__entrada"
+        type="password"
+        formControlName="nova_senha"
+        autocomplete="new-password"
+        [class.campo__entrada--invalido]="invalido('nova_senha')"
+      />
+      @if (invalido('nova_senha')) {
+        <p class="campo__ajuda">A senha deve ter ao menos {{ senhaMinima }} caracteres.</p>
+      } @else {
+        <p class="campo__dica">Ao menos {{ senhaMinima }} caracteres.</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label class="campo__rotulo" for="confirmacao">Confirme a nova senha</label>
+      <input
+        id="confirmacao"
+        class="campo__entrada"
+        type="password"
+        formControlName="confirmacao"
+        autocomplete="new-password"
+        [class.campo__entrada--invalido]="invalido('confirmacao') || senhasDiferentes()"
+      />
+      @if (invalido('confirmacao')) {
+        <p class="campo__ajuda">Repita a senha.</p>
+      } @else if (senhasDiferentes()) {
+        <p class="campo__ajuda">As senhas não são iguais.</p>
+      }
+    </div>
+
+    <div>
+      <button class="botao" type="submit" [disabled]="enviando()">
+        {{ enviando() ? 'Salvando…' : 'Trocar senha' }}
+      </button>
+    </div>
+  </form>
+</section>

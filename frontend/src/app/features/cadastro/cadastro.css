@@ -8,3 +8,48 @@
   color: inherit;
   font-weight: 600;
 }
+
+/* Escolha "Criar empresa" / "Tenho um convite": duas metades de um controle só. */
+.modos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+}
+
+.modos__opcao {
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: calc(var(--radius-control) - 2px);
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.modos__opcao--ativa {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+
+.modos__opcao:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.convite {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  font-size: 14px;
+}
+
+.campo__entrada:disabled {
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+}

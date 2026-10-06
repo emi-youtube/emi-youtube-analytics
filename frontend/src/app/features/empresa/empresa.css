@@ -1,0 +1,84 @@
+.convite-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px auto;
+  align-items: end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.subtitulo {
+  margin-top: var(--space-3);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  font-size: 14px;
+}
+
+.link__linha {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.link__valor {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.linha:first-child {
+  border-top: 0;
+}
+
+.linha__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.linha__nome {
+  font-weight: 600;
+}
+
+.linha__acoes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .convite-form {
+    grid-template-columns: 1fr;
+  }
+
+  .linha {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

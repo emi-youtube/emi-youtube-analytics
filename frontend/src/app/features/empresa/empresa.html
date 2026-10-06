@@ -1,0 +1,142 @@
+<header class="cabecalho">
+  <div class="cabecalho__texto">
+    <h1>{{ usuario()?.empresa?.nome ?? 'Minha empresa' }}</h1>
+    <p class="muted">
+      Todos os membros veem os mesmos modelos, execuções e resultados.
+      @if (!ehDono()) {
+        Só o dono da empresa convida e remove membros.
+      }
+    </p>
+  </div>
+</header>
+
+@if (falha(); as mensagem) {
+  <div class="falha" role="alert">
+    <span>{{ mensagem }}</span>
+    <button class="botao botao--secundario botao--pequeno" type="button" (click)="carregar()">
+      Tentar de novo
+    </button>
+  </div>
+}
+
+@if (erroAcao(); as mensagem) {
+  <p class="aviso aviso--erro" role="alert">{{ mensagem }}</p>
+}
+
+@if (ehDono()) {
+  <section class="card secao" data-testid="convidar">
+    <h2 class="secao__titulo">Convidar para a empresa</h2>
+    <p class="muted">O convite vale por 7 dias, para um único cadastro com o e-mail informado.</p>
+
+    <form class="convite-form" [formGroup]="form" (ngSubmit)="convidar()" novalidate>
+      <div class="campo convite-form__email">
+        <label class="campo__rotulo" for="email">E-mail</label>
+        <input
+          id="email"
+          class="campo__entrada"
+          type="email"
+          formControlName="email"
+          placeholder="pessoa@suaempresa.com.br"
+          autocomplete="off"
+          [class.campo__entrada--invalido]="invalido()"
+        />
+        @if (invalido()) {
+          <p class="campo__ajuda">Informe um e-mail válido.</p>
+        }
+      </div>
+      <div class="campo">
+        <label class="campo__rotulo" for="papel">Papel</label>
+        <select id="papel" class="campo__entrada" formControlName="papel_empresa">
+          <option value="membro">Membro</option>
+          <option value="dono">Dono</option>
+        </select>
+      </div>
+      <button class="botao" type="submit" [disabled]="convidando()">
+        {{ convidando() ? 'Gerando…' : 'Gerar convite' }}
+      </button>
+    </form>
+
+    @if (erroConvite(); as mensagem) {
+      <p class="aviso aviso--erro" role="alert">{{ mensagem }}</p>
+    }
+
+    @if (criado(); as c) {
+      <div class="link" role="status" data-testid="link-convite">
+        <p>
+          Convite para <strong>{{ c.email }}</strong> enviado por e-mail. Copie o link agora se
+          quiser mandar por outro canal — <strong>ele não aparece de novo</strong>.
+        </p>
+        <div class="link__linha">
+          <input class="campo__entrada link__valor" type="text" [value]="c.link" readonly />
+          <button class="botao botao--secundario" type="button" (click)="copiar(c.link)">
+            {{ copiado() ? 'Copiado' : 'Copiar' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (convites().length > 0) {
+      <h3 class="subtitulo">Convites pendentes</h3>
+      <ul class="lista">
+        @for (convite of convites(); track convite.id_convite) {
+          <li class="linha">
+            <span class="linha__info">
+              <span class="linha__nome">{{ convite.email }}</span>
+              <span class="muted">
+                {{ convite.papel_empresa === 'dono' ? 'Dono' : 'Membro' }} · vence em
+                {{ dataLegivel(convite.expira_em) }}
+              </span>
+            </span>
+            <button
+              class="botao botao--secundario botao--pequeno"
+              type="button"
+              (click)="revogar(convite)"
+            >
+              Revogar
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+}
+
+<section class="card secao">
+  <h2 class="secao__titulo">Membros</h2>
+
+  @if (carregando()) {
+    <p class="muted">Carregando membros…</p>
+  } @else {
+    <ul class="lista" data-testid="membros">
+      @for (membro of membros(); track membro.id_usuario) {
+        <li class="linha">
+          <span class="linha__info">
+            <span class="linha__nome">
+              {{ membro.nome }}
+              @if (membro.id_usuario === usuario()?.id_usuario) {
+                <span class="muted">(você)</span>
+              }
+            </span>
+            <span class="muted">{{ membro.email }}</span>
+          </span>
+          <span class="linha__acoes">
+            <span class="badge" [class.badge--concluida]="membro.papel_empresa === 'dono'">
+              {{ membro.papel_empresa === 'dono' ? 'Dono' : 'Membro' }}
+            </span>
+            @if (podeRemover(membro)) {
+              <button
+                class="botao botao--pequeno"
+                type="button"
+                [class.botao--perigo]="confirmando() === membro.id_usuario"
+                [class.botao--secundario]="confirmando() !== membro.id_usuario"
+                (click)="remover(membro)"
+              >
+                {{ confirmando() === membro.id_usuario ? 'Confirmar remoção' : 'Remover' }}
+              </button>
+            }
+          </span>
+        </li>
+      }
+    </ul>
+  }
+</section>

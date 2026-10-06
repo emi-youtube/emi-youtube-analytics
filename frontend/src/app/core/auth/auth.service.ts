@@ -15,10 +15,12 @@ import {
 import { environment } from '../../../environments/environment';
 import { skipAuth } from './auth.context';
 import {
-  AccessTokenResponse,
+  ConviteParaCadastro,
   LoginRequest,
+  MensagemResponse,
   RegisterRequest,
   TokenPairResponse,
+  TrocarSenhaRequest,
   UserResponse,
 } from './auth.models';
 import { TokenStorage } from './token-storage';
@@ -92,12 +94,53 @@ export class AuthService {
     return this.http
       .post<TokenPairResponse>(`${this.baseUrl}/login`, credenciais, { context: skipAuth() })
       .pipe(
-        tap((tokens) => {
-          this.accessToken.set(tokens.access_token);
-          this.storage.write(tokens.refresh_token);
-        }),
+        tap((tokens) => this.guardarTokens(tokens)),
         switchMap(() => this.loadCurrentUser()),
       );
+  }
+
+  private guardarTokens(tokens: TokenPairResponse): void {
+    this.accessToken.set(tokens.access_token);
+    this.storage.write(tokens.refresh_token);
+  }
+
+  /** Dados do convite do link `/entrar?convite=...`: e-mail travado e empresa. */
+  consultarConvite(token: string): Observable<ConviteParaCadastro> {
+    return this.http.post<ConviteParaCadastro>(
+      `${this.baseUrl}/convites/consultar`,
+      { token },
+      { context: skipAuth() },
+    );
+  }
+
+  /**
+   * Troca a senha de quem está logado.
+   *
+   * O backend revoga TODOS os refresh tokens e devolve um par novo para esta
+   * sessão — guardá-lo é o que impede a própria aba de cair no próximo refresh.
+   */
+  trocarSenha(dados: TrocarSenhaRequest): Observable<void> {
+    return this.http.post<TokenPairResponse>(`${this.baseUrl}/trocar-senha`, dados).pipe(
+      tap((tokens) => this.guardarTokens(tokens)),
+      map(() => void 0),
+    );
+  }
+
+  /** Sempre 202 com a mesma mensagem, exista ou não a conta. */
+  esqueciSenha(email: string): Observable<MensagemResponse> {
+    return this.http.post<MensagemResponse>(
+      `${this.baseUrl}/esqueci-senha`,
+      { email },
+      { context: skipAuth() },
+    );
+  }
+
+  redefinirSenha(token: string, novaSenha: string): Observable<void> {
+    return this.http.post<void>(
+      `${this.baseUrl}/redefinir-senha`,
+      { token, nova_senha: novaSenha },
+      { context: skipAuth() },
+    );
   }
 
   /**
@@ -125,11 +168,13 @@ export class AuthService {
   }
 
   /**
-   * Troca o refresh token por um access token novo.
+   * Troca o refresh token por um par novo (rotação).
    *
    * Chamado pelo interceptor no 401. Enquanto uma troca está em voo, as demais
-   * assinam o mesmo Observable (`shareReplay`) — senão N requisições paralelas
-   * dispararicam N refreshes.
+   * assinam o mesmo Observable (`shareReplay`). Com rotação isso deixou de ser
+   * só economia: o refresh antigo morre no primeiro uso, e um segundo refresh
+   * paralelo com ele seria lido pelo backend como REUSO — que derruba todas as
+   * sessões da conta.
    */
   refreshAccessToken(): Observable<string> {
     if (this.refreshInFlight) {
@@ -142,14 +187,14 @@ export class AuthService {
     }
 
     this.refreshInFlight = this.http
-      .post<AccessTokenResponse>(
+      .post<TokenPairResponse>(
         `${this.baseUrl}/refresh`,
         { refresh_token: refreshToken },
         { context: skipAuth() },
       )
       .pipe(
-        map((resposta) => resposta.access_token),
-        tap((token) => this.accessToken.set(token)),
+        tap((tokens) => this.guardarTokens(tokens)),
+        map((tokens) => tokens.access_token),
         catchError((erro) => {
           // Refresh recusado: o token expirou ou foi revogado. Não há volta.
           this.clearSession();
@@ -197,7 +242,7 @@ export class AuthService {
     return this.restoreInFlight;
   }
 
-  /** `GET /auth/eu` — quem é o dono do token. Alimenta o rodapé da nav. */
+  /** `GET /auth/eu` — quem é o dono do token e de qual empresa. Alimenta a nav. */
   loadCurrentUser(): Observable<UserResponse> {
     return this.http
       .get<UserResponse>(`${this.baseUrl}/eu`)

@@ -1,0 +1,66 @@
+<div class="acesso">
+  <app-vitrine />
+
+  <section class="acesso__painel">
+    <form class="form" [formGroup]="form" (ngSubmit)="enviar()" novalidate>
+      <h2 class="form__titulo">Redefinir senha</h2>
+
+      @if (!token) {
+        <p class="form__erro" role="alert">
+          Este link está incompleto. Abra o link do e-mail de novo ou
+          <a routerLink="/esqueci-senha">peça um novo</a>.
+        </p>
+      } @else if (concluido()) {
+        <p class="form__sucesso" role="status">
+          Senha redefinida. Por segurança, as sessões abertas com a senha antiga foram encerradas.
+        </p>
+        <a class="botao" routerLink="/login">Entrar com a nova senha</a>
+      } @else {
+        @if (erro(); as mensagem) {
+          <p class="form__erro" role="alert">
+            {{ mensagem }}
+            <a routerLink="/esqueci-senha">Pedir um novo link</a>
+          </p>
+        }
+
+        <div class="campo">
+          <label class="campo__rotulo" for="nova_senha">Nova senha</label>
+          <input
+            id="nova_senha"
+            class="campo__entrada"
+            type="password"
+            formControlName="nova_senha"
+            autocomplete="new-password"
+            [class.campo__entrada--invalido]="invalido('nova_senha')"
+          />
+          @if (invalido('nova_senha')) {
+            <p class="campo__ajuda">A senha deve ter ao menos {{ senhaMinima }} caracteres.</p>
+          } @else {
+            <p class="campo__dica">Ao menos {{ senhaMinima }} caracteres.</p>
+          }
+        </div>
+
+        <div class="campo">
+          <label class="campo__rotulo" for="confirmacao">Confirme a nova senha</label>
+          <input
+            id="confirmacao"
+            class="campo__entrada"
+            type="password"
+            formControlName="confirmacao"
+            autocomplete="new-password"
+            [class.campo__entrada--invalido]="invalido('confirmacao') || senhasDiferentes()"
+          />
+          @if (invalido('confirmacao')) {
+            <p class="campo__ajuda">Repita a senha.</p>
+          } @else if (senhasDiferentes()) {
+            <p class="campo__ajuda">As senhas não são iguais.</p>
+          }
+        </div>
+
+        <button class="botao" type="submit" [disabled]="enviando()">
+          {{ enviando() ? 'Salvando…' : 'Salvar nova senha' }}
+        </button>
+      }
+    </form>
+  </section>
+</div>

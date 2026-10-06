@@ -10,9 +10,10 @@ interface NavItem {
   icone: string;
 }
 
-const PAPEIS: Record<string, string> = {
-  admin: 'Administrador',
-  usuario_pme: 'Empresa',
+/** O que a nav mostra sob o nome: o papel NA EMPRESA; admin global vem antes. */
+const PAPEIS_EMPRESA: Record<string, string> = {
+  dono: 'Dono',
+  membro: 'Membro',
 };
 
 /**
@@ -54,7 +55,14 @@ export class Shell {
       rota: '/resultados',
       icone: 'M4 20V12M9.33 20V6M14.67 20v-9M20 20V9',
     },
+    {
+      rotulo: 'Minha empresa',
+      rota: '/empresa',
+      icone: 'M4 20.5V5.5h9v15M13 9.5h7v11M7 9h3M7 13h3M7 17h3M16 13h1.5M16 17h1.5M2.5 20.5h19',
+    },
   ];
+
+  protected readonly empresa = computed(() => this.usuario()?.empresa?.nome ?? '');
 
   protected readonly iniciais = computed(() => {
     const nome = this.usuario()?.nome?.trim();
@@ -68,8 +76,12 @@ export class Shell {
   });
 
   protected readonly papel = computed(() => {
-    const papel = this.usuario()?.papel;
-    return papel ? (PAPEIS[papel] ?? papel) : '';
+    const usuario = this.usuario();
+    if (!usuario) {
+      return '';
+    }
+    const naEmpresa = PAPEIS_EMPRESA[usuario.papel_empresa] ?? usuario.papel_empresa;
+    return usuario.papel === 'admin' ? `Administrador · ${naEmpresa}` : naEmpresa;
   });
 
   protected sair(): void {
