@@ -1,6 +1,7 @@
 """Hash de senha (bcrypt) e emissão/validação de tokens JWT."""
 
 import hashlib
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
@@ -55,6 +56,14 @@ def hash_token(valor: str) -> str:
     enumerável. Serve como minimização de dado, não como proteção criptográfica.
     """
     return hashlib.sha256(valor.encode("utf-8")).hexdigest()
+
+
+def gerar_token_opaco() -> str:
+    """Token aleatório de 32 bytes (convite, redefinição de senha), em base64 de URL.
+
+    Vai no link do e-mail; o banco guarda só o `hash_token` dele.
+    """
+    return secrets.token_urlsafe(32)
 
 
 def create_access_token(id_usuario: int, papel: str) -> str:

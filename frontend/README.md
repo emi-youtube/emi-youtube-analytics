@@ -41,6 +41,24 @@ refresh por um access novo antes de liberar a rota. Durante o uso, o
 `authInterceptor` renova no 401 e repete a requisição original — um refresh de
 cada vez, mesmo com várias requisições falhando juntas.
 
+O refresh é **rotacionado**: cada `/auth/refresh` devolve um par novo, e o
+refresh guardado é trocado pelo novo. Reenviar um refresh já trocado é lido pelo
+backend como cópia e derruba todas as sessões da conta — por isso o "um refresh
+de cada vez" deixou de ser só economia. Duas ABAS renovando no mesmo instante
+ainda podem cair nisso (o `shareReplay` vale dentro de uma aba); o efeito é
+entrar de novo.
+
+### Telas de conta e empresa
+
+| Rota | Tela | Guard |
+|---|---|---|
+| `/cadastro` | criar empresa (dono) ou entrar por convite | `guestGuard` |
+| `/entrar?convite=<token>` | o mesmo cadastro, já no modo convite, e-mail travado | `guestGuard` |
+| `/esqueci-senha` | pede o link (resposta igual exista ou não a conta) | `guestGuard` |
+| `/redefinir-senha?token=<token>` | nova senha pelo link do e-mail | nenhum |
+| `/empresa` | membros; convites e remoção só para o dono | `authGuard` (Shell) |
+| `/conta` | trocar senha | `authGuard` (Shell) |
+
 No SSR os guards liberam a renderização (não há `localStorage` no servidor) e o
 Angular roda os guards de novo no navegador, na hidratação. O HTML do servidor
 é só o esqueleto, sem dado de usuário.

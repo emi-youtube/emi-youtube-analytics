@@ -21,6 +21,27 @@ export const routes: Routes = [
     loadComponent: () => import('./features/cadastro/cadastro').then((m) => m.Cadastro),
   },
   {
+    // Link do convite (`/entrar?convite=...`, ADR-011): a mesma tela do cadastro,
+    // que lê o token e abre no modo "Tenho um convite".
+    path: 'entrar',
+    title: 'Entrar por convite · Emi YouTube Analytics',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./features/cadastro/cadastro').then((m) => m.Cadastro),
+  },
+  {
+    path: 'esqueci-senha',
+    title: 'Esqueci minha senha · Emi YouTube Analytics',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./features/senha/esqueci-senha').then((m) => m.EsqueciSenha),
+  },
+  {
+    // Sem guard de propósito: o link do e-mail precisa abrir mesmo com uma sessão
+    // antiga na aba — redefinir encerra essa sessão de qualquer jeito.
+    path: 'redefinir-senha',
+    title: 'Redefinir senha · Emi YouTube Analytics',
+    loadComponent: () => import('./features/senha/redefinir-senha').then((m) => m.RedefinirSenha),
+  },
+  {
     // Relatório de impressão (UC06): fora do Shell para sair sem o menu lateral,
     // e por isso repete o `authGuard` — é a única tela interna que não o herda.
     // Vem antes da árvore do Shell para não depender da ordem de casamento dela.
@@ -76,6 +97,16 @@ export const routes: Routes = [
         title: 'Comentários · Emi YouTube Analytics',
         loadComponent: () =>
           import('./features/comentarios/comentarios').then((m) => m.Comentarios),
+      },
+      {
+        path: 'empresa',
+        title: 'Minha empresa · Emi YouTube Analytics',
+        loadComponent: () => import('./features/empresa/empresa').then((m) => m.Empresa),
+      },
+      {
+        path: 'conta',
+        title: 'Minha conta · Emi YouTube Analytics',
+        loadComponent: () => import('./features/conta/conta').then((m) => m.Conta),
       },
     ],
   },

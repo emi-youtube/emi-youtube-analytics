@@ -1,0 +1,41 @@
+<div class="acesso">
+  <app-vitrine />
+
+  <section class="acesso__painel">
+    <form class="form" [formGroup]="form" (ngSubmit)="enviar()" novalidate>
+      <h2 class="form__titulo">Esqueci minha senha</h2>
+      <p class="form__alternativa">Lembrou? <a routerLink="/login">Voltar para a entrada</a></p>
+
+      @if (enviado()) {
+        <p class="form__sucesso" role="status">
+          Se houver uma conta com este e-mail, enviamos um link para redefinir a senha. Ele vale por
+          30 minutos e pode ser usado uma única vez.
+        </p>
+      } @else {
+        @if (erro(); as mensagem) {
+          <p class="form__erro" role="alert">{{ mensagem }}</p>
+        }
+
+        <div class="campo">
+          <label class="campo__rotulo" for="email">E-mail da conta</label>
+          <input
+            id="email"
+            class="campo__entrada"
+            type="email"
+            formControlName="email"
+            placeholder="voce@suaempresa.com.br"
+            autocomplete="username"
+            [class.campo__entrada--invalido]="invalido()"
+          />
+          @if (invalido()) {
+            <p class="campo__ajuda">Informe um e-mail válido.</p>
+          }
+        </div>
+
+        <button class="botao" type="submit" [disabled]="enviando()">
+          {{ enviando() ? 'Enviando…' : 'Enviar link de redefinição' }}
+        </button>
+      }
+    </form>
+  </section>
+</div>

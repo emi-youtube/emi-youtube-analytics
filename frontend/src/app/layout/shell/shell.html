@@ -6,6 +6,9 @@
       </svg>
       <span class="marca__texto">Emi Analytics</span>
     </a>
+    @if (empresa(); as nome) {
+      <p class="empresa" data-testid="empresa">{{ nome }}</p>
+    }
 
     <ul class="nav__lista">
       @for (item of itens; track item.rota) {
@@ -28,13 +31,13 @@
 
     <div class="conta">
       @if (usuario(); as u) {
-        <div class="conta__linha">
+        <a class="conta__linha" routerLink="/conta" title="Minha conta">
           <span class="conta__avatar" aria-hidden="true">{{ iniciais() }}</span>
           <span class="conta__dados">
             <span class="conta__nome">{{ u.nome }}</span>
             <span class="conta__papel">{{ papel() }}</span>
           </span>
-        </div>
+        </a>
       }
       <button type="button" class="conta__sair" (click)="sair()">Sair</button>
     </div>

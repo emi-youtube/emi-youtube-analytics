@@ -41,6 +41,17 @@
   font-size: 17px;
 }
 
+/* Nome da empresa logo abaixo da marca: deixa claro de quem são os dados da tela. */
+.empresa {
+  margin: calc(-1 * var(--space-5)) 0 var(--space-5);
+  padding: 0 var(--space-3);
+  overflow: hidden;
+  color: var(--ink-on-dark-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* --- Itens --- */
 .nav__lista {
   list-style: none;
@@ -99,6 +110,12 @@
   align-items: center;
   gap: var(--space-3);
   padding: 0 var(--space-3) var(--space-3);
+  color: inherit;
+  text-decoration: none;
+}
+
+.conta__linha:hover .conta__nome {
+  text-decoration: underline;
 }
 
 .conta__avatar {

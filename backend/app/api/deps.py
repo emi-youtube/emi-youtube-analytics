@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import TOKEN_TYPE_ACCESS, decode_token
 from app.models.usuario import Usuario
-from app.services.auth import PAPEL_ADMIN
+from app.services.auth import PAPEL_ADMIN, PAPEL_DONO
 
 # auto_error=False para responder 401 (e não o 403 padrão do HTTPBearer) quando
 # o cabeçalho Authorization não vem.
@@ -47,5 +47,18 @@ async def requer_admin(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso restrito a administradores.",
+        )
+    return usuario
+
+
+async def requer_dono(
+    usuario: Annotated[Usuario, Depends(get_usuario_atual)],
+) -> Usuario:
+    """Só o dono gerencia membros e convites. 403 e não 404: a pessoa está na própria
+    empresa, então não há existência alheia a esconder."""
+    if usuario.papel_empresa != PAPEL_DONO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas o dono da empresa pode gerenciar membros e convites.",
         )
     return usuario

@@ -20,7 +20,9 @@ os.environ["JWT_REFRESH_TOKEN_EXPIRE_DAYS"] = "7"
 os.environ["YOUTUBE_API_KEY"] = "chave-de-teste"
 
 from typing import Annotated
+from urllib.parse import parse_qs, urlparse
 
+import pytest
 import pytest_asyncio
 from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
@@ -29,11 +31,14 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import requer_admin
+from app.api.v1.auth import limite_esqueci_senha
 from app.core.database import Base, get_db
 from app.main import app
 from app.models.analise_sentimento import AnaliseSentimento
 from app.models.comentario import Comentario
 from app.models.comentario_tema import ComentarioTema
+from app.models.convite import Convite
+from app.models.empresa import Empresa
 from app.models.execucao import Execucao
 from app.models.job import Job
 from app.models.job_dlq import JobDlq
@@ -41,13 +46,17 @@ from app.models.modelo_analise import ModeloAnalise
 from app.models.tema import Tema
 from app.models.tentativa_login import TentativaLogin
 from app.models.token_atualizacao import TokenAtualizacao
+from app.models.token_redefinicao_senha import TokenRedefinicaoSenha
 from app.models.usuario import Usuario
 from app.models.versao_modelo import VersaoModelo
 from app.models.video import Video
 
 TABELAS_TESTADAS = [
+    Empresa.__table__,
     Usuario.__table__,
+    Convite.__table__,
     TokenAtualizacao.__table__,
+    TokenRedefinicaoSenha.__table__,
     TentativaLogin.__table__,
     ModeloAnalise.__table__,
     Execucao.__table__,
@@ -68,6 +77,14 @@ ROTA_ADMIN = "/api/v1/_teste/somente-admin"
 @app.get(ROTA_ADMIN)
 async def _rota_somente_admin(usuario: Annotated[Usuario, Depends(requer_admin)]) -> dict:
     return {"papel": usuario.papel}
+
+
+@pytest.fixture(autouse=True)
+def _zerar_limite_esqueci_senha():
+    """O limite por IP é estado do processo: sem zerar, um teste herdaria o do outro."""
+    limite_esqueci_senha.limpar()
+    yield
+    limite_esqueci_senha.limpar()
 
 
 @pytest_asyncio.fixture
@@ -99,10 +116,52 @@ async def sessao(engine_teste):
 
 
 async def autenticar(cliente, email: str, senha: str = "SenhaForte123") -> dict[str, str]:
-    """Registra, loga e devolve o header Authorization pronto para uso."""
+    """Registra (dono de uma empresa nova), loga e devolve o header Authorization."""
     await cliente.post(
-        "/api/v1/auth/registrar", json={"nome": f"Conta {email}", "email": email, "senha": senha}
+        "/api/v1/auth/registrar",
+        json={
+            "nome": f"Conta {email}",
+            "email": email,
+            "senha": senha,
+            "nome_empresa": f"Empresa de {email}",
+        },
     )
+    resposta = await cliente.post("/api/v1/auth/login", json={"email": email, "senha": senha})
+    return {"Authorization": f"Bearer {resposta.json()['access_token']}"}
+
+
+def token_do_link(link: str) -> str:
+    """Extrai o token de um link de convite (`.../entrar?convite=<token>`)."""
+    return parse_qs(urlparse(link).query)["convite"][0]
+
+
+async def convidar(
+    cliente, cabecalho_dono: dict[str, str], email: str, papel_empresa: str = "membro"
+) -> str:
+    """O dono convida `email`; devolve o token do convite."""
+    resposta = await cliente.post(
+        "/api/v1/empresa/convites",
+        json={"email": email, "papel_empresa": papel_empresa},
+        headers=cabecalho_dono,
+    )
+    assert resposta.status_code == 201, resposta.text
+    return token_do_link(resposta.json()["link"])
+
+
+async def autenticar_convidado(
+    cliente,
+    cabecalho_dono: dict[str, str],
+    email: str,
+    senha: str = "SenhaForte123",
+    papel_empresa: str = "membro",
+) -> dict[str, str]:
+    """Convida, registra pelo convite, loga e devolve o header do novo membro."""
+    token = await convidar(cliente, cabecalho_dono, email, papel_empresa)
+    registro = await cliente.post(
+        "/api/v1/auth/registrar",
+        json={"nome": f"Conta {email}", "email": email, "senha": senha, "token_convite": token},
+    )
+    assert registro.status_code == 201, registro.text
     resposta = await cliente.post("/api/v1/auth/login", json={"email": email, "senha": senha})
     return {"Authorization": f"Bearer {resposta.json()['access_token']}"}
 

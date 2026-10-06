@@ -48,6 +48,24 @@ class Settings(BaseSettings):
     # Token de LEITURA do repositório privado. Só o download usa; nunca vai para log.
     hf_token: str = ""
 
+    # --- Empresas (ADR-011) ---
+    # Teto de membros por empresa, contando os convites pendentes. Projeto para PME:
+    # o limite existe para um convite vazado não virar porta aberta.
+    empresa_max_membros: int = 10
+
+    # --- E-mail transacional (convites e redefinição de senha) ---
+    # "log": não envia; em desenvolvimento escreve a mensagem (com o link) no log do
+    # servidor, e em produção só avisa que NÃO enviou — link de redefinição em log
+    # de produção seria credencial exposta. "resend": envia pela API do Resend.
+    email_provedor: str = "log"
+    resend_api_key: str = ""
+    # Remetente verificado no Resend. O domínio de testes dele só entrega para o
+    # e-mail da própria conta: para convidar de verdade, verifique um domínio.
+    email_remetente: str = "Emi Analytics <onboarding@resend.dev>"
+    email_timeout_seconds: int = 10
+    # Base dos links que vão no e-mail (convite e redefinição): a URL do frontend.
+    frontend_url: str = "http://localhost:4200"
+
     worker_poll_interval_seconds: int = 5
     # Depois de quantos minutos em 'processando' um job é considerado abandonado
     # pelo worker e devolvido à fila (`workers/fila.devolver_presos`). Tem de ser

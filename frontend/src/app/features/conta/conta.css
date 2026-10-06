@@ -1,0 +1,40 @@
+/* Seções em cartão das telas "Minha conta" e "Minha empresa". */
+.secao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.secao__titulo {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 500;
+}
+
+.secao__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 420px;
+  margin-top: var(--space-2);
+}
+
+.aviso {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  font-size: 14px;
+}
+
+.aviso--erro {
+  border: 1px solid var(--negativo);
+  background: var(--negativo-soft);
+  color: var(--negativo);
+}
+
+.aviso--sucesso {
+  border: 1px solid var(--positivo);
+  background: var(--positivo-soft);
+  color: var(--positivo);
+}

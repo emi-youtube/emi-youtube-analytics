@@ -69,6 +69,7 @@ async def montar_cenario(
 
     modelo = ModeloAnalise(
         id_usuario=usuario.id_usuario,
+        id_empresa=usuario.id_empresa,
         nome=nome_modelo,
         termo_pesquisa="tênis",
         filtros={"videos": [VIDEO_A, VIDEO_B]},

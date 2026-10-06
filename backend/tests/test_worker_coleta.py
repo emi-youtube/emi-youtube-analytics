@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from app.core.security import hash_token
 from app.models.comentario import Comentario
+from app.models.empresa import Empresa
 from app.models.execucao import Execucao
 from app.models.job import Job
 from app.models.job_dlq import JobDlq
@@ -144,13 +145,19 @@ def sem_espera(monkeypatch):
 async def montar_job(sessao, *, filtros: dict | None = None, termo: str = "") -> Job:
     """Cria usuário -> modelo -> execução -> job de coleta pendente, direto no banco."""
     usuario = Usuario(
-        nome="Dona", email=f"dona{id(filtros)}@exemplo.com", senha_hash="x", papel="usuario_pme"
+        empresa=Empresa(nome="Empresa"),
+        papel_empresa="dono",
+        nome="Dona",
+        email=f"dona{id(filtros)}@exemplo.com",
+        senha_hash="x",
+        papel="usuario_pme",
     )
     sessao.add(usuario)
     await sessao.flush()
 
     modelo = ModeloAnalise(
         id_usuario=usuario.id_usuario,
+        id_empresa=usuario.id_empresa,
         nome="Campanha",
         termo_pesquisa=termo,
         filtros=filtros if filtros is not None else {"videos": [VIDEO_A]},

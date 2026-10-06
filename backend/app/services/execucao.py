@@ -1,9 +1,9 @@
 """Regras da execução de análise (UC03: disparar; UC04: acompanhar).
 
-Segurança (Seção 4.3.1): a execução não guarda `id_usuario` — o dono é o dono do
-modelo. Toda leitura por id passa por `get_owned`, que faz join com
-MODELOS_ANALISE filtrando pelo usuário do token e responde 404 quando a execução
-é de outro; um 403 confirmaria que aquele id existe.
+Segurança (Seção 4.3.1): a execução não guarda empresa nem usuário — a dona é a
+empresa dona do modelo. Toda leitura por id passa por `get_owned`, que faz join com
+MODELOS_ANALISE filtrando pela empresa do token (`escopo.da_empresa`, ADR-011) e
+responde 404 quando a execução é de outra; um 403 confirmaria que aquele id existe.
 
 Regra do CLAUDE.md: aqui NADA de coleta acontece. O endpoint só enfileira e
 responde 202 — a coleta roda no worker, fora do ciclo da requisição.
@@ -22,6 +22,7 @@ from app.models.job import Job
 from app.models.modelo_analise import ModeloAnalise
 from app.models.usuario import Usuario
 from app.schemas.execucao import ExecucaoCreate
+from app.services import escopo
 from app.services.modelo_analise import get_owned as get_modelo_owned
 
 logger = logging.getLogger(__name__)
@@ -103,13 +104,13 @@ async def create(db: AsyncSession, usuario: Usuario, dados: ExecucaoCreate) -> E
 
 
 async def get_owned(db: AsyncSession, usuario: Usuario, id_execucao: int) -> Execucao:
-    """Único caminho para alcançar uma execução por id. 404 se não for do usuário."""
+    """Único caminho para alcançar uma execução por id. 404 se não for da empresa."""
     execucao = await db.scalar(
         select(Execucao)
         .join(ModeloAnalise, ModeloAnalise.id_modelo == Execucao.id_modelo)
         .where(
             Execucao.id_execucao == id_execucao,
-            ModeloAnalise.id_usuario == usuario.id_usuario,
+            escopo.da_empresa(usuario),
         )
     )
     if execucao is None:
@@ -123,7 +124,7 @@ async def list_for_user(db: AsyncSession, usuario: Usuario) -> Sequence[Execucao
     resultado = await db.scalars(
         select(Execucao)
         .join(ModeloAnalise, ModeloAnalise.id_modelo == Execucao.id_modelo)
-        .where(ModeloAnalise.id_usuario == usuario.id_usuario)
+        .where(escopo.da_empresa(usuario))
         .order_by(Execucao.id_execucao.desc())
     )
     return resultado.all()

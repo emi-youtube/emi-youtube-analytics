@@ -1,10 +1,11 @@
 """Monta a tela Início num endpoint só (`GET /api/v1/painel`).
 
-Todas as contagens são `GROUP BY` sobre as execuções DO USUÁRIO: o recorte por
-dono é um join com MODELOS_ANALISE filtrando por `id_usuario`, igual ao resto da
-API. Um painel que somasse o banco inteiro mostraria número de outra empresa.
+Todas as contagens são `GROUP BY` sobre as execuções DA EMPRESA do usuário: o
+recorte por dono é um join com MODELOS_ANALISE filtrando por `escopo.da_empresa`,
+igual ao resto da API (ADR-011). Um painel que somasse o banco inteiro mostraria
+número de outra empresa.
 
-Não há laço sobre comentários aqui — o maior laço percorre os modelos do usuário.
+Não há laço sobre comentários aqui — o maior laço percorre os modelos da empresa.
 """
 
 import logging
@@ -28,6 +29,7 @@ from app.schemas.painel import (
     ResumoPainel,
     TotaisUsuario,
 )
+from app.services import escopo
 from app.services.resultado import (
     contagens_por_execucao,
     distribuicao_de,
@@ -45,7 +47,7 @@ async def _execucoes_do_usuario(db: AsyncSession, usuario: Usuario) -> list[Exec
     resultado = await db.scalars(
         select(Execucao)
         .join(ModeloAnalise, ModeloAnalise.id_modelo == Execucao.id_modelo)
-        .where(ModeloAnalise.id_usuario == usuario.id_usuario)
+        .where(escopo.da_empresa(usuario))
         .order_by(Execucao.id_execucao.desc())
     )
     return list(resultado.all())
@@ -78,7 +80,7 @@ async def resumo(db: AsyncSession, usuario: Usuario) -> ResumoPainel:
         (
             await db.scalars(
                 select(ModeloAnalise)
-                .where(ModeloAnalise.id_usuario == usuario.id_usuario)
+                .where(escopo.da_empresa(usuario))
                 .order_by(ModeloAnalise.id_modelo.desc())
             )
         ).all()

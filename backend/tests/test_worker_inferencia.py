@@ -28,6 +28,7 @@ from app.inferencia.lexico import ClassificadorLexico
 from app.inferencia.versao import garantir_versao
 from app.models.analise_sentimento import AnaliseSentimento
 from app.models.comentario import Comentario
+from app.models.empresa import Empresa
 from app.models.execucao import Execucao
 from app.models.job import Job
 from app.models.job_dlq import JobDlq
@@ -99,6 +100,8 @@ async def montar_execucao_com_comentarios(sessao, textos: list[str]) -> Execucao
     começa depois dela, sem repetir o dublê da YouTube API.
     """
     usuario = Usuario(
+        empresa=Empresa(nome="Empresa"),
+        papel_empresa="dono",
         nome="Dona",
         email=f"inferencia{id(textos)}@exemplo.com",
         senha_hash="x",
@@ -109,6 +112,7 @@ async def montar_execucao_com_comentarios(sessao, textos: list[str]) -> Execucao
 
     modelo = ModeloAnalise(
         id_usuario=usuario.id_usuario,
+        id_empresa=usuario.id_empresa,
         nome="Campanha",
         termo_pesquisa="tênis",
         filtros={"videos": [VIDEO_A]},
@@ -582,12 +586,18 @@ async def test_ponta_a_ponta_coleta_simulada_ate_execucao_concluida(sessao):
     Em SQLite, sem Supabase e sem cota (CLAUDE.md: não rode contra o Supabase ainda).
     """
     usuario = Usuario(
-        nome="Dona", email="pontaaponta@exemplo.com", senha_hash="x", papel="usuario_pme"
+        empresa=Empresa(nome="Empresa"),
+        papel_empresa="dono",
+        nome="Dona",
+        email="pontaaponta@exemplo.com",
+        senha_hash="x",
+        papel="usuario_pme",
     )
     sessao.add(usuario)
     await sessao.flush()
     modelo = ModeloAnalise(
         id_usuario=usuario.id_usuario,
+        id_empresa=usuario.id_empresa,
         nome="Campanha",
         termo_pesquisa="tênis",
         filtros={"videos": [VIDEO_A]},

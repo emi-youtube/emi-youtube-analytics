@@ -74,7 +74,9 @@ class ModeloAnaliseResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id_modelo: int
+    # Autor do modelo; a posse é da empresa (`id_empresa`, ADR-011).
     id_usuario: int
+    id_empresa: int
     nome: str
     termo_pesquisa: str
     filtros: dict | None
