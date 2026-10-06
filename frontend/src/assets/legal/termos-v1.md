@@ -1,8 +1,8 @@
 # Emi YouTube Analytics — Termos de Uso e Política de Privacidade
 
-Versão 1.0 — vigente a partir de [PREENCHER]. Projeto acadêmico (TCC) da Universidade Paulista (UNIP).
+Versão 1.0 — vigente a partir de 06/10/2026. Projeto acadêmico (TCC) da Universidade Paulista (UNIP).
 
-[Texto-base preparado pela equipe com a descrição real do sistema. Não substitui revisão jurídica; peça a conferência da orientadora antes de publicar.]
+O Emi é uma plataforma que coleta os comentários dos seus vídeos publicitários, veja a divisão entre positivo, negativo e neutro, e descubra os temas que mais se repetem.
 
 ## 1. Sobre o sistema
 
@@ -24,7 +24,7 @@ O sistema analisa os comentários coletados, não a opinião de todo o público 
 
 ## 4. Dados que tratamos (LGPD — Lei 13.709/2018)
 
-Controladores: a equipe do projeto [NOMES] e a orientadora, no contexto do TCC. Contato do encarregado: [E-MAIL].
+Controladores: a equipe do projeto GIOVANA FONSECA BATSCHER, GIOVANNE DA SILVA BORDOTTI, JOÃO ANTÔNIO MARQUES.S. DE SOUZA, LUAN DONATO MEDEIROS MORENO e a orientadora, no contexto do TCC. Contato do encarregado: emi.youtube.analytics@gmail.com.
 
 | Dado | Finalidade | Base legal (art. 7º) | Observação |
 |---|---|---|---|
@@ -52,13 +52,13 @@ Os comentários não são enviados a serviços de IA de terceiros na classifica�
 
 ## 6. Quanto tempo guardamos
 
-Dados da conta: enquanto a conta existir. Comentários e resultados: até [PREENCHER] meses após a execução, quando são excluídos [CONFIRMAR: expurgo automático ainda será implementado; até lá, a exclusão é feita sob pedido]. Ao fim do projeto acadêmico, os dados de teste serão excluídos ou anonimizados.
+Dados da conta: enquanto a conta existir. Comentários e resultados: até 3 meses após a execução, quando são excluídos. O expurgo automático ainda será implementado; até lá, a exclusão é feita sob pedido. Ao fim do projeto acadêmico, os dados de teste serão excluídos ou anonimizados.
 
 Corpus de pesquisa: os textos de comentários públicos usados no treinamento e na avaliação do modelo, com o autor pseudonimizado, pertencem ao projeto acadêmico e não à empresa; por isso permanecem depois da exclusão de uma conta ou empresa e não são publicados com identificação do autor.
 
 ## 7. Seus direitos
 
-Você pode pedir confirmação do tratamento, acesso, correção, exclusão, portabilidade, informação sobre compartilhamento e revogação do consentimento (LGPD, art. 18), escrevendo para [E-MAIL]. Responderemos em até 15 dias. Também pode reclamar à ANPD.
+Você pode pedir confirmação do tratamento, acesso, correção, exclusão, portabilidade, informação sobre compartilhamento e revogação do consentimento (LGPD, art. 18), escrevendo para emi.youtube.analytics@gmail.com. Responderemos em até 15 dias. Também pode reclamar à ANPD.
 
 ## 8. Segurança
 
@@ -70,4 +70,4 @@ Por ser um protótipo acadêmico, o sistema pode ficar indisponível ou ser desa
 
 ## 10. Alterações e contato
 
-Mudanças nestes termos geram nova versão e novo aceite. Dúvidas: [E-MAIL DA EQUIPE].
+Mudanças nestes termos geram nova versão e novo aceite. Dúvidas: emi.youtube.analytics@gmail.com.
