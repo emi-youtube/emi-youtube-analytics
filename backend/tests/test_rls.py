@@ -75,5 +75,5 @@ TABELAS_DA_0011 = {"empresas", "convites", "tokens_redefinicao_senha"}
 async def test_tabelas_da_0011_existem_com_rls_ligado(tabelas):
     por_nome = {nome: rls for nome, rls, _ in tabelas}
 
-    assert TABELAS_DA_0011 <= set(por_nome), "rode alembic upgrade head (0011) antes"
+    assert set(por_nome) >= TABELAS_DA_0011, "rode alembic upgrade head (0011) antes"
     assert all(por_nome[nome] for nome in TABELAS_DA_0011)

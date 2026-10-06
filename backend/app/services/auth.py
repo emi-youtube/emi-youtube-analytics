@@ -81,6 +81,23 @@ async def contar_membros(db: AsyncSession, id_empresa: int) -> int:
     )
 
 
+async def consultar_convite(db: AsyncSession, token: str) -> tuple[Convite, Empresa]:
+    """Convite pendente pelo token, para a tela de cadastro preencher e travar o e-mail.
+
+    Só quem tem o token chega aqui, e ele já está no link que o convidado recebeu —
+    devolver o e-mail e o nome da empresa não revela nada que ele não tenha.
+    """
+    convite = await db.scalar(select(Convite).where(Convite.token_hash == hash_token(token)))
+    if (
+        convite is None
+        or convite.usado_em is not None
+        or _as_utc(convite.expira_em) <= datetime.now(UTC)
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=CONVITE_INVALIDO)
+    empresa = await db.get(Empresa, convite.id_empresa)
+    return convite, empresa
+
+
 async def _consumir_convite(db: AsyncSession, token: str, email: str) -> Convite:
     """Valida o convite e o CONSOME. Levanta 400 (inválido) ou 409 (empresa lotada)."""
     invalido = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=CONVITE_INVALIDO)

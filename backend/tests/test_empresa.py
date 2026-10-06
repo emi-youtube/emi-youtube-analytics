@@ -388,3 +388,32 @@ async def test_rotas_da_empresa_exigem_token(cliente):
     assert (
         await cliente.post("/api/v1/empresa/convites", json={"email": "x@y.com"})
     ).status_code == 401
+
+
+# --------------------------------------------------------------------------- consulta
+
+
+async def test_consultar_convite_devolve_email_e_empresa(cliente):
+    h = await autenticar(cliente, DONA)
+    token = await convidar(cliente, h, "nova@empresa.com")
+
+    resposta = await cliente.post("/api/v1/auth/convites/consultar", json={"token": token})
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {
+        "email": "nova@empresa.com",
+        "nome_empresa": f"Empresa de {DONA}",
+        "papel_empresa": "membro",
+    }
+
+
+async def test_consultar_convite_usado_ou_inexistente_responde_404(cliente):
+    h = await autenticar(cliente, DONA)
+    token = await convidar(cliente, h, "nova@empresa.com")
+    await registrar_por_convite(cliente, "nova@empresa.com", token)
+
+    usado = await cliente.post("/api/v1/auth/convites/consultar", json={"token": token})
+    inexistente = await cliente.post("/api/v1/auth/convites/consultar", json={"token": "xyz"})
+
+    assert usado.status_code == inexistente.status_code == 404
+    assert usado.json() == inexistente.json()

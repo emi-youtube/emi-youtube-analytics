@@ -8,6 +8,8 @@ from app.core.database import get_db
 from app.core.limite import LimitePorChave
 from app.models.usuario import Usuario
 from app.schemas.auth import (
+    ConsultarConviteRequest,
+    ConviteParaCadastroResponse,
     EsqueciSenhaRequest,
     MensagemResponse,
     RedefinirSenhaRequest,
@@ -55,6 +57,20 @@ def ip_do_cliente(request: Request) -> str:
 async def registrar(dados: UserRegister, db: Sessao) -> Usuario:
     """Cria a empresa e a conta de dono (`nome_empresa`) ou entra por convite."""
     return await auth_service.register_user(db, dados)
+
+
+@router.post("/convites/consultar", response_model=ConviteParaCadastroResponse)
+async def consultar_convite(
+    dados: ConsultarConviteRequest, db: Sessao
+) -> ConviteParaCadastroResponse:
+    """E-mail e empresa de um convite pendente: a tela de cadastro trava o e-mail nele.
+
+    404 com a mesma mensagem para convite inexistente, usado ou vencido.
+    """
+    convite, empresa = await auth_service.consultar_convite(db, dados.token)
+    return ConviteParaCadastroResponse(
+        email=convite.email, nome_empresa=empresa.nome, papel_empresa=convite.papel_empresa
+    )
 
 
 @router.post("/login", response_model=TokenPairResponse)

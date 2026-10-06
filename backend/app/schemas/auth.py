@@ -98,6 +98,17 @@ class RedefinirSenhaRequest(BaseModel):
         return validar_forca_senha(valor)
 
 
+class ConsultarConviteRequest(BaseModel):
+    # No corpo, e não no caminho da URL: caminho vai para log de acesso.
+    token: str = Field(min_length=1, max_length=128)
+
+
+class ConviteParaCadastroResponse(BaseModel):
+    email: str
+    nome_empresa: str
+    papel_empresa: str
+
+
 class EmpresaResumo(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
