@@ -293,7 +293,7 @@ diz onde cada dado mora.
 |---|---|---|---|
 | e-mail, senha e nome da empresa | execução do serviço solicitado (V) | `USUARIOS`, `EMPRESAS`; senha só como hash bcrypt | enquanto a conta existir |
 | termos aceitos (versão e data) | cumprimento de obrigação / legítimo interesse | `ACEITES_TERMOS` | sai com a conta |
-| comentários públicos do YouTube | legítimo interesse acadêmico; dado tornado público (§4º) | `COMENTARIOS`, autor **pseudonimizado** (SHA-256) | até [PREENCHER] meses — ver pendência abaixo |
+| comentários públicos do YouTube | legítimo interesse acadêmico; dado tornado público (§4º) | `COMENTARIOS`, autor **pseudonimizado** (SHA-256) | até 3 meses após a execução — ver pendência abaixo |
 | registros técnicos (logs, tentativas de login) | legítimo interesse (IX) | `TENTATIVAS_LOGIN` (hash do e-mail) | 24 h (regra 7) |
 | respostas da validação humana | consentimento (I), pelo TCLE | fora deste banco | documento próprio |
 
@@ -305,9 +305,8 @@ anonimização completa").
 
 ### Pendência conhecida: expurgo automático das execuções
 
-A seção 6 dos termos prevê excluir comentários e resultados alguns meses após a
-execução (o prazo é um placeholder a preencher; o planejamento falava em 12). **O
-expurgo automático AINDA NÃO existe**: hoje a execução fica até a empresa ser excluída,
+A seção 6 dos termos prevê excluir comentários e resultados até **3 meses** após a
+execução. **O expurgo automático AINDA NÃO existe**: hoje a execução fica até a empresa ser excluída,
 e os termos dizem isso ("até lá, a exclusão é feita sob pedido"). Quando for feito, o
 caminho natural é a mesma ordem de `_apagar_empresa`, aplicada às execuções vencidas, e
 uma linha nova neste ADR.
