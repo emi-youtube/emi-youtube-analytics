@@ -16,3 +16,17 @@ export const SKIP_AUTH = new HttpContextToken<boolean>(() => false);
 export function skipAuth(): HttpContext {
   return new HttpContext().set(SKIP_AUTH, true);
 }
+
+/**
+ * Anexa o access token, mas NÃO renova no 401.
+ *
+ * Para rotas em que o 401 quer dizer "senha errada", não "sessão vencida"
+ * (`DELETE /conta`). Renovar e repetir trataria a senha errada como sessão
+ * morta — e o segundo 401 levaria ao logout. Quem usa garante antes um access
+ * token fresco (`AuthService.refreshAccessToken`).
+ */
+export const SEM_RENOVAR = new HttpContextToken<boolean>(() => false);
+
+export function semRenovar(): HttpContext {
+  return new HttpContext().set(SEM_RENOVAR, true);
+}

@@ -203,3 +203,15 @@
     padding: var(--space-5) var(--space-4);
   }
 }
+
+/* Links dos documentos legais (ADR-012), discretos no pé da nav. */
+.legal {
+  margin-top: var(--space-2);
+  font-size: 12px;
+  text-align: center;
+  color: var(--ink-on-dark-muted);
+}
+
+.legal a {
+  color: inherit;
+}

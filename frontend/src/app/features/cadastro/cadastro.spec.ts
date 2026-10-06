@@ -67,7 +67,7 @@ describe('Cadastro', () => {
     fixture = TestBed.createComponent(Cadastro);
   }
 
-  function preencher(senha = 'senha-forte-1', confirmacao = senha): void {
+  function preencher(senha = 'senha-forte-1', confirmacao = senha, aceite = true): void {
     const form = componente().form;
     form.controls.nome.setValue('Marina Rocha');
     if (form.controls.email.enabled) {
@@ -76,6 +76,7 @@ describe('Cadastro', () => {
     form.controls.nome_empresa.setValue('Loja da Marina');
     form.controls.senha.setValue(senha);
     form.controls.confirmacao.setValue(confirmacao);
+    form.controls.aceite_termos.setValue(aceite);
   }
 
   /** Fecha o login automático que segue o cadastro. */
@@ -100,6 +101,31 @@ describe('Cadastro', () => {
     httpMock.expectNone(`${AUTH}/registrar`);
   });
 
+  it('sem o aceite dos termos não envia e o botão fica desabilitado', () => {
+    montar();
+    preencher('senha-forte-1', 'senha-forte-1', false);
+    fixture.detectChanges();
+
+    const botao: HTMLButtonElement = fixture.nativeElement.querySelector('button[type="submit"]');
+    expect(botao.disabled).toBe(true);
+    componente().enviar();
+    httpMock.expectNone(`${AUTH}/registrar`);
+
+    componente().form.controls.aceite_termos.setValue(true);
+    fixture.detectChanges();
+    expect(botao.disabled).toBe(false);
+  });
+
+  it('o aceite traz links para os Termos e a Política', () => {
+    montar();
+    fixture.detectChanges();
+
+    const links = Array.from(
+      fixture.nativeElement.querySelectorAll('.aceite a') as NodeListOf<HTMLAnchorElement>,
+    ).map((a) => a.getAttribute('href'));
+    expect(links).toEqual(['/termos', '/privacidade']);
+  });
+
   it('criar empresa: exige o nome da empresa', () => {
     montar();
     preencher();
@@ -122,6 +148,7 @@ describe('Cadastro', () => {
       email: 'marina@empresa.com.br',
       senha: 'senha-forte-1',
       nome_empresa: 'Loja da Marina',
+      aceite_termos: true,
     });
     registro.flush(USUARIO, { status: 201, statusText: 'Created' });
 
@@ -165,6 +192,7 @@ describe('Cadastro', () => {
       email: 'convidada@empresa.com.br',
       senha: 'senha-forte-1',
       token_convite: 'tok-123',
+      aceite_termos: true,
     });
     registro.flush(USUARIO, { status: 201, statusText: 'Created' });
     concluirLogin();

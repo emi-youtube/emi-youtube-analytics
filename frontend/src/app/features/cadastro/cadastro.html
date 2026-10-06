@@ -157,7 +157,20 @@
           }
         </div>
 
-        <button class="botao" type="submit" [disabled]="enviando() || contaCriada()">
+        <label class="aceite">
+          <input type="checkbox" formControlName="aceite_termos" data-testid="aceite-termos" />
+          <span>
+            Li e aceito os
+            <a routerLink="/termos" target="_blank" rel="noopener">Termos de Uso</a> e a
+            <a routerLink="/privacidade" target="_blank" rel="noopener">Política de Privacidade</a>.
+          </span>
+        </label>
+
+        <button
+          class="botao"
+          type="submit"
+          [disabled]="enviando() || contaCriada() || !form.controls.aceite_termos.value"
+        >
           {{ enviando() ? 'Criando conta…' : 'Criar conta' }}
         </button>
       }
@@ -171,6 +184,11 @@
           esquecer, você pode pedir um link de redefinição na tela de entrada.
         </p>
       </aside>
+
+      <p class="form__legal">
+        <a routerLink="/termos">Termos de Uso</a> ·
+        <a routerLink="/privacidade">Política de Privacidade</a>
+      </p>
     </form>
   </section>
 </div>

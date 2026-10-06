@@ -53,3 +53,17 @@
   background: var(--surface-muted);
   color: var(--ink-muted);
 }
+
+/* Aceite dos termos (ADR-012): os links abrem em outra aba para não perder o formulário. */
+.aceite {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.aceite input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}

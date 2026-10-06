@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { describe, beforeEach, afterEach, expect, it, vi } from 'vitest';
 
 import { environment } from '../../../environments/environment';
+import { semRenovar } from './auth.context';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from './auth.service';
 
@@ -150,5 +151,25 @@ describe('authInterceptor', () => {
     // Quem chamou recebe o 401 da SUA requisição, não o do refresh.
     expect(erro).toHaveBeenCalled();
     expect(erro.mock.calls[0][0].url).toContain('/api/v1/execucoes');
+  });
+
+  it('com semRenovar, anexa o token mas devolve o 401 sem refresh nem logout', () => {
+    // DELETE /conta: ali o 401 é "senha incorreta". Renovar e repetir trataria a
+    // senha errada como sessão vencida, e o segundo 401 derrubaria a sessão.
+    autenticar();
+    const erro = vi.fn();
+
+    http
+      .delete('/api/v1/conta', { body: { senha: 'x' }, context: semRenovar() })
+      .subscribe({ error: erro });
+
+    const req = httpMock.expectOne('/api/v1/conta');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer access-1');
+    req.flush({ detail: 'Senha incorreta.' }, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectNone(`${AUTH}/refresh`);
+    expect(erro).toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(auth.isAuthenticated()).toBe(true);
   });
 });
