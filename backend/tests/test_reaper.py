@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.security import hash_token
+from app.models.empresa import Empresa
 from app.models.execucao import Execucao
 from app.models.job import Job
 from app.models.job_dlq import JobDlq
@@ -23,11 +24,22 @@ MAX_TENTATIVAS = 4
 
 
 async def montar_job(sessao, *, email: str, tipo: str = "coleta") -> Job:
-    usuario = Usuario(nome="Dona", email=email, senha_hash=hash_token("x"), papel="usuario_pme")
+    usuario = Usuario(
+        empresa=Empresa(nome="Empresa"),
+        papel_empresa="dono",
+        nome="Dona",
+        email=email,
+        senha_hash=hash_token("x"),
+        papel="usuario_pme",
+    )
     sessao.add(usuario)
     await sessao.flush()
     modelo = ModeloAnalise(
-        id_usuario=usuario.id_usuario, nome="Campanha", termo_pesquisa="x", filtros={}
+        id_usuario=usuario.id_usuario,
+        id_empresa=usuario.id_empresa,
+        nome="Campanha",
+        termo_pesquisa="x",
+        filtros={},
     )
     sessao.add(modelo)
     await sessao.flush()

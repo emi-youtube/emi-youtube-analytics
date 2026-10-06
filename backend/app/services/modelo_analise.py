@@ -2,8 +2,8 @@
 
 Segurança (Seção 4.3.1): NENHUMA consulta aqui busca só por `id_modelo`. Toda
 leitura ou escrita de um registro específico passa por `get_owned`, que filtra
-por `id_modelo` E `id_usuario` do token. Quando o modelo é de outro usuário a
-resposta é 404 — um 403 confirmaria que aquele id existe.
+por `id_modelo` E pela EMPRESA do token (`escopo.da_empresa`, ADR-011). Quando o
+modelo é de outra empresa a resposta é 404 — um 403 confirmaria que aquele id existe.
 """
 
 import logging
@@ -18,6 +18,7 @@ from app.models.execucao import Execucao
 from app.models.modelo_analise import ModeloAnalise
 from app.models.usuario import Usuario
 from app.schemas.modelo_analise import FiltrosModelo, ModeloAnaliseCreate, ModeloAnaliseUpdate
+from app.services import escopo
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ async def create(db: AsyncSession, usuario: Usuario, dados: ModeloAnaliseCreate)
 
     modelo = ModeloAnalise(
         id_usuario=usuario.id_usuario,
+        id_empresa=usuario.id_empresa,
         nome=dados.nome,
         termo_pesquisa=dados.termo_pesquisa,
         filtros=filtros,
@@ -67,9 +69,10 @@ async def create(db: AsyncSession, usuario: Usuario, dados: ModeloAnaliseCreate)
     await db.refresh(modelo)
 
     logger.info(
-        "modelo de analise criado id_modelo=%s id_usuario=%s",
+        "modelo de analise criado id_modelo=%s id_usuario=%s id_empresa=%s",
         modelo.id_modelo,
         usuario.id_usuario,
+        usuario.id_empresa,
     )
     return modelo
 
@@ -77,18 +80,18 @@ async def create(db: AsyncSession, usuario: Usuario, dados: ModeloAnaliseCreate)
 async def list_for_user(db: AsyncSession, usuario: Usuario) -> Sequence[ModeloAnalise]:
     resultado = await db.scalars(
         select(ModeloAnalise)
-        .where(ModeloAnalise.id_usuario == usuario.id_usuario)
+        .where(escopo.da_empresa(usuario))
         .order_by(ModeloAnalise.criado_em.desc(), ModeloAnalise.id_modelo.desc())
     )
     return resultado.all()
 
 
 async def get_owned(db: AsyncSession, usuario: Usuario, id_modelo: int) -> ModeloAnalise:
-    """Único caminho para alcançar um modelo por id. Filtra pelo dono; 404 se não for dele."""
+    """Único caminho para alcançar um modelo por id. Filtra pela empresa; 404 se não for dela."""
     modelo = await db.scalar(
         select(ModeloAnalise).where(
             ModeloAnalise.id_modelo == id_modelo,
-            ModeloAnalise.id_usuario == usuario.id_usuario,
+            escopo.da_empresa(usuario),
         )
     )
     if modelo is None:

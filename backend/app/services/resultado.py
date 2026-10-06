@@ -7,8 +7,8 @@ faz isso ao lado do dado. Os laços que sobraram aqui percorrem o RESULTADO de u
 `GROUP BY` — no máximo três linhas por vídeo ou por tema —, nunca comentários.
 
 **Nada aqui decide se o usuário pode ver.** Toda rota passa primeiro por
-`services.execucao.get_owned`, que faz join com MODELOS_ANALISE pelo usuário do
-token e responde 404 quando a execução é de outro — nunca 403, que confirmaria
+`services.execucao.get_owned`, que faz join com MODELOS_ANALISE pela empresa do
+token e responde 404 quando a execução é de outra — nunca 403, que confirmaria
 que aquele id existe.
 
 **As consultas de tema já estão escritas.** TEMAS e COMENTARIO_TEMA não têm
@@ -65,6 +65,7 @@ from app.schemas.resultado import (
     VideoResponse,
     VideoResumido,
 )
+from app.services import escopo
 from app.services.execucao import get_owned
 from app.topicos.modelo import MINIMO_CARACTERES_REPRESENTATIVO
 from app.workers.coleta import CHAVE_RECORTE
@@ -796,13 +797,13 @@ async def resultado_da_execucao(
 
 
 async def resultados_disponiveis(db: AsyncSession, usuario: Usuario) -> list[ResultadoDisponivel]:
-    """As execuções concluídas do usuário, com o suficiente para escolher uma."""
+    """As execuções concluídas da empresa, com o suficiente para escolher uma."""
     execucoes = (
         await db.execute(
             select(Execucao, ModeloAnalise.nome)
             .join(ModeloAnalise, ModeloAnalise.id_modelo == Execucao.id_modelo)
             .where(
-                ModeloAnalise.id_usuario == usuario.id_usuario,
+                escopo.da_empresa(usuario),
                 Execucao.status == STATUS_CONCLUIDA,
             )
             .order_by(Execucao.id_execucao.desc())

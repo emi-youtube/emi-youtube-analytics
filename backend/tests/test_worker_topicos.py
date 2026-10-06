@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app.core.security import hash_token
 from app.models.comentario import Comentario
 from app.models.comentario_tema import ComentarioTema
+from app.models.empresa import Empresa
 from app.models.execucao import Execucao
 from app.models.job import Job
 from app.models.job_dlq import JobDlq
@@ -349,11 +350,22 @@ def test_topicos_e_a_ultima_etapa_da_cadeia():
 
 
 async def montar_execucao(sessao, textos: list[str], *, email: str) -> Execucao:
-    usuario = Usuario(nome="Dona", email=email, senha_hash="x", papel="usuario_pme")
+    usuario = Usuario(
+        empresa=Empresa(nome="Empresa"),
+        papel_empresa="dono",
+        nome="Dona",
+        email=email,
+        senha_hash="x",
+        papel="usuario_pme",
+    )
     sessao.add(usuario)
     await sessao.flush()
     modelo = ModeloAnalise(
-        id_usuario=usuario.id_usuario, nome="Campanha", termo_pesquisa="x", filtros={}
+        id_usuario=usuario.id_usuario,
+        id_empresa=usuario.id_empresa,
+        nome="Campanha",
+        termo_pesquisa="x",
+        filtros={},
     )
     sessao.add(modelo)
     await sessao.flush()
@@ -574,11 +586,22 @@ async def test_recalculo_reencerra_a_execucao(sessao):
 
 async def test_worker_aplica_stopwords_de_marca(sessao, caplog):
     """Dois videos de marcas diferentes: o nome de cada um sai dos temas."""
-    usuario = Usuario(nome="Dona", email="marca@exemplo.com", senha_hash="x", papel="usuario_pme")
+    usuario = Usuario(
+        empresa=Empresa(nome="Empresa"),
+        papel_empresa="dono",
+        nome="Dona",
+        email="marca@exemplo.com",
+        senha_hash="x",
+        papel="usuario_pme",
+    )
     sessao.add(usuario)
     await sessao.flush()
     modelo = ModeloAnalise(
-        id_usuario=usuario.id_usuario, nome="Campanha", termo_pesquisa="x", filtros={}
+        id_usuario=usuario.id_usuario,
+        id_empresa=usuario.id_empresa,
+        nome="Campanha",
+        termo_pesquisa="x",
+        filtros={},
     )
     sessao.add(modelo)
     await sessao.flush()
