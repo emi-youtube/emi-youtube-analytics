@@ -228,7 +228,7 @@ painéis.
    | `HF_TOKEN` | o token de **leitura** do repositório — é segredo |
    | `APP_ENV` | `production` |
    | `CORS_ORIGINS` | o domínio da Vercel, ex.: `https://emi-youtube-analytics.vercel.app` |
-   | `FRONTEND_URL` | o domínio da Vercel (base dos links de convite e de redefinição de senha) |
+   | `FRONTEND_URL` | **obrigatória.** O domínio da Vercel com `https://` e **sem barra no fim**, ex.: `https://emi-youtube-analytics.vercel.app`. É a base dos links de convite e de redefinição de senha; o padrão do código é `http://localhost:4200`, e esquecê-la não dá erro — o e-mail sai com um link para localhost. Com `APP_ENV=production` e localhost aqui, a API registra um WARNING no arranque |
    | `EMAIL_PROVEDOR` | `resend` (ou `log` enquanto não houver conta — ver passo B.2) |
    | `RESEND_API_KEY` | a chave da API do Resend — é segredo |
    | `EMAIL_REMETENTE` | ex.: `Emi Analytics <nao-responda@seu-dominio>` (domínio verificado no Resend) |
