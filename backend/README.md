@@ -17,7 +17,7 @@ ruff check . && ruff format --check app tests
 
 # Só contra Postgres (pulados sem as variáveis):
 EMI_TESTE_POSTGRES_URL=postgresql+asyncpg://...  pytest tests/test_rls.py     # só lê o catálogo
-EMI_TESTE_MIGRACAO_URL=postgresql+asyncpg://...  pytest tests/test_migracao_0011.py  # DESTRUTIVO: banco descartável
+EMI_TESTE_MIGRACAO_URL=postgresql+asyncpg://...  pytest tests/test_migracao_0011.py tests/test_migracao_0012.py  # DESTRUTIVO: banco descartável
 ```
 
 ## Rotas
@@ -26,12 +26,12 @@ EMI_TESTE_MIGRACAO_URL=postgresql+asyncpg://...  pytest tests/test_migracao_0011
 
 | Método e rota | Auth | O que faz |
 |---|---|---|
-| `POST /auth/registrar` | — | cria conta: com `nome_empresa`, cria a empresa e entra como **dono**; com `token_convite`, entra na empresa do convite (o e-mail tem de ser o do convite) |
+| `POST /auth/registrar` | — | cria conta: com `nome_empresa`, cria a empresa e entra como **dono**; com `token_convite`, entra na empresa do convite (o e-mail tem de ser o do convite). Exige `aceite_termos: true` (422 sem ele) e grava o aceite da versão vigente |
 | `POST /auth/convites/consultar` | — | `{token}` → e-mail, empresa e papel de um convite pendente (o cadastro trava o e-mail); 404 se inválido |
 | `POST /auth/login` | — | par access + refresh; mesma resposta para e-mail inexistente e senha errada; bloqueio de 15 min após 5 falhas em 10 min |
 | `POST /auth/refresh` | — | **rotação**: devolve um par novo e invalida o refresh enviado; reenviar um refresh já trocado revoga todos os do usuário (401) |
 | `POST /auth/logout` | — | revoga o refresh enviado |
-| `GET /auth/eu` | sim | o usuário, com `papel_empresa` e `empresa {id_empresa, nome}` |
+| `GET /auth/eu` | sim | o usuário, com `papel_empresa`, `empresa {id_empresa, nome}` e `termos_pendentes` (falta aceitar a versão vigente) |
 | `POST /auth/trocar-senha` | sim | `{senha_atual, nova_senha}`; revoga todos os refresh e devolve um par novo para a sessão atual |
 | `POST /auth/esqueci-senha` | — | sempre **202** e o mesmo corpo; envia o link (30 min, uso único) se a conta existir; 429 após 5 pedidos por IP em 15 min |
 | `POST /auth/redefinir-senha` | — | `{token, nova_senha}`; revoga todos os refresh e zera o bloqueio por tentativas |
@@ -48,6 +48,14 @@ EMI_TESTE_MIGRACAO_URL=postgresql+asyncpg://...  pytest tests/test_migracao_0011
 
 Membro que chama rota de dono recebe **403** (ele está na própria empresa; não há
 existência alheia a esconder).
+
+### Conta — `/conta` (ADR-012)
+
+| Método e rota | Auth | O que faz |
+|---|---|---|
+| `POST /conta/aceitar-termos` | sim | grava o aceite da versão vigente; idempotente (204) |
+| `GET /conta/meus-dados` | sim | cadastro, empresa, papéis, aceites e modelos criados pela pessoa; sem credencial nem dados de colegas |
+| `DELETE /conta` | sim | `{senha}`; membro: apaga a conta e os modelos passam a um dono. Dono único: apaga a empresa inteira. 409 se dono com outros membros ou com execução em andamento; 401 senha errada (conta no bloqueio do login) |
 
 ### Modelos, execuções, resultados, painel
 

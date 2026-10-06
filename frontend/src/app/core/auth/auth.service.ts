@@ -126,6 +126,16 @@ export class AuthService {
     );
   }
 
+  /**
+   * Aceite da versão vigente dos termos por quem já tem conta (ADR-012). Fecha o
+   * modal do `Shell` sem recarregar o usuário: a resposta é 204.
+   */
+  aceitarTermos(): Observable<void> {
+    return this.http
+      .post<void>(`${environment.apiBaseUrl}/conta/aceitar-termos`, {})
+      .pipe(tap(() => this.currentUser.update((u) => (u ? { ...u, termos_pendentes: false } : u))));
+  }
+
   /** Sempre 202 com a mesma mensagem, exista ou não a conta. */
   esqueciSenha(email: string): Observable<MensagemResponse> {
     return this.http.post<MensagemResponse>(

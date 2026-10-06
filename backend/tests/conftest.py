@@ -34,6 +34,7 @@ from app.api.deps import requer_admin
 from app.api.v1.auth import limite_esqueci_senha
 from app.core.database import Base, get_db
 from app.main import app
+from app.models.aceite_termos import AceiteTermos
 from app.models.analise_sentimento import AnaliseSentimento
 from app.models.comentario import Comentario
 from app.models.comentario_tema import ComentarioTema
@@ -54,6 +55,7 @@ from app.models.video import Video
 TABELAS_TESTADAS = [
     Empresa.__table__,
     Usuario.__table__,
+    AceiteTermos.__table__,
     Convite.__table__,
     TokenAtualizacao.__table__,
     TokenRedefinicaoSenha.__table__,
@@ -124,6 +126,7 @@ async def autenticar(cliente, email: str, senha: str = "SenhaForte123") -> dict[
             "email": email,
             "senha": senha,
             "nome_empresa": f"Empresa de {email}",
+            "aceite_termos": True,
         },
     )
     resposta = await cliente.post("/api/v1/auth/login", json={"email": email, "senha": senha})
@@ -159,7 +162,13 @@ async def autenticar_convidado(
     token = await convidar(cliente, cabecalho_dono, email, papel_empresa)
     registro = await cliente.post(
         "/api/v1/auth/registrar",
-        json={"nome": f"Conta {email}", "email": email, "senha": senha, "token_convite": token},
+        json={
+            "nome": f"Conta {email}",
+            "email": email,
+            "senha": senha,
+            "token_convite": token,
+            "aceite_termos": True,
+        },
     )
     assert registro.status_code == 201, registro.text
     resposta = await cliente.post("/api/v1/auth/login", json={"email": email, "senha": senha})

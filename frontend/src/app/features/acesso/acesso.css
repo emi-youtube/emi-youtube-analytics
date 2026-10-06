@@ -108,3 +108,14 @@
     padding: var(--space-6) var(--space-4);
   }
 }
+
+/* Rodapé das telas de acesso: os documentos legais (ADR-012). */
+.form__legal {
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.form__legal a {
+  color: inherit;
+}

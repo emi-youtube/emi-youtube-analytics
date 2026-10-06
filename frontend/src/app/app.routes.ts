@@ -42,6 +42,20 @@ export const routes: Routes = [
     loadComponent: () => import('./features/senha/redefinir-senha').then((m) => m.RedefinirSenha),
   },
   {
+    // Termos e Política (ADR-012): públicos e sem guard nenhum — quem vai se
+    // cadastrar lê antes, e quem já tem conta lê pelo modal de aceite sem ser
+    // mandado para o início. Uma página só; `/privacidade` rola até a seção 4.
+    path: 'termos',
+    title: 'Termos de Uso · Emi YouTube Analytics',
+    loadComponent: () => import('./features/legal/termos').then((m) => m.Termos),
+  },
+  {
+    path: 'privacidade',
+    title: 'Política de Privacidade · Emi YouTube Analytics',
+    data: { secao: 'privacidade' },
+    loadComponent: () => import('./features/legal/termos').then((m) => m.Termos),
+  },
+  {
     // Relatório de impressão (UC06): fora do Shell para sair sem o menu lateral,
     // e por isso repete o `authGuard` — é a única tela interna que não o herda.
     // Vem antes da árvore do Shell para não depender da ordem de casamento dela.

@@ -77,3 +77,15 @@ async def test_tabelas_da_0011_existem_com_rls_ligado(tabelas):
 
     assert set(por_nome) >= TABELAS_DA_0011, "rode alembic upgrade head (0011) antes"
     assert all(por_nome[nome] for nome in TABELAS_DA_0011)
+
+
+# Criada pela migration 0012 (ADR-012): guarda o registro de aceite dos termos, ligado
+# a uma pessoa. Pelo nome, pelo mesmo motivo das da 0011.
+TABELAS_DA_0012 = {"aceites_termos"}
+
+
+async def test_tabelas_da_0012_existem_com_rls_ligado(tabelas):
+    por_nome = {nome: rls for nome, rls, _ in tabelas}
+
+    assert set(por_nome) >= TABELAS_DA_0012, "rode alembic upgrade head (0012) antes"
+    assert all(por_nome[nome] for nome in TABELAS_DA_0012)

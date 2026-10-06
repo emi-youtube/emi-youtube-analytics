@@ -28,6 +28,7 @@ from app.models.token_atualizacao import TokenAtualizacao
 from app.models.token_redefinicao_senha import TokenRedefinicaoSenha
 from app.models.usuario import Usuario
 from app.schemas.auth import UserRegister
+from app.services import termos as termos_service
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +166,10 @@ async def register_user(db: AsyncSession, dados: UserRegister) -> Usuario:
     )
     db.add(usuario)
     try:
+        # flush para ter o id que o aceite referencia; conta e aceite saem no MESMO
+        # commit (ADR-012). O UNIQUE do e-mail pode estourar já aqui.
+        await db.flush()
+        termos_service.registrar_aceite(db, usuario.id_usuario)
         await db.commit()
     except IntegrityError:
         # Corrida com outro cadastro do mesmo e-mail: o UNIQUE do banco decide.
@@ -384,22 +389,30 @@ async def revoke_refresh_token(db: AsyncSession, refresh_token: str) -> None:
 # --------------------------------------------------------------------------- senha
 
 
-async def trocar_senha(
-    db: AsyncSession, usuario: Usuario, senha_atual: str, nova_senha: str
-) -> tuple[str, str]:
-    """Troca a senha de quem está logado e devolve um par novo para esta sessão.
+async def conferir_senha_atual(db: AsyncSession, usuario: Usuario, senha: str) -> bool:
+    """Confere a senha de quem JÁ está logado, sob o mesmo bloqueio do login.
 
-    A senha atual errada conta como tentativa de login malsucedida, no mesmo
-    contador: sem isso, um access token roubado viraria um jeito de testar senhas
-    sem bloqueio.
+    Levanta 429 se o e-mail está bloqueado. A senha errada conta como tentativa de
+    login malsucedida, no mesmo contador (e faz commit dela): sem isso, um access
+    token roubado viraria um jeito de testar senhas sem bloqueio. Devolve se conferiu;
+    a resposta de erro fica com quem chama.
     """
     email_hash = hash_token(usuario.email)
     bloqueado_ate = await _bloqueado_ate(db, email_hash)
     if bloqueado_ate is not None:
         raise _erro_bloqueio(bloqueado_ate)
 
-    if not verify_password(senha_atual, usuario.senha_hash):
+    if not verify_password(senha, usuario.senha_hash):
         await _registrar_falha(db, email_hash)
+        return False
+    return True
+
+
+async def trocar_senha(
+    db: AsyncSession, usuario: Usuario, senha_atual: str, nova_senha: str
+) -> tuple[str, str]:
+    """Troca a senha de quem está logado e devolve um par novo para esta sessão."""
+    if not await conferir_senha_atual(db, usuario, senha_atual):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Senha atual incorreta."
         )

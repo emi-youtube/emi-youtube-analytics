@@ -77,3 +77,74 @@
     </div>
   </form>
 </section>
+
+<section class="card secao">
+  <h2 class="secao__titulo">Seus dados</h2>
+  <p class="muted">
+    Baixe, em JSON, o que o Emi Analytics guarda sobre você: cadastro, empresa, aceites dos termos e
+    os modelos de análise que você criou.
+  </p>
+  @if (erroDownload(); as mensagem) {
+    <p class="aviso aviso--erro" role="alert">{{ mensagem }}</p>
+  }
+  <div>
+    <button
+      class="botao botao--secundario"
+      type="button"
+      data-testid="baixar-dados"
+      [disabled]="baixando()"
+      (click)="baixarDados()"
+    >
+      {{ baixando() ? 'Preparando…' : 'Baixar meus dados' }}
+    </button>
+  </div>
+</section>
+
+<section class="card secao perigo" aria-labelledby="perigo-titulo">
+  <h2 id="perigo-titulo" class="secao__titulo">Excluir minha conta</h2>
+
+  @if (ehDono()) {
+    <p data-testid="perigo-texto">
+      Você é <strong>dono</strong> de {{ usuario()?.empresa?.nome }}. Excluir a sua conta apaga
+      também a <strong>empresa inteira</strong>: modelos de análise, execuções, vídeos e comentários
+      coletados, análises de sentimento, temas e convites pendentes. Não há como desfazer.
+    </p>
+    <p class="muted">
+      Se houver outros membros na empresa, a exclusão é recusada: remova-os antes em Minha empresa.
+    </p>
+  } @else {
+    <p data-testid="perigo-texto">
+      A sua conta e o seu acesso serão apagados. Os modelos de análise que você criou passam para o
+      dono da empresa, e as análises continuam com a empresa. Não há como desfazer.
+    </p>
+  }
+
+  <form class="secao__form" [formGroup]="exclusao" (ngSubmit)="excluirConta()" novalidate>
+    @if (erroExclusao(); as mensagem) {
+      <p class="aviso aviso--erro" role="alert">{{ mensagem }}</p>
+    }
+    <div class="campo">
+      <label class="campo__rotulo" for="senha_exclusao">Confirme com a sua senha</label>
+      <input
+        id="senha_exclusao"
+        class="campo__entrada"
+        type="password"
+        formControlName="senha"
+        autocomplete="current-password"
+        [class.campo__entrada--invalido]="
+          exclusao.controls.senha.invalid && exclusao.controls.senha.touched
+        "
+      />
+    </div>
+    <div>
+      <button
+        class="botao botao--perigo"
+        type="submit"
+        data-testid="excluir-conta"
+        [disabled]="excluindo()"
+      >
+        {{ excluindo() ? 'Excluindo…' : 'Excluir minha conta' }}
+      </button>
+    </div>
+  </form>
+</section>

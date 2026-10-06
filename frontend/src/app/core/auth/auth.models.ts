@@ -28,6 +28,8 @@ export interface RegisterRequest {
   senha: string;
   nome_empresa?: string;
   token_convite?: string;
+  /** Obrigatório e verdadeiro (ADR-012): o backend responde 422 sem ele. */
+  aceite_termos: true;
 }
 
 /** `POST /auth/refresh` também devolve um par: o refresh é rotacionado a cada uso. */
@@ -54,6 +56,11 @@ export interface UserResponse {
   papel_empresa: PapelEmpresa;
   empresa: EmpresaResumo;
   criado_em: string;
+  /**
+   * Só `GET /auth/eu` traz: falta aceitar a versão vigente dos termos. Verdadeiro
+   * abre o modal bloqueante do `Shell`.
+   */
+  termos_pendentes?: boolean;
 }
 
 /** `POST /auth/convites/consultar` — para o cadastro travar o e-mail do convite. */

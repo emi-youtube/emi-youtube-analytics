@@ -62,6 +62,8 @@ export class Cadastro {
       nome_empresa: ['', [Validators.required, Validators.maxLength(120)]],
       senha: ['', [Validators.required, Validators.minLength(SENHA_MINIMA)]],
       confirmacao: ['', [Validators.required]],
+      // ADR-012: sem o aceite o botão fica desabilitado e o backend responde 422.
+      aceite_termos: [false, [Validators.requiredTrue]],
     },
     { validators: senhasConferem() },
   );
@@ -135,7 +137,12 @@ export class Cadastro {
     }
 
     const { nome, email, nome_empresa, senha } = this.form.getRawValue();
-    const dados: RegisterRequest = { nome: nome.trim(), email: email.trim(), senha };
+    const dados: RegisterRequest = {
+      nome: nome.trim(),
+      email: email.trim(),
+      senha,
+      aceite_termos: true,
+    };
     if (this.modo() === 'convite' && this.tokenConvite) {
       dados.token_convite = this.tokenConvite;
     } else {

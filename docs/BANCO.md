@@ -207,3 +207,131 @@ NULL. Upgrade, downgrade e novo upgrade testados com dados contra Postgres em
   "esqueci minha senha".
 - **Downgrade** volta ao isolamento por usuário: quem entrou por convite mantém a
   conta, mas deixa de ver os modelos dos colegas.
+
+---
+
+## ADR-012 — Aceite dos termos e direitos do titular sobre a própria conta (LGPD)
+
+**Status:** aceita (migração `0012`, branch `sprint4/termos-e-lgpd`). Ainda não
+aplicada em produção.
+
+### Contexto
+
+O sistema guarda dados pessoais de duas origens: de quem tem conta (nome, e-mail,
+empresa, papel) e dos autores dos comentários coletados do YouTube. A LGPD pede base
+legal para cada tratamento, registro do aceite dos termos, e atendimento dos direitos
+do titular — em especial acesso (art. 18, II) e eliminação (art. 18, VI). Até a `0011`
+não havia registro de aceite nem caminho para a pessoa exportar ou apagar os próprios
+dados.
+
+### Decisão
+
+1. **Aceite registrado por versão.** Tabela `ACEITES_TERMOS`, uma linha por (usuário,
+   versão aceita). A versão vigente é a constante `VERSAO_TERMOS` em
+   `backend/app/core/config.py`, que muda junto com o arquivo
+   `frontend/src/assets/legal/termos-v<versão>.md`. Trocar a constante deixa todo
+   mundo pendente, sem tocar no banco.
+2. **Cadastro exige o aceite** (`aceite_termos: true`, 422 sem ele), nos dois caminhos
+   (criar empresa e entrar por convite), e grava o aceite **no mesmo commit** da conta:
+   não existe conta nova sem aceite.
+3. **Sem backfill.** Aceite é ato da pessoa, não da migração. Contas anteriores à
+   `0012` aparecem com `termos_pendentes: true` em `GET /auth/eu`, e o frontend abre um
+   modal bloqueante; recusar encerra a sessão. A API não bloqueia as outras rotas por
+   pendência — quem barra é a interface; o registro é o que serve de prova.
+4. **Sem IP no aceite.** Considerado e retirado do escopo: atrás da Vercel e do proxy
+   do Azure, o IP que chega à API não é confiável como evidência (a leitura do IP em
+   `ip_do_cliente` está num card separado). O aceite registra quem, qual versão e
+   quando.
+5. **Acesso:** `GET /conta/meus-dados` devolve cadastro, empresa, papéis, aceites e a
+   lista dos modelos que a pessoa CRIOU (nome e data). A resposta é uma lista fechada
+   de campos: `senha_hash`, tokens e dados de colegas não aparecem nem por engano.
+6. **Eliminação:** `DELETE /conta`, com a senha no corpo e sob o mesmo bloqueio por
+   tentativas do login (não vira oráculo de senha). O que sai depende do papel, porque
+   os dados de análise são da EMPRESA (ADR-011):
+   - **membro:** sai a conta; os modelos que criou passam a um dono da empresa (mesma
+     regra de remover membro) e as execuções ficam com a empresa;
+   - **dono único:** sai a empresa inteira — modelos, execuções, jobs, DLQ, vídeos,
+     comentários, análises, temas, convites —, além dos tokens e aceites;
+   - **dono com outros membros:** recusado (409). Transferir a posse ainda não existe;
+   - **execução em andamento** (dono único): recusado (409), porque o worker gravaria
+     num vídeo que acabou de sair e a etapa terminaria em erro de chave estrangeira.
+
+   Tudo numa transação; os refresh tokens, links de redefinição e as tentativas de
+   login do e-mail saem junto. O evento vai ao log como `evento=conta_excluida` com
+   `id_usuario`, `id_empresa` e `apagou_empresa`, nunca com o e-mail.
+
+### Exclusão em cascata: o que o banco faz e o que o código faz
+
+`EXECUCOES`, `JOBS`, `JOBS_DLQ` e `TEMAS` **não** têm `ON DELETE CASCADE` — apagar um
+modelo executado é barrado de propósito (CLAUDE.md Seção 4). Por isso a exclusão da
+empresa apaga explicitamente, de baixo para cima:
+
+```
+jobs_dlq -> jobs -> temas -> videos -> execucoes -> modelos_analise -> convites
+         -> tokens / aceites / tentativas_login -> usuarios -> empresas
+```
+
+`VIDEOS` leva `COMENTARIOS` por cascata do banco, que leva `ANALISES_SENTIMENTO` e
+`COMENTARIO_TEMA`. A ordem está em `backend/app/services/conta.py` e foi testada contra
+Postgres (`tests/test_migracao_0012.py`) com duas empresas: depois de apagar uma, o
+banco volta exatamente à fotografia da outra.
+
+**`EXEMPLOS_TREINAMENTO` fica.** A FK para `COMENTARIOS` é `SET NULL`: o exemplo
+perde a referência e mantém o texto. O corpus de treino é do projeto, não da empresa,
+e o texto é de um autor do YouTube, não do titular que excluiu a conta. A decisão está
+declarada aos usuários na seção 6 dos termos ("Corpus de pesquisa"): o texto permanece
+depois da exclusão da conta ou da empresa e não é publicado com identificação do autor.
+
+### Bases legais por dado
+
+Transcritas da seção 4 de `termos-v1.md`, que é a fonte oficial: se um dia
+divergirem, vale o texto dos termos e esta tabela é corrigida. A coluna "No sistema"
+diz onde cada dado mora.
+
+| Dado | Base legal (LGPD, art. 7º), como nos termos | No sistema | Retenção |
+|---|---|---|---|
+| e-mail, senha e nome da empresa | execução do serviço solicitado (V) | `USUARIOS`, `EMPRESAS`; senha só como hash bcrypt | enquanto a conta existir |
+| termos aceitos (versão e data) | cumprimento de obrigação / legítimo interesse | `ACEITES_TERMOS` | sai com a conta |
+| comentários públicos do YouTube | legítimo interesse acadêmico; dado tornado público (§4º) | `COMENTARIOS`, autor **pseudonimizado** (SHA-256) | até 3 meses após a execução — ver pendência abaixo |
+| registros técnicos (logs, tentativas de login) | legítimo interesse (IX) | `TENTATIVAS_LOGIN` (hash do e-mail) | 24 h (regra 7) |
+| respostas da validação humana | consentimento (I), pelo TCLE | fora deste banco | documento próprio |
+
+O autor do comentário é **pseudonimizado, não anonimizado**: o mesmo autor gera sempre
+o mesmo hash, e quem tem o identificador original consegue recalculá-lo. Dado
+pseudonimizado (art. 13, §4º) continua sendo dado pessoal — só o anonimizado sai do
+alcance da lei (art. 12). O texto dos termos diz isso ("pseudonimização, não
+anonimização completa").
+
+### Pendência conhecida: expurgo automático das execuções
+
+A seção 6 dos termos prevê excluir comentários e resultados até **3 meses** após a
+execução. **O expurgo automático AINDA NÃO existe**: hoje a execução fica até a empresa ser excluída,
+e os termos dizem isso ("até lá, a exclusão é feita sob pedido"). Quando for feito, o
+caminho natural é a mesma ordem de `_apagar_empresa`, aplicada às execuções vencidas, e
+uma linha nova neste ADR.
+
+### Tabela nova e classificação
+
+| Tabela | Classe | Onde documentar |
+|---|---|---|
+| `ACEITES_TERMOS` | infraestrutura (conformidade LGPD) | Seção 4.3.2, fora do DER |
+
+Dicionário de dados:
+
+```
+ACEITES_TERMOS(id_aceite PK,
+               id_usuario FK->USUARIOS NN ON DELETE CASCADE,
+               versao_termos varchar(20) NN,
+               aceito_em timestamptz NN default now(),
+               UK uq_aceites_termos_usuario_versao (id_usuario, versao_termos))
+```
+
+A UNIQUE torna o aceite idempotente (dois cliques simultâneos não duplicam) e serve de
+índice por `id_usuario` (coluna da esquerda), a única busca feita na tabela — por isso
+não há índice separado.
+
+**Retenção (regra 7):** no máximo uma linha por usuário por versão dos termos, e sai
+com o usuário. Não precisa de poda.
+
+**RLS:** ligado na própria `0012`, sem política e sem FORCE (ADR-010). `test_rls.py`
+confere a tabela pelo nome.

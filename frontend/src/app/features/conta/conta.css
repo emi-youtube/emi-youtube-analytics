@@ -38,3 +38,8 @@
   background: var(--positivo-soft);
   color: var(--positivo);
 }
+
+/* Zona de perigo (ADR-012): borda na cor de erro para não ser confundida. */
+.perigo {
+  border-color: var(--negativo);
+}

@@ -1,5 +1,6 @@
 """Importa todos os models para que `Base.metadata` fique completo (Alembic autogenerate)."""
 
+from app.models.aceite_termos import AceiteTermos
 from app.models.analise_sentimento import AnaliseSentimento
 from app.models.comentario import Comentario
 from app.models.comentario_tema import ComentarioTema
@@ -19,6 +20,7 @@ from app.models.versao_modelo import VersaoModelo
 from app.models.video import Video
 
 __all__ = [
+    "AceiteTermos",
     "AnaliseSentimento",
     "Comentario",
     "ComentarioTema",

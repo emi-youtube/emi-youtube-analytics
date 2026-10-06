@@ -11,6 +11,7 @@ from app.schemas.auth import (
     ConsultarConviteRequest,
     ConviteParaCadastroResponse,
     EsqueciSenhaRequest,
+    EuResponse,
     MensagemResponse,
     RedefinirSenhaRequest,
     RefreshRequest,
@@ -22,6 +23,7 @@ from app.schemas.auth import (
 )
 from app.services import auth as auth_service
 from app.services import email as email_service
+from app.services import termos as termos_service
 
 router = APIRouter(prefix="/auth")
 
@@ -96,9 +98,19 @@ async def logout(dados: RefreshRequest, db: Sessao) -> None:
     await auth_service.revoke_refresh_token(db, dados.refresh_token)
 
 
-@router.get("/eu", response_model=UserResponse)
-async def eu(usuario: Annotated[Usuario, Depends(get_usuario_atual)]) -> Usuario:
-    return usuario
+@router.get("/eu", response_model=EuResponse)
+async def eu(usuario: Annotated[Usuario, Depends(get_usuario_atual)], db: Sessao) -> EuResponse:
+    """Quem é o dono do token, e se falta aceitar a versão vigente dos termos.
+
+    `termos_pendentes` não bloqueia a API: quem barra é o modal do frontend. A
+    pendência existe para quem tinha conta antes do aceite (ou antes de uma versão
+    nova); o cadastro já grava o aceite.
+    """
+    resposta = UserResponse.model_validate(usuario)
+    return EuResponse(
+        **resposta.model_dump(),
+        termos_pendentes=await termos_service.termos_pendentes(db, usuario.id_usuario),
+    )
 
 
 @router.post("/trocar-senha", response_model=TokenPairResponse)

@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
 
-import { SKIP_AUTH } from './auth.context';
+import { SEM_RENOVAR, SKIP_AUTH } from './auth.context';
 import { AuthService } from './auth.service';
 
 function comBearer<T>(req: HttpRequest<T>, token: string | null): HttpRequest<T> {
@@ -32,6 +32,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   const auth = inject(AuthService);
   const router = inject(Router);
+
+  if (req.context.get(SEM_RENOVAR)) {
+    return next(comBearer(req, auth.token()));
+  }
 
   return next(comBearer(req, auth.token())).pipe(
     catchError((erro: unknown) => {

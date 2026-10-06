@@ -23,7 +23,13 @@ DONA = "dona@empresa.com"
 async def registrar_por_convite(cliente, email: str, token: str):
     return await cliente.post(
         "/api/v1/auth/registrar",
-        json={"nome": "Convidada", "email": email, "senha": SENHA, "token_convite": token},
+        json={
+            "nome": "Convidada",
+            "email": email,
+            "senha": SENHA,
+            "token_convite": token,
+            "aceite_termos": True,
+        },
     )
 
 
@@ -33,7 +39,13 @@ async def registrar_por_convite(cliente, email: str, token: str):
 async def test_cadastro_cria_empresa_e_dono(cliente, sessao):
     resposta = await cliente.post(
         "/api/v1/auth/registrar",
-        json={"nome": "Dona", "email": DONA, "senha": SENHA, "nome_empresa": "  Loja da Dona  "},
+        json={
+            "nome": "Dona",
+            "email": DONA,
+            "senha": SENHA,
+            "nome_empresa": "  Loja da Dona  ",
+            "aceite_termos": True,
+        },
     )
 
     assert resposta.status_code == 201, resposta.text
@@ -46,7 +58,8 @@ async def test_cadastro_cria_empresa_e_dono(cliente, sessao):
 
 async def test_cadastro_exige_empresa_ou_convite(cliente):
     sem_nada = await cliente.post(
-        "/api/v1/auth/registrar", json={"nome": "X", "email": DONA, "senha": SENHA}
+        "/api/v1/auth/registrar",
+        json={"nome": "X", "email": DONA, "senha": SENHA, "aceite_termos": True},
     )
     com_os_dois = await cliente.post(
         "/api/v1/auth/registrar",
@@ -56,6 +69,7 @@ async def test_cadastro_exige_empresa_ou_convite(cliente):
             "senha": SENHA,
             "nome_empresa": "Loja",
             "token_convite": "abc",
+            "aceite_termos": True,
         },
     )
 
