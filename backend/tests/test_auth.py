@@ -29,7 +29,7 @@ NOME_EMPRESA = "Loja Exemplo Ltda"
 
 
 async def registrar(cliente: AsyncClient, email: str = EMAIL, senha: str = SENHA, **extra):
-    corpo = {"nome": NOME, "email": email, "senha": senha, **extra}
+    corpo = {"nome": NOME, "email": email, "senha": senha, "aceite_termos": True, **extra}
     if "token_convite" not in extra:
         corpo.setdefault("nome_empresa", NOME_EMPRESA)
     return await cliente.post("/api/v1/auth/registrar", json=corpo)
@@ -466,7 +466,9 @@ async def test_senha_nunca_aparece_em_log(cliente, caplog, nivel):
 async def test_repr_do_schema_nao_expoe_a_senha():
     from app.schemas.auth import UserRegister
 
-    dados = UserRegister(nome=NOME, email=EMAIL, senha=SENHA, nome_empresa=NOME_EMPRESA)
+    dados = UserRegister(
+        nome=NOME, email=EMAIL, senha=SENHA, nome_empresa=NOME_EMPRESA, aceite_termos=True
+    )
 
     assert SENHA not in repr(dados)
     assert SENHA not in str(dados)

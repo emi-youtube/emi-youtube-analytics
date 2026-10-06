@@ -43,11 +43,22 @@ class UserRegister(BaseModel):
     senha: SecretStr
     nome_empresa: str | None = Field(default=None, max_length=120)
     token_convite: str | None = Field(default=None, max_length=128)
+    # Obrigatório e verdadeiro nos dois caminhos (ADR-012): sem o campo, 422 de campo
+    # ausente; com `false`, 422 do validador abaixo. O backend grava o aceite da versão
+    # vigente — a versão nunca vem do cliente.
+    aceite_termos: bool
 
     @field_validator("senha")
     @classmethod
     def validar_senha(cls, valor: SecretStr) -> SecretStr:
         return validar_forca_senha(valor)
+
+    @field_validator("aceite_termos")
+    @classmethod
+    def exigir_aceite(cls, valor: bool) -> bool:
+        if not valor:
+            raise ValueError("É preciso aceitar os Termos de Uso e a Política de Privacidade.")
+        return valor
 
     @field_validator("nome_empresa", "token_convite")
     @classmethod
@@ -128,6 +139,12 @@ class UserResponse(BaseModel):
     papel_empresa: str
     empresa: EmpresaResumo
     criado_em: datetime
+
+
+class EuResponse(UserResponse):
+    """`GET /auth/eu`: o usuário e se ainda falta aceitar a versão vigente dos termos."""
+
+    termos_pendentes: bool
 
 
 class TokenPairResponse(BaseModel):
