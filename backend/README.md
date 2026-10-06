@@ -41,6 +41,7 @@ EMI_TESTE_MIGRACAO_URL=postgresql+asyncpg://...  pytest tests/test_migracao_0011
 | Método e rota | Quem | O que faz |
 |---|---|---|
 | `GET /empresa/membros` | qualquer membro | membros da empresa |
+| `PATCH /empresa/membros/{id_usuario}` | dono | `{papel_empresa}`: promove a dono ou rebaixa a membro. 409 se a empresa ficaria sem dono ou passaria de 3 donos (contando convites de dono pendentes) |
 | `DELETE /empresa/membros/{id_usuario}` | dono | remove (apaga a conta; os modelos que a pessoa criou passam para quem removeu). Não remove a si mesmo nem o último dono |
 | `GET /empresa/convites` | dono | convites pendentes (sem o token) |
 | `POST /empresa/convites` | dono | `{email, papel_empresa}` → convite de 7 dias e uso único; o `link` volta só nesta resposta e vai por e-mail. 409 com a empresa lotada (10 membros, contando pendentes) |
@@ -55,13 +56,13 @@ existência alheia a esconder).
 |---|---|---|
 | `POST /conta/aceitar-termos` | sim | grava o aceite da versão vigente; idempotente (204) |
 | `GET /conta/meus-dados` | sim | cadastro, empresa, papéis, aceites e modelos criados pela pessoa; sem credencial nem dados de colegas |
-| `DELETE /conta` | sim | `{senha}`; membro: apaga a conta e os modelos passam a um dono. Dono único: apaga a empresa inteira. 409 se dono com outros membros ou com execução em andamento; 401 senha errada (conta no bloqueio do login) |
+| `DELETE /conta` | sim | `{senha}`; membro, ou dono com outro dono: apaga a conta e os modelos passam ao dono mais antigo. Dono sozinho: apaga a empresa inteira. 409 se único dono com membros (promova alguém antes) ou execução em andamento; 401 senha errada (conta no bloqueio do login) |
 
 ### Modelos, execuções, resultados, painel
 
 | Método e rota | O que faz |
 |---|---|
-| `GET/POST /modelos-analise`, `GET/PATCH/DELETE /modelos-analise/{id}` | modelos da empresa (UC02) |
+| `GET/POST /modelos-analise`, `GET/PATCH/DELETE /modelos-analise/{id}` | modelos da empresa (UC02). Respostas trazem `autor_nome` e `pode_alterar`; `PATCH`/`DELETE` só para o autor ou um dono (403), outra empresa 404 (ADR-013) |
 | `POST /execucoes` | 202 e enfileira a coleta (UC03) |
 | `GET /execucoes`, `GET /execucoes/{id}` | execuções da empresa (UC04) |
 | `GET /execucoes/resultados` | execuções concluídas da empresa |

@@ -59,6 +59,11 @@ export class ModeloForm {
   protected readonly carregando = signal(this.idModelo !== null);
   protected readonly salvando = signal<'nenhum' | 'salvar' | 'executar'>('nenhum');
   protected readonly falha = signal<string | null>(null);
+  /**
+   * Modelo de um colega, aberto por quem não é autor nem dono (ADR-013): a tela
+   * mostra os dados, mas não salva — o backend responderia 403.
+   */
+  protected readonly somenteLeitura = signal<string | null>(null);
   /** Execução recusada por 409: o modelo foi salvo, a execução não nasceu. */
   protected readonly conflitoDeExecucao = signal(false);
 
@@ -102,6 +107,10 @@ export class ModeloForm {
     this.api.detalhar(idModelo).subscribe({
       next: (modelo) => {
         this.preencher(modelo);
+        if (!modelo.pode_alterar) {
+          this.somenteLeitura.set(modelo.autor_nome);
+          this.form.disable();
+        }
         this.carregando.set(false);
       },
       error: (erro: unknown) => {
@@ -149,6 +158,9 @@ export class ModeloForm {
   }
 
   protected salvar(executarDepois: boolean): void {
+    if (this.somenteLeitura() !== null) {
+      return;
+    }
     const { ids, invalidas } = lerVideos(this.form.controls.videos.value);
     this.linhasInvalidas.set(invalidas);
 

@@ -103,20 +103,37 @@
 <section class="card secao perigo" aria-labelledby="perigo-titulo">
   <h2 id="perigo-titulo" class="secao__titulo">Excluir minha conta</h2>
 
-  @if (ehDono()) {
-    <p data-testid="perigo-texto">
-      Você é <strong>dono</strong> de {{ usuario()?.empresa?.nome }}. Excluir a sua conta apaga
-      também a <strong>empresa inteira</strong>: modelos de análise, execuções, vídeos e comentários
-      coletados, análises de sentimento, temas e convites pendentes. Não há como desfazer.
-    </p>
-    <p class="muted">
-      Se houver outros membros na empresa, a exclusão é recusada: remova-os antes em Minha empresa.
-    </p>
-  } @else {
-    <p data-testid="perigo-texto">
-      A sua conta e o seu acesso serão apagados. Os modelos de análise que você criou passam para o
-      dono da empresa, e as análises continuam com a empresa. Não há como desfazer.
-    </p>
+  @switch (situacao()) {
+    @case ('dono_sozinho') {
+      <p data-testid="perigo-texto">
+        Você é o único membro de {{ usuario()?.empresa?.nome }}. Excluir a sua conta apaga também a
+        <strong>empresa inteira</strong>: modelos de análise, execuções, vídeos e comentários
+        coletados, análises de sentimento, temas e convites pendentes. Não há como desfazer.
+      </p>
+    }
+    @case ('dono_com_outro_dono') {
+      <p data-testid="perigo-texto">
+        A sua conta será apagada e {{ usuario()?.empresa?.nome }} continua com os outros donos. Os
+        modelos que você criou passam para o dono mais antigo, e as análises ficam com a empresa.
+        Não há como desfazer.
+      </p>
+    }
+    @case ('dono_unico_com_membros') {
+      <p data-testid="perigo-texto">
+        Você é o <strong>único dono</strong> de {{ usuario()?.empresa?.nome }}, que tem outros
+        membros. Promova outro membro a dono antes de sair, em
+        <a routerLink="/empresa">Minha empresa</a>.
+      </p>
+    }
+    @case ('membro') {
+      <p data-testid="perigo-texto">
+        A sua conta e o seu acesso serão apagados. Os modelos de análise que você criou passam para
+        o dono da empresa, e as análises continuam com a empresa. Não há como desfazer.
+      </p>
+    }
+    @default {
+      <p class="muted">Verificando a situação da empresa…</p>
+    }
   }
 
   <form class="secao__form" [formGroup]="exclusao" (ngSubmit)="excluirConta()" novalidate>
@@ -141,7 +158,7 @@
         class="botao botao--perigo"
         type="submit"
         data-testid="excluir-conta"
-        [disabled]="excluindo()"
+        [disabled]="excluindo() || situacao() === null || situacao() === 'dono_unico_com_membros'"
       >
         {{ excluindo() ? 'Excluindo…' : 'Excluir minha conta' }}
       </button>

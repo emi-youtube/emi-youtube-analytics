@@ -120,6 +120,19 @@ async def _consumir_convite(db: AsyncSession, token: str, email: str) -> Convite
     )
     if await contar_membros(db, convite.id_empresa) >= settings.empresa_max_membros:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMPRESA_LOTADA)
+    # Teto de donos (ADR-013): a emissão já conta os convites de dono pendentes; aqui
+    # é a segunda linha, para uma promoção feita depois do convite.
+    if convite.papel_empresa == PAPEL_DONO:
+        donos = await db.scalar(
+            select(func.count())
+            .select_from(Usuario)
+            .where(Usuario.id_empresa == convite.id_empresa, Usuario.papel_empresa == PAPEL_DONO)
+        )
+        if donos >= settings.empresa_max_donos:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A empresa já tem o máximo de {settings.empresa_max_donos} donos.",
+            )
 
     # Uso único garantido pelo banco: só um UPDATE encontra `usado_em` nulo.
     consumido = await db.execute(

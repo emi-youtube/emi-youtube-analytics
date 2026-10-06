@@ -7,7 +7,12 @@ import { ModeloAnalise, totalDeVideos } from '../../core/api/modelos.models';
 import { dataLegivel } from '../../core/format/datas';
 import { mensagemDeErro, statusDoErro } from '../../core/http/api-error';
 
-/** UC02 — lista dos modelos do usuário. Consome `GET /api/v1/modelos-analise`. */
+/**
+ * UC02 — lista dos modelos da empresa. Consome `GET /api/v1/modelos-analise`.
+ *
+ * Editar e excluir só aparecem em `pode_alterar` (autor ou dono, ADR-013); o
+ * backend continua sendo quem barra, com 403.
+ */
 @Component({
   selector: 'app-modelos',
   imports: [RouterLink],

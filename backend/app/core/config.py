@@ -1,5 +1,6 @@
 """Configuração da aplicação, carregada do .env na raiz do repositório."""
 
+import logging
 from functools import lru_cache
 from pathlib import Path
 
@@ -7,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/app/core/config.py -> sobe 3 níveis até a raiz do repositório
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+logger = logging.getLogger(__name__)
 
 # Versão vigente dos Termos de Uso e da Política de Privacidade (ADR-012). Constante,
 # não variável de ambiente: muda junto com o texto em
@@ -58,6 +61,10 @@ class Settings(BaseSettings):
     # Teto de membros por empresa, contando os convites pendentes. Projeto para PME:
     # o limite existe para um convite vazado não virar porta aberta.
     empresa_max_membros: int = 10
+    # Teto de DONOS por empresa (ADR-013), contando convites de dono pendentes: dono
+    # gerencia membros e apaga qualquer modelo, então "todo mundo é dono" é o mesmo
+    # que não ter papel nenhum.
+    empresa_max_donos: int = 3
 
     # --- E-mail transacional (convites e redefinição de senha) ---
     # "log": não envia; em desenvolvimento escreve a mensagem (com o link) no log do
@@ -124,6 +131,30 @@ class Settings(BaseSettings):
         if self.bertimbau_path.strip():
             return Path(self.bertimbau_path.strip())
         return REPO_ROOT / "ml" / "modelos" / "bertimbau-2026-09-30"
+
+
+HOSTS_LOCAIS = ("localhost", "127.0.0.1")
+AVISO_FRONTEND_URL_LOCAL = (
+    "FRONTEND_URL aponta para localhost em produção: links de convite e de "
+    "redefinição de senha ficarão inválidos. Configure FRONTEND_URL com o domínio "
+    "da Vercel (https, sem barra no fim)."
+)
+
+
+def avisar_configuracao_suspeita(config: Settings) -> bool:
+    """WARNING no arranque para configuração que falha em silêncio. Devolve se avisou.
+
+    `FRONTEND_URL` tem padrão de desenvolvimento (localhost): esquecida no App
+    Service, a API sobe normalmente e só o e-mail sai com um link que não abre em
+    lugar nenhum — já aconteceu com um convite. Não derruba o app: o resto funciona,
+    e o dono ainda pode corrigir o link à mão.
+    """
+    if config.app_env != "production":
+        return False
+    if not any(host in config.frontend_url for host in HOSTS_LOCAIS):
+        return False
+    logger.warning(AVISO_FRONTEND_URL_LOCAL)
+    return True
 
 
 @lru_cache

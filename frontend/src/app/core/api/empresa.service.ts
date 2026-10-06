@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
+import { PapelEmpresa } from '../auth/auth.models';
 import { Convite, ConviteCreate, ConviteCriado, Membro } from './empresa.models';
 
 /**
@@ -18,6 +19,13 @@ export class EmpresaService {
 
   membros(): Observable<Membro[]> {
     return this.http.get<Membro[]>(`${this.baseUrl}/membros`);
+  }
+
+  /** Promove a dono ou rebaixa a membro (ADR-013). 409 sem outro dono ou no teto. */
+  alterarPapel(idUsuario: number, papelEmpresa: PapelEmpresa): Observable<Membro> {
+    return this.http.patch<Membro>(`${this.baseUrl}/membros/${idUsuario}`, {
+      papel_empresa: papelEmpresa,
+    });
   }
 
   removerMembro(idUsuario: number): Observable<void> {

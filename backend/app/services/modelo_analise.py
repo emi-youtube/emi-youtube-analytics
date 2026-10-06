@@ -18,7 +18,7 @@ from app.models.execucao import Execucao
 from app.models.modelo_analise import ModeloAnalise
 from app.models.usuario import Usuario
 from app.schemas.modelo_analise import FiltrosModelo, ModeloAnaliseCreate, ModeloAnaliseUpdate
-from app.services import escopo
+from app.services import escopo, permissao
 
 logger = logging.getLogger(__name__)
 
@@ -101,10 +101,20 @@ async def get_owned(db: AsyncSession, usuario: Usuario, id_modelo: int) -> Model
     return modelo
 
 
+async def get_alteravel(db: AsyncSession, usuario: Usuario, id_modelo: int) -> ModeloAnalise:
+    """O modelo para editar ou apagar: escopo primeiro (404), papel depois (403)."""
+    modelo = await get_owned(db, usuario, id_modelo)
+    if not permissao.pode_alterar_modelo(usuario, modelo):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=permissao.SO_AUTOR_OU_DONO
+        )
+    return modelo
+
+
 async def update(
     db: AsyncSession, usuario: Usuario, id_modelo: int, dados: ModeloAnaliseUpdate
 ) -> ModeloAnalise:
-    modelo = await get_owned(db, usuario, id_modelo)
+    modelo = await get_alteravel(db, usuario, id_modelo)
     alteracoes = dados.model_dump(exclude_unset=True)
 
     if "filtros" in alteracoes:
@@ -124,7 +134,7 @@ async def update(
 
 
 async def delete(db: AsyncSession, usuario: Usuario, id_modelo: int) -> None:
-    modelo = await get_owned(db, usuario, id_modelo)
+    modelo = await get_alteravel(db, usuario, id_modelo)
 
     # EXECUCOES referencia MODELOS_ANALISE sem cascade (CLAUDE.md Seção 4): apagar um
     # modelo já executado apagaria o histórico da análise, então é barrado.

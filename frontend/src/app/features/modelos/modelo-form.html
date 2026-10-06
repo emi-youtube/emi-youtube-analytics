@@ -16,6 +16,15 @@
   </div>
 }
 
+@if (somenteLeitura(); as autor) {
+  <div class="falha" role="status" data-testid="somente-leitura">
+    <span>
+      Este modelo foi criado por {{ autor }}. Só o autor ou o dono da empresa pode editá-lo; você
+      pode executá-lo na tela de execuções.
+    </span>
+  </div>
+}
+
 @if (conflitoDeExecucao()) {
   <div class="falha" role="alert">
     <span>
@@ -124,13 +133,18 @@
       </div>
 
       <div class="acoes">
-        <button class="botao" type="button" [disabled]="ocupado()" (click)="salvar(true)">
+        <button
+          class="botao"
+          type="button"
+          [disabled]="ocupado() || somenteLeitura() !== null"
+          (click)="salvar(true)"
+        >
           {{ salvando() === 'executar' ? 'Salvando…' : 'Salvar e executar agora' }}
         </button>
         <button
           class="botao botao--secundario"
           type="button"
-          [disabled]="ocupado()"
+          [disabled]="ocupado() || somenteLeitura() !== null"
           (click)="salvar(false)"
         >
           {{

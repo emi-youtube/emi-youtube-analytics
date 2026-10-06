@@ -18,6 +18,10 @@ class MembroResponse(BaseModel):
     criado_em: datetime
 
 
+class AlterarPapelRequest(BaseModel):
+    papel_empresa: PapelEmpresa
+
+
 class ConviteCreate(BaseModel):
     email: EmailStr = Field(max_length=255)
     papel_empresa: PapelEmpresa = "membro"

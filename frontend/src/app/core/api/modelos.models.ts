@@ -38,6 +38,10 @@ export interface ModeloAnalise {
   termo_pesquisa: string;
   filtros: FiltrosModelo | null;
   criado_em: string;
+  /** Nome de quem criou (ADR-013). Só o nome: o e-mail do colega não vem. */
+  autor_nome: string;
+  /** Se quem está logado pode editar e apagar: o autor ou um dono da empresa. */
+  pode_alterar: boolean;
 }
 
 /** Corpo de `POST /modelos-analise`. */
