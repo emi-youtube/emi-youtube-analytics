@@ -11,7 +11,12 @@ class ModeloAnalise(Base):
     __tablename__ = "modelos_analise"
 
     id_modelo: Mapped[int] = mapped_column(primary_key=True)
+    # Quem criou o modelo (autoria). A POSSE é da empresa: é por `id_empresa` que
+    # toda consulta filtra (app/services/escopo.py).
     id_usuario: Mapped[int] = mapped_column(ForeignKey("usuarios.id_usuario"), nullable=False)
+    id_empresa: Mapped[int] = mapped_column(
+        ForeignKey("empresas.id_empresa"), nullable=False, index=True
+    )
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
     termo_pesquisa: Mapped[str] = mapped_column(String(255), nullable=False)
     # Continua JSONB no Postgres; o variant só permite que o SQLite dos testes

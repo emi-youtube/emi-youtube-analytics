@@ -64,3 +64,16 @@ async def test_nenhuma_tabela_usa_force_rls(tabelas):
     com_force = [nome for nome, _, force in tabelas if force]
 
     assert com_force == [], f"FORCE ROW LEVEL SECURITY em {com_force}: o backend perde acesso"
+
+
+# Criadas pela migration 0011 (ADR-011). Listadas à parte porque `convites` e
+# `tokens_redefinicao_senha` guardam e-mail e hash de credencial: se a migration
+# deixasse de criá-las, o teste genérico acima passaria sem olhar para elas.
+TABELAS_DA_0011 = {"empresas", "convites", "tokens_redefinicao_senha"}
+
+
+async def test_tabelas_da_0011_existem_com_rls_ligado(tabelas):
+    por_nome = {nome: rls for nome, rls, _ in tabelas}
+
+    assert TABELAS_DA_0011 <= set(por_nome), "rode alembic upgrade head (0011) antes"
+    assert all(por_nome[nome] for nome in TABELAS_DA_0011)
