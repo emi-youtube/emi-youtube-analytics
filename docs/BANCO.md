@@ -253,6 +253,7 @@ dados.
    - **dono único:** sai a empresa inteira — modelos, execuções, jobs, DLQ, vídeos,
      comentários, análises, temas, convites —, além dos tokens e aceites;
    - **dono com outros membros:** recusado (409). Transferir a posse ainda não existe;
+     *atualizado pelo ADR-013: com outro dono presente, o dono pode sair;*
    - **execução em andamento** (dono único): recusado (409), porque o worker gravaria
      num vídeo que acabou de sair e a etapa terminaria em erro de chave estrangeira.
 
@@ -336,3 +337,68 @@ com o usuário. Não precisa de poda.
 
 **RLS:** ligado na própria `0012`, sem política e sem FORCE (ADR-010). `test_rls.py`
 confere a tabela pelo nome.
+
+---
+
+## ADR-013 — Privilégios do dono: quem altera o quê, promover/rebaixar e saída do dono
+
+**Status:** aceita (sem migração; branch `sprint4/privilegios-do-dono`).
+
+### Contexto
+
+O ADR-011 tornou a EMPRESA dona dos dados, mas deixou todo membro com o mesmo poder
+sobre os modelos: qualquer um editava ou apagava o modelo de um colega. O dono, por
+outro lado, não tinha como dividir a posse — e o ADR-012 recusava a saída de um dono
+com membros sem oferecer saída.
+
+### Decisão
+
+1. **Editar e apagar modelo: o autor ou um dono.** `modelos_analise.id_usuario` (o
+   autor) passa a valer para permissão. A ordem das checagens é fixa: primeiro o
+   escopo da empresa (`escopo.da_empresa`, **404** para outra empresa), depois o papel
+   (`permissao.pode_alterar_modelo`, **403** dentro da empresa). O 409 de modelo com
+   execuções continua. Ler, executar e criar seguem livres para todo membro.
+2. **A lista de modelos diz quem criou** (`autor_nome`) e se quem pergunta pode
+   alterar (`pode_alterar`). Só o nome do autor: o e-mail do colega não sai por aí.
+3. **Promover e rebaixar:** `PATCH /empresa/membros/{id}` com `papel_empresa`, só para
+   dono. Alvo de outra empresa: 404. Rebaixar exige que sobre outro dono (vale para
+   rebaixar a si mesmo). Teto de **3 donos** (`EMPRESA_MAX_DONOS`), contando os
+   convites de dono pendentes — senão convites furariam o teto; o aceite de convite
+   confere de novo. Log: `evento=papel_alterado id_empresa alvo de para por`.
+4. **Mudança de papel vale na hora.** Não há sessão a revogar: `get_usuario_atual`
+   relê o usuário a cada requisição, então o rebaixado perde as rotas de dono já na
+   chamada seguinte, com o mesmo access token (testado).
+5. **Saída do dono (`DELETE /conta`):**
+   - sozinho na empresa → apaga a empresa (ADR-012);
+   - único dono com outros membros → **409**, "Promova outro membro a dono antes de
+     sair";
+   - com outro dono → sai; os modelos que criou vão ao **dono mais antigo** que fica
+     (`criado_em`, depois `id_usuario`), e a empresa continua;
+   - membro → como antes (os modelos vão ao dono mais antigo).
+   Os convites que o dono que sai criou caem em cascata (`convites.criado_por`).
+
+### Quem pode o quê
+
+| Ação | Membro | Dono | Admin (papel global) |
+|---|---|---|---|
+| ver modelos, execuções, resultados, painel, membros | ✔ | ✔ | — reservado |
+| criar modelo, executar análise | ✔ | ✔ | — reservado |
+| editar / apagar modelo | só os que criou | todos da empresa | — reservado |
+| convidar, revogar convite, remover membro | ✘ (403) | ✔ | — reservado |
+| promover / rebaixar | ✘ (403) | ✔ (sobra ≥ 1 dono; teto de 3) | — reservado |
+| baixar os próprios dados, excluir a conta | ✔ | ✔ (regras de saída acima) | — reservado |
+
+"Admin — reservado": o papel global `admin` existe (`USUARIOS.papel`) e só serve à
+rota de teste de `requer_admin`. Ele não dá poder dentro de uma empresa e não aparece
+em tela; o admin é dono ou membro da própria empresa como qualquer um.
+
+### Consequências e limites
+
+- **Sem migração.** O autor do modelo já existia (`id_usuario`); o nome dele vem por
+  relacionamento só de leitura no ORM.
+- **`GET /empresa/membros` mostra o e-mail de todos a qualquer membro** (ADR-011).
+  Não muda aqui; se a regra "e-mail de colega só para o dono" valer também para a
+  lista de membros, é uma mudança à parte.
+- O diagrama de casos de uso fica fora do repositório: o ator "Dono da empresa"
+  (especialização de "Usuário") precisa ser acrescentado lá, com os casos "Gerenciar
+  membros" e "Alterar papel".
