@@ -1,10 +1,14 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.usuario import Usuario
 
 
 class ModeloAnalise(Base):
@@ -27,3 +31,7 @@ class ModeloAnalise(Base):
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+    # `joined`: a lista de modelos mostra "criado por <nome>" sem uma consulta por
+    # linha (o async não permite lazy load). Só leitura: nada em cascata.
+    autor: Mapped["Usuario"] = relationship(lazy="joined", viewonly=True)
