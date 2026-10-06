@@ -58,11 +58,13 @@ O critério para criar um terceiro: código que as duas metades têm de executar
 
 ---
 
-## 4. Modelo de dados (10 tabelas + 2 de fila)
+## 4. Modelo de dados (12 tabelas de domínio + infraestrutura)
 
 ```
-USUARIOS(id_usuario PK, nome, email UK, senha_hash, papel CK, criado_em)
-MODELOS_ANALISE(id_modelo PK, id_usuario FK, nome, termo_pesquisa, filtros JSONB, criado_em)
+EMPRESAS(id_empresa PK, nome, criada_em)                       -- unidade de isolamento (ADR-011)
+USUARIOS(id_usuario PK, id_empresa FK, nome, email UK, senha_hash, papel CK, papel_empresa CK, criado_em)
+CONVITES(id_convite PK, id_empresa FK, email, token_hash UK, papel_empresa CK, criado_por FK, expira_em, usado_em, criado_em)
+MODELOS_ANALISE(id_modelo PK, id_empresa FK, id_usuario FK (autor), nome, termo_pesquisa, filtros JSONB, criado_em)
 EXECUCOES(id_execucao PK, id_modelo FK, status CK, iniciado_em, concluido_em)
 VIDEOS(id_video PK, id_execucao FK, youtube_video_id UK, titulo, canal, publicado_em, visualizacoes, curtidas)
 COMENTARIOS(id_comentario PK, id_video FK, youtube_comment_id UK, autor_hash, texto, publicado_em)
@@ -73,14 +75,18 @@ TEMAS(id_tema PK, id_execucao FK, rotulo_tema, palavras_chave)
 COMENTARIO_TEMA(id_comentario FK, id_tema FK, peso)   -- N:N com atributo
 jobs(id_job PK, tipo CK, id_execucao FK, status CK, tentativas, payload JSONB, criado_em)
 jobs_dlq(id_job PK, tipo, id_execucao, erro, falhou_em)
-tokens_atualizacao(... refresh token revogável — sessão)
+tokens_atualizacao(... refresh token revogável e rotacionado, substituido_em — sessão)
 tentativas_login(... controle de bloqueio por tentativas — segurança)
+tokens_redefinicao_senha(... link de "esqueci minha senha", 30 min, uso único — segurança)
 ```
 
-**Domínio vs. infraestrutura.** As 10 primeiras são **entidades de domínio** e compõem o DER da Seção 4.2.2 do TC2. As quatro últimas (`jobs`, `jobs_dlq`, `tokens_atualizacao`, `tentativas_login`) são **tabelas de infraestrutura**: existem para viabilizar fila, sessão e segurança, não representam conceitos do negócio. Elas não entram no DER — são documentadas na Seção 4.3.2 (Banco de Dados). Ao criar tabela nova, classifique-a antes de decidir onde documentar.
+**Isolamento por EMPRESA (ADR-011 em `docs/BANCO.md`).** Modelos, execuções e resultados pertencem à empresa; toda consulta filtra por `app/services/escopo.da_empresa`, nunca por `id_usuario`. Recurso de outra empresa responde 404. `papel` é global (`admin`); `papel_empresa` (`dono` | `membro`) é o papel dentro da empresa.
+
+**Domínio vs. infraestrutura.** As 12 primeiras são **entidades de domínio** e compõem o DER da Seção 4.2.2 do TC2. As cinco últimas (`jobs`, `jobs_dlq`, `tokens_atualizacao`, `tentativas_login`, `tokens_redefinicao_senha`) são **tabelas de infraestrutura**: existem para viabilizar fila, sessão e segurança, não representam conceitos do negócio. Elas não entram no DER — são documentadas na Seção 4.3.2 (Banco de Dados). Ao criar tabela nova, classifique-a antes de decidir onde documentar.
 
 **Valores de CHECK:**
 - `papel`: `admin` | `usuario_pme`
+- `papel_empresa`: `dono` | `membro`
 - `EXECUCOES.status`: `pendente` | `processando` | `concluida` | `erro`
 - `sentimento`: `positivo` | `negativo` | `neutro`
 - `VERSOES_MODELO.status`: `ativo` | `arquivado`

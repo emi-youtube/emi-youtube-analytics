@@ -228,6 +228,10 @@ painéis.
    | `HF_TOKEN` | o token de **leitura** do repositório — é segredo |
    | `APP_ENV` | `production` |
    | `CORS_ORIGINS` | o domínio da Vercel, ex.: `https://emi-youtube-analytics.vercel.app` |
+   | `FRONTEND_URL` | o domínio da Vercel (base dos links de convite e de redefinição de senha) |
+   | `EMAIL_PROVEDOR` | `resend` (ou `log` enquanto não houver conta — ver passo B.2) |
+   | `RESEND_API_KEY` | a chave da API do Resend — é segredo |
+   | `EMAIL_REMETENTE` | ex.: `Emi Analytics <nao-responda@seu-dominio>` (domínio verificado no Resend) |
    | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `1` |
    | `ENABLE_ORYX_BUILD` | `true` |
 
@@ -309,6 +313,68 @@ painéis.
 Nada a fazer: a migration `0009` roda sozinha no arranque (passo 2 do
 `startup.sh`), antes de qualquer processo atender. Se preferir aplicá-la antes
 do primeiro deploy, é `alembic upgrade head` apontando para o mesmo banco.
+
+### B.1. Azure — a migration 0011 (empresas) e a ordem segura do deploy
+
+A `0011` (ADR-011 em `docs/BANCO.md`) roda sozinha no arranque, como as outras — o
+`startup.sh` faz `alembic upgrade head` ANTES de subir a API. Mergear na `main` já a
+aplica em produção no deploy seguinte. A ordem é:
+
+1. **Backup antes.** Supabase → Database → Backups (o plano free guarda o diário),
+   ou um `pg_dump` das tabelas `usuarios` e `modelos_analise`.
+2. **Ensaio num Postgres descartável**, com os dados copiados se possível:
+   `EMI_TESTE_MIGRACAO_URL=... pytest tests/test_migracao_0011.py` (upgrade,
+   downgrade e upgrade de novo, com dados).
+3. **Merge → deploy.** No arranque do contêiner novo a migração roda e só então a API
+   nova sobe.
+4. **Conferência:** `EMI_TESTE_POSTGRES_URL=<Supabase> pytest tests/test_rls.py`
+   (só lê o catálogo) e um login com uma conta antiga — ela aparece como dona de uma
+   empresa com o nome da parte local do e-mail. Ainda não há tela para renomear a
+   empresa; se precisar, é um `UPDATE empresas SET nome = ...` pontual.
+
+**O intervalo em que o código ANTIGO convive com o schema NOVO.** Se o App Service
+mantiver o contêiner antigo atendendo enquanto o novo arranca, existe uma janela de
+segundos com schema 0011 e código anterior. O que acontece nela:
+
+| Operação do código antigo | Efeito |
+|---|---|
+| login, `/auth/eu`, leitura de modelos/execuções/resultados, painel | funciona (colunas novas são ignoradas; `id_usuario` continua lá) |
+| `/auth/refresh` | funciona (`substituido_em` é nula e sem default — testado) |
+| workers (coleta, inferência, tópicos) | funcionam (não tocam nas colunas novas) |
+| **cadastro** (`POST /auth/registrar`) | **falha com 500**: `usuarios.id_empresa` é NOT NULL |
+| **criar modelo** (`POST /modelos-analise`) | **falha com 500**: `modelos_analise.id_empresa` é NOT NULL |
+
+Ou seja: nada corrompe dado, e só as duas escritas acima falham durante a janela.
+Faça o deploy em horário sem uso. Se um dia isso não for aceitável, o caminho é
+partir em duas migrações (expand/contract): uma cria as colunas nulas com backfill,
+outra, num deploy seguinte, as torna NOT NULL.
+
+**Não aplique a 0011 no Supabase fora desse fluxo** (por exemplo, rodando `alembic
+upgrade head` da sua máquina) enquanto a produção estiver com o código antigo: a
+janela acima deixaria de ser de segundos.
+
+### B.2. E-mail transacional (convites e "esqueci minha senha")
+
+O backend envia dois e-mails: o convite para a empresa e o link de redefinição de
+senha. O provedor escolhido é o **Resend** (plano gratuito: 3.000 e-mails/mês, 100
+por dia — sobra para o projeto), chamado por HTTP direto, sem SDK.
+
+1. Crie a conta em resend.com e gere uma **API key** com permissão só de envio.
+2. **Domínio:** sem domínio verificado, o Resend só entrega para o e-mail da própria
+   conta (remetente `onboarding@resend.dev`). Para convidar pessoas de verdade,
+   verifique um domínio (Domains → Add, e os registros DNS que ele pedir) e use um
+   remetente desse domínio em `EMAIL_REMETENTE`.
+3. No App Service: `EMAIL_PROVEDOR=resend`, `RESEND_API_KEY`, `EMAIL_REMETENTE` e
+   `FRONTEND_URL` (tabela do passo A6).
+
+**Sem provedor** (`EMAIL_PROVEDOR=log`, o padrão): em desenvolvimento o e-mail inteiro,
+com o link, vai para o log do servidor — é assim que se testa o fluxo localmente. Em
+`APP_ENV=production` o log só avisa que NÃO enviou, sem o link: link de redefinição em
+log de produção seria credencial exposta. O convite continua utilizável sem e-mail,
+porque a tela do dono mostra o link uma vez para ser enviado por outro canal.
+
+Uma falha do provedor nunca vira erro para quem pediu: o envio roda depois da
+resposta, e o erro vai para o log (`falha ao enviar e-mail provedor=resend`).
 
 ### C. Vercel — importar o projeto
 
