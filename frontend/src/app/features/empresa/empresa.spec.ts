@@ -38,6 +38,8 @@ describe('Empresa', () => {
     convites: Empresa['convites'];
     convidar: () => void;
     remover: (m: (typeof MEMBROS)[number]) => void;
+    alterarPapel: (m: (typeof MEMBROS)[number]) => void;
+    erroAcao: Empresa['erroAcao'];
   } {
     return fixture.componentInstance as unknown as ReturnType<typeof componente>;
   }
@@ -144,5 +146,81 @@ describe('Empresa', () => {
         .membros()
         .map((m) => m.id_usuario),
     ).toEqual([1]);
+  });
+
+  function botoesDePapel(): HTMLButtonElement[] {
+    return Array.from(
+      fixture.nativeElement.querySelectorAll('[data-testid="alterar-papel"]'),
+    ) as HTMLButtonElement[];
+  }
+
+  it('membro não vê as ações de papel', () => {
+    montar('membro', 2);
+
+    expect(botoesDePapel()).toHaveLength(0);
+  });
+
+  it('dono vê "Tirar de dono" para dono e "Tornar dono" para membro', () => {
+    montar('dono');
+
+    expect(botoesDePapel().map((b) => b.textContent?.trim())).toEqual([
+      'Tirar de dono',
+      'Tornar dono',
+    ]);
+  });
+
+  it('tornar dono pede confirmação e atualiza o papel na lista', () => {
+    montar('dono');
+
+    componente().alterarPapel(MEMBROS[1]);
+    httpMock.expectNone(`${API}/empresa/membros/2`);
+    fixture.detectChanges();
+    expect(botoesDePapel()[1].textContent).toContain('Confirmar');
+
+    componente().alterarPapel(MEMBROS[1]);
+    const pedido = httpMock.expectOne(`${API}/empresa/membros/2`);
+    expect(pedido.request.method).toBe('PATCH');
+    expect(pedido.request.body).toEqual({ papel_empresa: 'dono' });
+    pedido.flush({ ...MEMBROS[1], papel_empresa: 'dono' });
+
+    expect(componente().membros()[1].papel_empresa).toBe('dono');
+  });
+
+  it('rebaixar o último dono mostra a recusa do backend', () => {
+    montar('dono');
+
+    componente().alterarPapel(MEMBROS[0]);
+    componente().alterarPapel(MEMBROS[0]);
+    httpMock
+      .expectOne(`${API}/empresa/membros/1`)
+      .flush(
+        { detail: 'A empresa precisa de ao menos um dono.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    expect(componente().erroAcao()).toBe('A empresa precisa de ao menos um dono.');
+    expect(componente().membros()[0].papel_empresa).toBe('dono');
+  });
+
+  it('rebaixar a si mesmo recarrega a sessão', () => {
+    montar('dono');
+
+    componente().alterarPapel(MEMBROS[0]);
+    componente().alterarPapel(MEMBROS[0]);
+    httpMock
+      .expectOne(`${API}/empresa/membros/1`)
+      .flush({ ...MEMBROS[0], papel_empresa: 'membro' });
+
+    httpMock.expectOne(`${API}/auth/eu`).flush({
+      id_usuario: 1,
+      nome: 'Quem logou',
+      email: 'x@empresa.com.br',
+      papel: 'usuario_pme',
+      papel_empresa: 'membro',
+      empresa: { id_empresa: 3, nome: 'Loja da Marina' },
+      criado_em: '2026-09-21T00:00:00',
+    });
+    fixture.detectChanges();
+    expect(botoesDePapel()).toHaveLength(0);
   });
 });

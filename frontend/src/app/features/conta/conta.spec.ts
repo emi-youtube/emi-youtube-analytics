@@ -10,6 +10,17 @@ import { Conta } from './conta';
 
 const AUTH = `${environment.apiBaseUrl}/auth`;
 const CONTA = `${environment.apiBaseUrl}/conta`;
+const MEMBROS = `${environment.apiBaseUrl}/empresa/membros`;
+
+function membro(id_usuario: number, papel_empresa: 'dono' | 'membro') {
+  return {
+    id_usuario,
+    nome: `Pessoa ${id_usuario}`,
+    email: `p${id_usuario}@x.com`,
+    papel_empresa,
+    criado_em: '2026-09-20T00:00:00',
+  };
+}
 
 describe('Conta', () => {
   let fixture: ComponentFixture<Conta>;
@@ -99,8 +110,11 @@ describe('Conta', () => {
     expect(componente().erro()).toBe('Senha atual incorreta.');
   });
 
-  /** Sessão aberta como `papel_empresa`; a zona de perigo depende dele. */
-  function entrar(papel_empresa: 'dono' | 'membro'): void {
+  /**
+   * Sessão aberta como `papel_empresa`; a zona de perigo depende dele. Para o dono
+   * a tela busca os membros (`membros`, que inclui a própria pessoa, id 1).
+   */
+  function entrar(papel_empresa: 'dono' | 'membro', membros = [membro(1, 'dono')]): void {
     TestBed.inject(AuthService).login({ email: 'a@b.com', senha: 'x' }).subscribe();
     httpMock
       .expectOne(`${AUTH}/login`)
@@ -116,17 +130,44 @@ describe('Conta', () => {
       termos_pendentes: false,
     });
     fixture.detectChanges();
+    if (papel_empresa === 'dono') {
+      httpMock.expectOne(MEMBROS).flush(membros);
+      fixture.detectChanges();
+    }
+  }
+
+  function botaoExcluir(): HTMLButtonElement {
+    return fixture.nativeElement.querySelector('[data-testid="excluir-conta"]');
   }
 
   function textoDoPerigo(): string {
     return fixture.nativeElement.querySelector('[data-testid="perigo-texto"]').textContent;
   }
 
-  it('dono: avisa que a empresa inteira será apagada', () => {
+  it('dono sozinho: avisa que a empresa inteira será apagada', () => {
     entrar('dono');
 
     expect(textoDoPerigo()).toContain('empresa inteira');
     expect(textoDoPerigo()).toContain('Loja da Marina');
+    expect(botaoExcluir().disabled).toBe(false);
+  });
+
+  it('dono com outro dono: a empresa continua e os modelos passam ao outro dono', () => {
+    entrar('dono', [membro(1, 'dono'), membro(2, 'dono'), membro(3, 'membro')]);
+
+    expect(textoDoPerigo()).toContain('continua com os outros donos');
+    expect(textoDoPerigo()).not.toContain('empresa inteira');
+    expect(botaoExcluir().disabled).toBe(false);
+  });
+
+  it('único dono com membros: pede para promover alguém e não deixa excluir', () => {
+    entrar('dono', [membro(1, 'dono'), membro(3, 'membro')]);
+
+    expect(textoDoPerigo()).toContain('Promova outro membro a dono');
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="perigo-texto"] a').getAttribute('href'),
+    ).toBe('/empresa');
+    expect(botaoExcluir().disabled).toBe(true);
   });
 
   it('membro: avisa que os modelos passam ao dono e as análises ficam', () => {
@@ -194,7 +235,7 @@ describe('Conta', () => {
     expect(navegou).toEqual([]);
   });
 
-  it('dono com membros: mostra a recusa do backend', () => {
+  it('a recusa do backend aparece na tela (ex.: membro entrou enquanto a tela estava aberta)', () => {
     entrar('dono');
     componente().exclusao.setValue({ senha: 'SenhaForte123' });
 

@@ -4,7 +4,7 @@
     <p class="muted">
       Todos os membros veem os mesmos modelos, execuções e resultados.
       @if (!ehDono()) {
-        Só o dono da empresa convida e remove membros.
+        Só o dono da empresa convida, remove membros e muda papéis.
       }
     </p>
   </div>
@@ -123,6 +123,16 @@
             <span class="badge" [class.badge--concluida]="membro.papel_empresa === 'dono'">
               {{ membro.papel_empresa === 'dono' ? 'Dono' : 'Membro' }}
             </span>
+            @if (ehDono()) {
+              <button
+                class="botao botao--secundario botao--pequeno"
+                type="button"
+                data-testid="alterar-papel"
+                (click)="alterarPapel(membro)"
+              >
+                {{ rotuloPapel(membro) }}
+              </button>
+            }
             @if (podeRemover(membro)) {
               <button
                 class="botao botao--pequeno"
