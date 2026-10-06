@@ -278,32 +278,38 @@ banco volta exatamente à fotografia da outra.
 
 **`EXEMPLOS_TREINAMENTO` fica.** A FK para `COMENTARIOS` é `SET NULL`: o exemplo
 perde a referência e mantém o texto. O corpus de treino é do projeto, não da empresa,
-e o texto é de um autor do YouTube, não do titular que excluiu a conta. Decisão a
-confirmar pela equipe (ver o PR).
+e o texto é de um autor do YouTube, não do titular que excluiu a conta. A decisão está
+declarada aos usuários na seção 6 dos termos ("Corpus de pesquisa"): o texto permanece
+depois da exclusão da conta ou da empresa e não é publicado com identificação do autor.
 
 ### Bases legais por dado
 
-Proposta para conferir com o texto de `termos-v1.md`, que é a fonte oficial — se
-divergirem, vale o texto e esta tabela é corrigida.
+Transcritas da seção 4 de `termos-v1.md`, que é a fonte oficial: se um dia
+divergirem, vale o texto dos termos e esta tabela é corrigida. A coluna "No sistema"
+diz onde cada dado mora.
 
-| Dado | Titular | Base legal (LGPD, art. 7º) | Retenção |
+| Dado | Base legal (LGPD, art. 7º), como nos termos | No sistema | Retenção |
 |---|---|---|---|
-| nome, e-mail, senha (só o hash), empresa, papel | quem tem conta | execução de contrato (V) | até a exclusão da conta |
-| aceite dos termos (versão, data) | quem tem conta | exercício regular de direitos (VI) — é a prova do aceite | até a exclusão da conta |
-| tentativas de login (hash do e-mail) | quem tenta entrar | legítimo interesse — segurança (IX) | 24 h (regra 7) |
-| comentários públicos do YouTube, autor **pseudonimizado** (SHA-256) | autor do comentário | legítimo interesse (IX), sobre dado tornado manifestamente público pelo titular (art. 7º, §4º) | enquanto a execução existir (ver pendência abaixo) |
+| e-mail, senha e nome da empresa | execução do serviço solicitado (V) | `USUARIOS`, `EMPRESAS`; senha só como hash bcrypt | enquanto a conta existir |
+| termos aceitos (versão e data) | cumprimento de obrigação / legítimo interesse | `ACEITES_TERMOS` | sai com a conta |
+| comentários públicos do YouTube | legítimo interesse acadêmico; dado tornado público (§4º) | `COMENTARIOS`, autor **pseudonimizado** (SHA-256) | até [PREENCHER] meses — ver pendência abaixo |
+| registros técnicos (logs, tentativas de login) | legítimo interesse (IX) | `TENTATIVAS_LOGIN` (hash do e-mail) | 24 h (regra 7) |
+| respostas da validação humana | consentimento (I), pelo TCLE | fora deste banco | documento próprio |
 
 O autor do comentário é **pseudonimizado, não anonimizado**: o mesmo autor gera sempre
 o mesmo hash, e quem tem o identificador original consegue recalculá-lo. Dado
 pseudonimizado (art. 13, §4º) continua sendo dado pessoal — só o anonimizado sai do
-alcance da lei (art. 12). O texto dos termos diz isso com essas palavras.
+alcance da lei (art. 12). O texto dos termos diz isso ("pseudonimização, não
+anonimização completa").
 
-### Pendência conhecida: expurgo automático de 12 meses
+### Pendência conhecida: expurgo automático das execuções
 
-Os termos preveem a retenção das execuções por 12 meses. **O expurgo automático AINDA
-NÃO existe**: hoje a execução fica até a empresa ser excluída. Quando for feito, o
+A seção 6 dos termos prevê excluir comentários e resultados alguns meses após a
+execução (o prazo é um placeholder a preencher; o planejamento falava em 12). **O
+expurgo automático AINDA NÃO existe**: hoje a execução fica até a empresa ser excluída,
+e os termos dizem isso ("até lá, a exclusão é feita sob pedido"). Quando for feito, o
 caminho natural é a mesma ordem de `_apagar_empresa`, aplicada às execuções vencidas, e
-uma linha nova neste ADR. O texto dos termos diz que o expurgo ainda não está em vigor.
+uma linha nova neste ADR.
 
 ### Tabela nova e classificação
 
