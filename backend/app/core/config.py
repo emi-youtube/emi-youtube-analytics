@@ -8,6 +8,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # backend/app/core/config.py -> sobe 3 níveis até a raiz do repositório
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
+# Versão vigente dos Termos de Uso e da Política de Privacidade (ADR-012). Constante,
+# não variável de ambiente: muda junto com o texto em
+# `frontend/src/assets/legal/termos-v<versão>.md`, no mesmo PR. Ao mudar, todo usuário
+# passa a ter aceite pendente e aceita de novo no próximo acesso.
+VERSAO_TERMOS = "1.0"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
