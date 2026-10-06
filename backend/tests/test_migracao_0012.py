@@ -42,8 +42,20 @@ async def banco():
     try:
         yield engine
     finally:
-        await engine.dispose()
         alembic("upgrade", "head")
+        # Esvazia o que o teste gravou: um downgrade posterior (o desta fixture ou o da
+        # 0011) falharia com dados que o schema antigo não aceita, como
+        # `exemplos_treinamento.split` nulo diante da 0007.
+        async with engine.begin() as conexao:
+            tabelas = await conexao.execute(
+                text(
+                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
+                    "AND tablename <> 'alembic_version'"
+                )
+            )
+            nomes = ", ".join(f'public."{nome}"' for (nome,) in tabelas)
+            await conexao.execute(text(f"TRUNCATE {nomes} RESTART IDENTITY CASCADE"))
+        await engine.dispose()
 
 
 async def consultar(engine, sql: str) -> list:
