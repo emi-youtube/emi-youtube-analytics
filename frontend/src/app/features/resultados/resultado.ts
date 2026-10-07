@@ -13,6 +13,13 @@ import { SeloDemo } from '../painel/selo-demo';
 /** Acima disto o vídeo é destacado como fora da curva (design/Dashboard.png). */
 const FATOR_NEGATIVIDADE_ALTA = 2;
 
+/**
+ * Mínimo de comentários para a modelagem de tópicos rodar. Espelha `minimo_execucao`
+ * (`backend/app/insights/configuracao.py`, usado por `topicos/modelo.py`): mudou lá,
+ * muda aqui.
+ */
+export const MINIMO_COMENTARIOS_PARA_TEMAS = 100;
+
 /** Tela Resultados de uma execução (design/Dashboard.png). */
 @Component({
   selector: 'app-resultado',
@@ -32,6 +39,7 @@ export class Resultado {
   protected readonly falha = signal<string | null>(null);
 
   protected readonly dataHoraLegivel = dataHoraLegivel;
+  protected readonly minimoParaTemas = MINIMO_COMENTARIOS_PARA_TEMAS;
 
   protected readonly percentuaisGerais = computed(() => {
     const r = this.resultado();
