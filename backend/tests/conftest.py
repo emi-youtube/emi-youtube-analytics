@@ -10,6 +10,7 @@ O banco dos testes é SQLite em memória, com só as tabelas que os testes exerc
 viram JSON no SQLite e as tabelas podem ser criadas aqui.
 """
 
+import logging
 import os
 
 os.environ["DATABASE_URL"] = "postgresql+asyncpg://testes:testes@localhost:1/banco-inexistente"
@@ -31,7 +32,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import requer_admin
-from app.api.v1.auth import limite_esqueci_senha
+from app.api.v1.auth import limite_cadastro_repetido, limite_esqueci_senha
 from app.core.database import Base, get_db
 from app.main import app
 from app.models.aceite_termos import AceiteTermos
@@ -82,11 +83,28 @@ async def _rota_somente_admin(usuario: Annotated[Usuario, Depends(requer_admin)]
 
 
 @pytest.fixture(autouse=True)
+def _preservar_log_raiz():
+    """O arranque da API configura o log raiz (core/logs.py); um teste que roda o
+    `lifespan` não pode deixar o raiz em INFO para os seguintes, cujo `caplog`
+    passaria a receber linhas de outros loggers."""
+    raiz = logging.getLogger()
+    handlers, nivel = raiz.handlers[:], raiz.level
+    niveis = {nome: logging.getLogger(nome).level for nome in ("httpx", "httpcore")}
+    yield
+    raiz.handlers[:] = handlers
+    raiz.setLevel(nivel)
+    for nome, valor in niveis.items():
+        logging.getLogger(nome).setLevel(valor)
+
+
+@pytest.fixture(autouse=True)
 def _zerar_limite_esqueci_senha():
     """O limite por IP é estado do processo: sem zerar, um teste herdaria o do outro."""
     limite_esqueci_senha.limpar()
+    limite_cadastro_repetido.limpar()
     yield
     limite_esqueci_senha.limpar()
+    limite_cadastro_repetido.limpar()
 
 
 @pytest_asyncio.fixture
