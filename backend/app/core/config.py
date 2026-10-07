@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # não variável de ambiente: muda junto com o texto em
 # `frontend/src/assets/legal/termos-v<versão>.md`, no mesmo PR. Ao mudar, todo usuário
 # passa a ter aceite pendente e aceita de novo no próximo acesso.
-VERSAO_TERMOS = "1.0"
+VERSAO_TERMOS = "1.1"
 
 
 class Settings(BaseSettings):

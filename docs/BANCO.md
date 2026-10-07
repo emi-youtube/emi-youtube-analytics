@@ -285,7 +285,7 @@ depois da exclusão da conta ou da empresa e não é publicado com identificaç�
 
 ### Bases legais por dado
 
-Transcritas da seção 4 de `termos-v1.md`, que é a fonte oficial: se um dia
+Transcritas da seção 4 dos termos vigentes (`termos-v1.1.md`), que é a fonte oficial: se um dia
 divergirem, vale o texto dos termos e esta tabela é corrigida. A coluna "No sistema"
 diz onde cada dado mora.
 
