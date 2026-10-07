@@ -78,11 +78,13 @@ jobs_dlq(id_job PK, tipo, id_execucao, erro, falhou_em)
 tokens_atualizacao(... refresh token revogável e rotacionado, substituido_em — sessão)
 tentativas_login(... controle de bloqueio por tentativas — segurança)
 tokens_redefinicao_senha(... link de "esqueci minha senha", 30 min, uso único — segurança)
+aceites_termos(... versão dos termos aceita por usuário — LGPD, ADR-012)
+cadastros_pendentes(... cadastro de empresa nova à espera do link do e-mail, 24 h — ADR-014)
 ```
 
 **Isolamento por EMPRESA (ADR-011 em `docs/BANCO.md`).** Modelos, execuções e resultados pertencem à empresa; toda consulta filtra por `app/services/escopo.da_empresa`, nunca por `id_usuario`. Recurso de outra empresa responde 404. `papel` é global (`admin`); `papel_empresa` (`dono` | `membro`) é o papel dentro da empresa.
 
-**Domínio vs. infraestrutura.** As 12 primeiras são **entidades de domínio** e compõem o DER da Seção 4.2.2 do TC2. As cinco últimas (`jobs`, `jobs_dlq`, `tokens_atualizacao`, `tentativas_login`, `tokens_redefinicao_senha`) são **tabelas de infraestrutura**: existem para viabilizar fila, sessão e segurança, não representam conceitos do negócio. Elas não entram no DER — são documentadas na Seção 4.3.2 (Banco de Dados). Ao criar tabela nova, classifique-a antes de decidir onde documentar.
+**Domínio vs. infraestrutura.** As 12 primeiras são **entidades de domínio** e compõem o DER da Seção 4.2.2 do TC2. As sete últimas (`jobs`, `jobs_dlq`, `tokens_atualizacao`, `tentativas_login`, `tokens_redefinicao_senha`, `aceites_termos`, `cadastros_pendentes`) são **tabelas de infraestrutura**: existem para viabilizar fila, sessão, segurança e LGPD, não representam conceitos do negócio. Elas não entram no DER — são documentadas na Seção 4.3.2 (Banco de Dados). Ao criar tabela nova, classifique-a antes de decidir onde documentar.
 
 **Valores de CHECK:**
 - `papel`: `admin` | `usuario_pme`

@@ -14,7 +14,12 @@ from app.models.token_atualizacao import TokenAtualizacao
 from app.models.usuario import Usuario
 from app.services import empresa as servico_empresa
 from app.services.auth import CONVITE_INVALIDO, EMPRESA_LOTADA
-from tests.conftest import autenticar, autenticar_convidado, convidar
+from tests.conftest import (
+    autenticar,
+    autenticar_convidado,
+    convidar,
+    pedir_e_confirmar_cadastro,
+)
 
 SENHA = "SenhaForte123"
 DONA = "dona@empresa.com"
@@ -37,19 +42,16 @@ async def registrar_por_convite(cliente, email: str, token: str):
 
 
 async def test_cadastro_cria_empresa_e_dono(cliente, sessao):
-    resposta = await cliente.post(
-        "/api/v1/auth/registrar",
-        json={
-            "nome": "Dona",
-            "email": DONA,
-            "senha": SENHA,
-            "nome_empresa": "  Loja da Dona  ",
-            "aceite_termos": True,
-        },
+    # ADR-014: a empresa e a conta de dono só nascem quando o link do e-mail é aberto.
+    confirmacao = await pedir_e_confirmar_cadastro(
+        cliente, DONA, SENHA, nome_empresa="  Loja da Dona  "
     )
 
-    assert resposta.status_code == 201, resposta.text
-    corpo = resposta.json()
+    assert confirmacao.status_code == 200, confirmacao.text
+    token = confirmacao.json()["access_token"]
+    corpo = (
+        await cliente.get("/api/v1/auth/eu", headers={"Authorization": f"Bearer {token}"})
+    ).json()
     assert corpo["papel_empresa"] == "dono"
     assert corpo["papel"] == "usuario_pme"
     assert corpo["empresa"]["nome"] == "Loja da Dona"

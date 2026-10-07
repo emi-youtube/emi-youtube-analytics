@@ -24,22 +24,6 @@ class LimitePorChave:
         ]:
             del self._eventos[chave]
 
-    def espera(self, chave: str) -> float | None:
-        """Segundos de espera se a chave já estourou, ou None. NÃO conta evento.
-
-        Para limites que só contam um tipo de resultado (ex.: cadastro com e-mail já
-        usado): consulta-se antes de atender e registra-se depois, se for o caso.
-        """
-        agora = time.monotonic()
-        eventos = self._eventos.get(chave)
-        if not eventos:
-            return None
-        while eventos and eventos[0] <= agora - self.janela:
-            eventos.popleft()
-        if len(eventos) >= self.maximo:
-            return eventos[0] + self.janela - agora
-        return None
-
     def registrar(self, chave: str) -> float | None:
         """Conta um evento. Devolve os segundos de espera se estourou, ou None."""
         agora = time.monotonic()

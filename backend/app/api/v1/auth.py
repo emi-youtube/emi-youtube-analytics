@@ -1,7 +1,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_usuario_atual
@@ -10,6 +10,7 @@ from app.core.limite import LimitePorChave
 from app.core.security import hash_token
 from app.models.usuario import Usuario
 from app.schemas.auth import (
+    ConfirmarCadastroRequest,
     ConsultarConviteRequest,
     ConviteParaCadastroResponse,
     EsqueciSenhaRequest,
@@ -37,11 +38,11 @@ Sessao = Annotated[AsyncSession, Depends(get_db)]
 # 15 min. Por e-mail o limite é outro, silencioso, no serviço (3 links/hora/conta).
 limite_esqueci_senha = LimitePorChave(maximo=5, janela_segundos=15 * 60)
 
-# O cadastro responde 409 quando o e-mail já tem conta, o que permite descobrir quem
-# está cadastrado. Para frear a varredura, contam-se só essas respostas, por IP: 5 em
-# 15 min bloqueiam novos cadastros dessa origem até a janela passar. Cadastro bem
-# sucedido não conta, para não travar uma turma que se cadastra ao mesmo tempo.
-limite_cadastro_repetido = LimitePorChave(maximo=5, janela_segundos=15 * 60)
+# Cadastro de empresa nova também dispara e-mail (ADR-014): 10 pedidos por IP a cada
+# 15 min, folga para uma turma se cadastrando junto. Por endereço, o limite é outro e
+# silencioso: 3 e-mails de cadastro por hora.
+limite_cadastro = LimitePorChave(maximo=10, janela_segundos=15 * 60)
+limite_emails_cadastro = LimitePorChave(maximo=3, janela_segundos=60 * 60)
 
 PEDIDO_REDEFINICAO_ACEITO = (
     "Se houver uma conta com este e-mail, enviaremos um link para redefinir a senha."
@@ -65,33 +66,57 @@ def ip_do_cliente(request: Request) -> str:
     return request.client.host if request.client else "desconhecido"
 
 
-def _ref_ip(ip: str) -> str:
-    """Referência do IP para o log: correlaciona tentativas sem gravar o endereço."""
-    return hash_token(ip)[:12]
+@router.post(
+    "/registrar",
+    response_model=UserResponse | MensagemResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={status.HTTP_202_ACCEPTED: {"model": MensagemResponse}},
+)
+async def registrar(
+    dados: UserRegister,
+    request: Request,
+    response: Response,
+    tarefas: BackgroundTasks,
+    db: Sessao,
+) -> UserResponse | MensagemResponse:
+    """Entra por convite (201, conta criada) ou pede uma empresa nova (202, ADR-014).
 
+    Empresa nova: a resposta é sempre a mesma, tenha o e-mail conta ou não, e o
+    e-mail sai em segundo plano: o link de confirmação, ou um aviso a quem já tem
+    conta. A conta só nasce em `POST /auth/confirmar-cadastro`.
+    """
+    if dados.token_convite is not None:
+        usuario = await auth_service.registrar_por_convite(db, dados)
+        return UserResponse.model_validate(usuario)
 
-@router.post("/registrar", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def registrar(dados: UserRegister, request: Request, db: Sessao) -> Usuario:
-    """Cria a empresa e a conta de dono (`nome_empresa`) ou entra por convite."""
     ip = ip_do_cliente(request)
-    espera = limite_cadastro_repetido.espera(ip)
+    espera = limite_cadastro.registrar(ip)
     if espera is not None:
-        # Consultado ANTES de olhar o e-mail: o 429 depende do que esta origem já
-        # tentou, nunca de o e-mail desta requisição existir ou não.
+        # Depende só da origem, nunca do e-mail: o 429 não revela conta nenhuma.
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Muitas tentativas de cadastro. Tente novamente mais tarde.",
+            detail="Muitos pedidos de cadastro. Tente novamente mais tarde.",
             headers={"Retry-After": str(max(1, int(espera)))},
         )
-    try:
-        return await auth_service.register_user(db, dados)
-    except HTTPException as erro:
-        if erro.status_code == status.HTTP_409_CONFLICT and erro.detail == (
-            auth_service.EMAIL_JA_CADASTRADO
-        ):
-            limite_cadastro_repetido.registrar(ip)
-            logger.warning("evento=cadastro_email_repetido ip_ref=%s", _ref_ip(ip))
-        raise
+
+    response.status_code = status.HTTP_202_ACCEPTED
+    chave = hash_token(auth_service.normalizar_email(dados.email))
+    if limite_emails_cadastro.registrar(chave) is None:
+        para, assunto, texto = await auth_service.solicitar_cadastro(db, dados)
+        tarefas.add_task(email_service.enviar, para, assunto, texto)
+    else:
+        # Silencioso, como no "esqueci a senha": sem isto, qualquer um encheria a caixa
+        # de outra pessoa de e-mails de cadastro. O último link enviado segue valendo.
+        logger.warning("evento=cadastro_limitado_por_email email_hash=%s", chave)
+    return MensagemResponse(detail=auth_service.CADASTRO_SOLICITADO)
+
+
+@router.post("/confirmar-cadastro", response_model=TokenPairResponse)
+async def confirmar_cadastro(dados: ConfirmarCadastroRequest, db: Sessao) -> TokenPairResponse:
+    """Abre o link do e-mail: cria a empresa e a conta de dono e já abre a sessão."""
+    usuario = await auth_service.confirmar_cadastro(db, dados.token)
+    access_token, refresh_token = await auth_service.issue_token_pair(db, usuario)
+    return TokenPairResponse(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/convites/consultar", response_model=ConviteParaCadastroResponse)

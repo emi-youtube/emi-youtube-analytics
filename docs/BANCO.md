@@ -401,3 +401,52 @@ em tela; o admin é dono ou membro da própria empresa como qualquer um.
 - O diagrama de casos de uso fica fora do repositório: o ator "Dono da empresa"
   (especialização de "Usuário") precisa ser acrescentado lá, com os casos "Gerenciar
   membros" e "Alterar papel".
+
+## ADR-014 — Cadastro de empresa nova só vale depois de confirmar o e-mail
+
+**Status:** aceita (migração `0013`; branch `sprint4/correcoes-da-revisao`).
+
+### Contexto
+
+O cadastro respondia **409** quando o e-mail já tinha conta. A resposta permitia
+descobrir quem está cadastrado, em contraste com o login e o "esqueci a senha", que
+respondem igual com ou sem conta (UC01). Um freio por IP só reduz a varredura; para
+eliminá-la, o cadastro precisa responder igual nos dois casos, e isso só é possível se
+a conta não nascer na hora: alguém tem de provar que o e-mail é seu.
+
+### Decisão
+
+1. **Empresa nova responde sempre 202, com o mesmo corpo** (`POST /auth/registrar` com
+   `nome_empresa`). O e-mail sai em segundo plano: e-mail sem conta recebe o link de
+   confirmação (24 h); e-mail com conta recebe um aviso ("alguém tentou criar uma conta
+   com este e-mail"). O bcrypt roda nos dois caminhos, para o tempo de resposta também
+   não diferir.
+2. **A conta só nasce no link** (`POST /auth/confirmar-cadastro {token}`): empresa,
+   usuário dono e aceite dos termos num commit só, e a resposta já traz o par de tokens
+   (a tela vai direto para o início). Até lá os dados ficam em `cadastros_pendentes`
+   (infraestrutura, fora do DER): um pedido por e-mail (um novo substitui o anterior e
+   invalida o link antigo), token só como SHA-256, vencidos apagados na escrita
+   (regra 7), RLS ligado (ADR-010).
+3. **O aceite grava a versão dos termos que a pessoa aceitou ao preencher**, guardada no
+   pedido, e não a vigente no momento do clique.
+4. **Convite continua sem confirmação** e responde 201: o convite é um segredo de uso
+   único emitido para aquele e-mail. O convite passa a ser validado **antes** de olhar se
+   o e-mail tem conta; na ordem antiga, um token qualquer respondia 409 ou 400 conforme o
+   e-mail tivesse conta, e a rota de convite também servia para a varredura.
+5. **Limites:** 10 pedidos de empresa nova por IP a cada 15 min (429, depende só da
+   origem) e, silencioso, 3 e-mails de cadastro por endereço por hora (sem isso, qualquer
+   um encheria a caixa de outra pessoa). Os dois em memória, como o do "esqueci a senha".
+6. **409 só onde quem pergunta já provou o e-mail:** abrir um link de confirmação de um
+   e-mail que ganhou conta no meio do caminho (por convite, por exemplo) responde 409 e
+   apaga o pedido.
+
+### Consequências e limites
+
+- **O cadastro de empresa nova passa a depender do e-mail.** Sem provedor configurado
+  (`EMAIL_PROVEDOR=log`) ou sem domínio verificado no Resend, ninguém consegue concluir
+  um cadastro novo em produção. Ver `docs/DEPLOY.md`, seção B.1.2.
+- O limite por IP enxerga o IP que chega ao Azure; atrás do repasse da Vercel, ele pode
+  ser o da Vercel, comum a todos. Dez pedidos por 15 minutos cobrem uma turma, mas não
+  um evento grande. Corrigir exige confiar num cabeçalho da Vercel, o que fica à parte.
+- Mais uma tabela de infraestrutura: o banco passa a ter 19 (12 de domínio e 7 de
+  infraestrutura), e a API ganha uma rota (`confirmar-cadastro`).

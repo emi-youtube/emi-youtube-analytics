@@ -99,6 +99,12 @@ class EsqueciSenhaRequest(BaseModel):
     email: EmailStr = Field(max_length=255)
 
 
+class ConfirmarCadastroRequest(BaseModel):
+    """O token do link de confirmação do cadastro de empresa nova (ADR-014)."""
+
+    token: str = Field(min_length=1, max_length=128)
+
+
 class RedefinirSenhaRequest(BaseModel):
     token: str = Field(min_length=1, max_length=128)
     nova_senha: SecretStr

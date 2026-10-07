@@ -32,11 +32,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import requer_admin
-from app.api.v1.auth import limite_cadastro_repetido, limite_esqueci_senha
+from app.api.v1.auth import limite_cadastro, limite_emails_cadastro, limite_esqueci_senha
 from app.core.database import Base, get_db
 from app.main import app
 from app.models.aceite_termos import AceiteTermos
 from app.models.analise_sentimento import AnaliseSentimento
+from app.models.cadastro_pendente import CadastroPendente
 from app.models.comentario import Comentario
 from app.models.comentario_tema import ComentarioTema
 from app.models.convite import Convite
@@ -52,11 +53,13 @@ from app.models.token_redefinicao_senha import TokenRedefinicaoSenha
 from app.models.usuario import Usuario
 from app.models.versao_modelo import VersaoModelo
 from app.models.video import Video
+from app.services import email as email_service
 
 TABELAS_TESTADAS = [
     Empresa.__table__,
     Usuario.__table__,
     AceiteTermos.__table__,
+    CadastroPendente.__table__,
     Convite.__table__,
     TokenAtualizacao.__table__,
     TokenRedefinicaoSenha.__table__,
@@ -100,11 +103,12 @@ def _preservar_log_raiz():
 @pytest.fixture(autouse=True)
 def _zerar_limite_esqueci_senha():
     """O limite por IP é estado do processo: sem zerar, um teste herdaria o do outro."""
-    limite_esqueci_senha.limpar()
-    limite_cadastro_repetido.limpar()
+    limites = (limite_esqueci_senha, limite_cadastro, limite_emails_cadastro)
+    for limite in limites:
+        limite.limpar()
     yield
-    limite_esqueci_senha.limpar()
-    limite_cadastro_repetido.limpar()
+    for limite in limites:
+        limite.limpar()
 
 
 @pytest_asyncio.fixture
@@ -135,18 +139,53 @@ async def sessao(engine_teste):
         yield s
 
 
+def token_do_email(texto: str) -> str | None:
+    """O token de um e-mail com link `...?token=<token>`, ou None se não houver link."""
+    if "token=" not in texto:
+        return None
+    return texto.split("token=")[1].split()[0]
+
+
+async def pedir_e_confirmar_cadastro(
+    cliente, email: str, senha: str = "SenhaForte123", nome_empresa: str | None = None
+):
+    """Cadastro de empresa nova de ponta a ponta (ADR-014): pede, lê o e-mail, confirma.
+
+    Intercepta o envio só durante o pedido, sem repassar: o e-mail de confirmação não
+    aparece na caixa de saída que o próprio teste tenha montado. Devolve a resposta do
+    `confirmar-cadastro` (com os tokens), ou None se o e-mail já tinha conta.
+    """
+    capturados: list[tuple[str, str, str]] = []
+
+    async def capturar(destinatario: str, assunto: str, texto: str) -> None:
+        capturados.append((destinatario, assunto, texto))
+
+    original = email_service.enviar
+    email_service.enviar = capturar
+    try:
+        pedido = await cliente.post(
+            "/api/v1/auth/registrar",
+            json={
+                "nome": f"Conta {email}",
+                "email": email,
+                "senha": senha,
+                "nome_empresa": nome_empresa or f"Empresa de {email}",
+                "aceite_termos": True,
+            },
+        )
+    finally:
+        email_service.enviar = original
+    assert pedido.status_code == 202, pedido.text
+
+    token = token_do_email(capturados[-1][2]) if capturados else None
+    if token is None:
+        return None
+    return await cliente.post("/api/v1/auth/confirmar-cadastro", json={"token": token})
+
+
 async def autenticar(cliente, email: str, senha: str = "SenhaForte123") -> dict[str, str]:
-    """Registra (dono de uma empresa nova), loga e devolve o header Authorization."""
-    await cliente.post(
-        "/api/v1/auth/registrar",
-        json={
-            "nome": f"Conta {email}",
-            "email": email,
-            "senha": senha,
-            "nome_empresa": f"Empresa de {email}",
-            "aceite_termos": True,
-        },
-    )
+    """Cria a conta (dono de uma empresa nova), loga e devolve o header Authorization."""
+    await pedir_e_confirmar_cadastro(cliente, email, senha)
     resposta = await cliente.post("/api/v1/auth/login", json={"email": email, "senha": senha})
     return {"Authorization": f"Bearer {resposta.json()['access_token']}"}
 

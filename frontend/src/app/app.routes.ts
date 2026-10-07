@@ -42,6 +42,15 @@ export const routes: Routes = [
     loadComponent: () => import('./features/senha/redefinir-senha').then((m) => m.RedefinirSenha),
   },
   {
+    // Link do e-mail de confirmação do cadastro de empresa nova (ADR-014). Sem
+    // guard, como o de redefinir senha: o link precisa abrir mesmo numa aba com
+    // sessão; confirmar abre a sessão da conta nova.
+    path: 'confirmar-cadastro',
+    title: 'Confirmar cadastro · Emi YouTube Analytics',
+    loadComponent: () =>
+      import('./features/cadastro/confirmar-cadastro').then((m) => m.ConfirmarCadastro),
+  },
+  {
     // Termos e Política (ADR-012): públicos e sem guard nenhum — quem vai se
     // cadastrar lê antes, e quem já tem conta lê pelo modal de aceite sem ser
     // mandado para o início. Uma página só; `/privacidade` rola até a seção 4.

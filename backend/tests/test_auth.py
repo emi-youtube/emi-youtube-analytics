@@ -6,21 +6,26 @@ from datetime import UTC, datetime, timedelta
 import jwt
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
+from app.core import config
 from app.core.config import settings
 from app.core.security import hash_token
+from app.models.cadastro_pendente import CadastroPendente
+from app.models.empresa import Empresa
 from app.models.tentativa_login import TentativaLogin
 from app.models.token_atualizacao import TokenAtualizacao
 from app.models.usuario import Usuario
+from app.services import email as email_service
 from app.services.auth import (
     CREDENCIAIS_INVALIDAS,
+    LINK_CONFIRMACAO_INVALIDO,
     MAX_TENTATIVAS,
     RETENCAO_TENTATIVAS,
     _as_utc,
 )
 
-from .conftest import ROTA_ADMIN
+from .conftest import ROTA_ADMIN, pedir_e_confirmar_cadastro, token_do_email
 
 EMAIL = "pme@exemplo.com"
 SENHA = "SenhaForte123"
@@ -28,11 +33,21 @@ NOME = "Loja Exemplo"
 NOME_EMPRESA = "Loja Exemplo Ltda"
 
 
-async def registrar(cliente: AsyncClient, email: str = EMAIL, senha: str = SENHA, **extra):
+async def pedir_cadastro(
+    cliente: AsyncClient, email: str = EMAIL, senha: str = SENHA, ip: str = "203.0.113.9", **extra
+):
+    """Só o POST /auth/registrar, sem abrir o link (ADR-014)."""
     corpo = {"nome": NOME, "email": email, "senha": senha, "aceite_termos": True, **extra}
     if "token_convite" not in extra:
         corpo.setdefault("nome_empresa", NOME_EMPRESA)
-    return await cliente.post("/api/v1/auth/registrar", json=corpo)
+    return await cliente.post("/api/v1/auth/registrar", json=corpo, headers={"X-Forwarded-For": ip})
+
+
+async def registrar(cliente: AsyncClient, email: str = EMAIL, senha: str = SENHA):
+    """Conta de dono pronta: pede o cadastro e abre o link do e-mail."""
+    confirmacao = await pedir_e_confirmar_cadastro(cliente, email, senha)
+    assert confirmacao is not None and confirmacao.status_code == 200, confirmacao
+    return confirmacao
 
 
 async def logar(cliente: AsyncClient, email: str = EMAIL, senha: str = SENHA):
@@ -56,18 +71,36 @@ async def semear_falhas(sessao, email: str, instantes: list[datetime]) -> None:
     await sessao.commit()
 
 
+def caixa(monkeypatch) -> list[tuple[str, str, str]]:
+    """Dublê do envio de e-mail: a lista (para, assunto, texto) do que seria enviado."""
+    enviados: list[tuple[str, str, str]] = []
+
+    async def enviar(destinatario: str, assunto: str, texto: str) -> None:
+        enviados.append((destinatario, assunto, texto))
+
+    monkeypatch.setattr(email_service, "enviar", enviar)
+    return enviados
+
+
 # --------------------------------------------------------------------------- cadastro
 
 
-async def test_registrar_cria_usuario_com_papel_pme(cliente):
+async def test_confirmacao_cria_dono_com_papel_pme_e_abre_sessao(cliente, sessao):
     resposta = await registrar(cliente)
 
-    assert resposta.status_code == 201
-    corpo = resposta.json()
-    assert corpo["email"] == EMAIL
-    assert corpo["papel"] == "usuario_pme"
-    assert "senha_hash" not in corpo
-    assert "senha" not in corpo
+    tokens = resposta.json()
+    assert set(tokens) >= {"access_token", "refresh_token"}
+    eu = (
+        await cliente.get(
+            "/api/v1/auth/eu", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+    ).json()
+    assert eu["email"] == EMAIL
+    assert eu["papel"] == "usuario_pme"
+    assert eu["papel_empresa"] == "dono"
+    assert eu["termos_pendentes"] is False
+    assert "senha_hash" not in eu
+    assert await sessao.scalar(select(func.count()).select_from(CadastroPendente)) == 0
 
 
 async def test_registrar_persiste_senha_com_hash_bcrypt(cliente, sessao):
@@ -78,82 +111,188 @@ async def test_registrar_persiste_senha_com_hash_bcrypt(cliente, sessao):
     assert usuario.senha_hash.startswith("$2b$")
 
 
-async def test_registrar_ignora_papel_enviado_pelo_cliente(cliente):
+async def test_registrar_ignora_papel_enviado_pelo_cliente(cliente, monkeypatch):
     """Aceitar `papel` do corpo permitiria alguém se cadastrar como admin."""
-    resposta = await registrar(cliente, papel="admin")
+    saida = caixa(monkeypatch)
+    await pedir_cadastro(cliente, papel="admin")
+    token = token_do_email(saida[-1][2])
+    await cliente.post("/api/v1/auth/confirmar-cadastro", json={"token": token})
 
-    assert resposta.status_code == 201
-    assert resposta.json()["papel"] == "usuario_pme"
+    resposta = await logar(cliente)
+    eu = await cliente.get(
+        "/api/v1/auth/eu", headers={"Authorization": f"Bearer {resposta.json()['access_token']}"}
+    )
+    assert eu.json()["papel"] == "usuario_pme"
 
 
-async def test_registrar_email_duplicado_retorna_409(cliente):
+async def test_pedido_nao_cria_conta_antes_do_link(cliente, sessao, monkeypatch):
+    saida = caixa(monkeypatch)
+
+    resposta = await pedir_cadastro(cliente)
+
+    assert resposta.status_code == 202
+    assert await sessao.scalar(select(func.count()).select_from(Usuario)) == 0
+    assert (await logar(cliente)).status_code == 401
+    pendente = await sessao.scalar(select(CadastroPendente))
+    assert pendente.email == EMAIL
+    assert pendente.versao_termos == config.VERSAO_TERMOS
+    # Só o hash do token fica no banco; o token vai no link do e-mail.
+    token = token_do_email(saida[-1][2])
+    assert pendente.token_hash == hash_token(token)
+    assert "/confirmar-cadastro?token=" in saida[-1][2]
+
+
+async def test_cadastro_responde_igual_com_e_sem_conta(cliente, monkeypatch):
+    """ADR-014: o pedido não diz se o e-mail tem conta; quem tem recebe um aviso."""
     await registrar(cliente)
-    resposta = await registrar(cliente)
+    saida = caixa(monkeypatch)
+
+    com_conta = await pedir_cadastro(cliente, EMAIL)
+    sem_conta = await pedir_cadastro(cliente, "nova@exemplo.com")
+
+    assert com_conta.status_code == sem_conta.status_code == 202
+    assert com_conta.json() == sem_conta.json()
+    assert com_conta.headers.get("content-length") == sem_conta.headers.get("content-length")
+    (aviso, confirmacao) = saida
+    assert aviso[0] == EMAIL and "já tem conta" in aviso[2]
+    assert token_do_email(aviso[2]) is None
+    assert confirmacao[0] == "nova@exemplo.com" and "confirmar-cadastro" in confirmacao[2]
+
+
+async def test_email_com_conta_nao_ganha_cadastro_pendente(cliente, sessao, monkeypatch):
+    await registrar(cliente)
+    caixa(monkeypatch)
+
+    await pedir_cadastro(cliente, EMAIL)
+
+    assert await sessao.scalar(select(func.count()).select_from(CadastroPendente)) == 0
+
+
+async def test_link_de_confirmacao_e_de_uso_unico(cliente, monkeypatch):
+    saida = caixa(monkeypatch)
+    await pedir_cadastro(cliente)
+    token = token_do_email(saida[-1][2])
+
+    primeira = await cliente.post("/api/v1/auth/confirmar-cadastro", json={"token": token})
+    segunda = await cliente.post("/api/v1/auth/confirmar-cadastro", json={"token": token})
+
+    assert primeira.status_code == 200
+    assert segunda.status_code == 400
+    assert segunda.json()["detail"] == LINK_CONFIRMACAO_INVALIDO
+
+
+async def test_link_vencido_nao_cria_conta(cliente, sessao, monkeypatch):
+    saida = caixa(monkeypatch)
+    await pedir_cadastro(cliente)
+    token = token_do_email(saida[-1][2])
+    pendente = await sessao.scalar(select(CadastroPendente))
+    pendente.expira_em = datetime.now(UTC) - timedelta(minutes=1)
+    await sessao.commit()
+
+    resposta = await cliente.post("/api/v1/auth/confirmar-cadastro", json={"token": token})
+
+    assert resposta.status_code == 400
+    assert await sessao.scalar(select(func.count()).select_from(Usuario)) == 0
+
+
+async def test_novo_pedido_substitui_o_anterior(cliente, sessao, monkeypatch):
+    saida = caixa(monkeypatch)
+    await pedir_cadastro(cliente)
+    antigo = token_do_email(saida[-1][2])
+    await pedir_cadastro(cliente, nome_empresa="Outra Loja")
+    novo = token_do_email(saida[-1][2])
+
+    assert await sessao.scalar(select(func.count()).select_from(CadastroPendente)) == 1
+    velho = await cliente.post("/api/v1/auth/confirmar-cadastro", json={"token": antigo})
+    atual = await cliente.post("/api/v1/auth/confirmar-cadastro", json={"token": novo})
+    assert velho.status_code == 400
+    assert atual.status_code == 200
+
+
+async def test_pedidos_vencidos_saem_na_escrita(cliente, sessao, monkeypatch):
+    """Regra 7: a tabela não cresce com pedidos que ninguém confirmou."""
+    caixa(monkeypatch)
+    await pedir_cadastro(cliente, "esquecido@exemplo.com")
+    pendente = await sessao.scalar(select(CadastroPendente))
+    pendente.expira_em = datetime.now(UTC) - timedelta(minutes=1)
+    await sessao.commit()
+
+    await pedir_cadastro(cliente, "outro@exemplo.com")
+
+    emails = (await sessao.scalars(select(CadastroPendente.email))).all()
+    assert emails == ["outro@exemplo.com"]
+
+
+async def test_email_que_ganhou_conta_no_meio_responde_409_ao_abrir_o_link(
+    cliente, sessao, monkeypatch
+):
+    """Ex.: a pessoa pediu empresa nova e, antes de abrir o link, entrou por convite."""
+    saida = caixa(monkeypatch)
+    await pedir_cadastro(cliente)
+    token = token_do_email(saida[-1][2])
+    sessao.add(
+        Usuario(
+            empresa=Empresa(nome="Outra"),
+            papel_empresa="membro",
+            nome="Convidada",
+            email=EMAIL,
+            senha_hash="x",
+            papel="usuario_pme",
+        )
+    )
+    await sessao.commit()
+
+    resposta = await cliente.post("/api/v1/auth/confirmar-cadastro", json={"token": token})
 
     assert resposta.status_code == 409
+    assert await sessao.scalar(select(func.count()).select_from(Usuario)) == 1
+    assert await sessao.scalar(select(func.count()).select_from(CadastroPendente)) == 0
 
 
-async def registrar_de(cliente: AsyncClient, email: str, ip: str = "203.0.113.9"):
-    corpo = {
-        "nome": NOME,
-        "email": email,
-        "senha": SENHA,
-        "aceite_termos": True,
-        "nome_empresa": NOME_EMPRESA,
-    }
-    return await cliente.post("/api/v1/auth/registrar", json=corpo, headers={"X-Forwarded-For": ip})
+async def test_limite_de_emails_por_endereco_e_silencioso(cliente, monkeypatch):
+    """Sem isto, qualquer um encheria a caixa de outra pessoa de e-mails de cadastro."""
+    saida = caixa(monkeypatch)
+
+    respostas = [await pedir_cadastro(cliente) for _ in range(5)]
+
+    assert {r.status_code for r in respostas} == {202}
+    assert len({r.text for r in respostas}) == 1
+    assert len(saida) == 3
 
 
-async def test_varredura_de_emails_no_cadastro_e_freada_por_ip(cliente):
-    await registrar(cliente)  # a conta que a varredura vai "descobrir"
-    for _ in range(5):
-        assert (await registrar_de(cliente, EMAIL)).status_code == 409
+async def test_limite_por_origem_responde_429(cliente, monkeypatch):
+    caixa(monkeypatch)
+    for i in range(10):
+        assert (await pedir_cadastro(cliente, f"aluno{i}@exemplo.com")).status_code == 202
 
-    # Estourado o limite, a origem leva 429 até para um e-mail NOVO: a resposta
-    # depende do que ela já tentou, não de o e-mail existir.
-    bloqueado = await registrar_de(cliente, "novo@exemplo.com")
+    bloqueado = await pedir_cadastro(cliente, "mais.um@exemplo.com")
+    outra_origem = await pedir_cadastro(cliente, "mais.um@exemplo.com", ip="198.51.100.4")
+
     assert bloqueado.status_code == 429
     assert int(bloqueado.headers["Retry-After"]) > 0
+    assert outra_origem.status_code == 202
 
 
-async def test_limite_do_cadastro_e_por_origem(cliente):
+async def test_convite_falso_nao_revela_se_o_email_tem_conta(cliente):
+    """Antes, um token qualquer com um e-mail cadastrado dava 409, e sem conta, 400."""
     await registrar(cliente)
-    for _ in range(5):
-        await registrar_de(cliente, EMAIL, ip="203.0.113.9")
 
-    outra_origem = await registrar_de(cliente, "outra@exemplo.com", ip="198.51.100.4")
-    assert outra_origem.status_code == 201
+    com_conta = await pedir_cadastro(cliente, EMAIL, token_convite="falso")
+    sem_conta = await pedir_cadastro(cliente, "ninguem@exemplo.com", token_convite="falso")
 
-
-async def test_cadastros_bem_sucedidos_nao_contam_para_o_limite(cliente):
-    # Uma turma cadastrando ao mesmo tempo, atrás do mesmo IP, não pode travar.
-    for i in range(8):
-        resposta = await registrar_de(cliente, f"aluno{i}@exemplo.com")
-        assert resposta.status_code == 201
+    assert com_conta.status_code == sem_conta.status_code == 400
+    assert com_conta.json() == sem_conta.json()
 
 
-async def test_409_de_empresa_lotada_nao_conta_como_varredura(cliente, monkeypatch):
-    from fastapi import HTTPException
+async def test_registrar_normaliza_email_para_minusculas(cliente, sessao):
+    await pedir_e_confirmar_cadastro(cliente, "PME@Exemplo.COM")
 
-    from app.services import auth as auth_service
-
-    async def lotada(*_args, **_kwargs):
-        raise HTTPException(status_code=409, detail="A empresa já atingiu o limite.")
-
-    monkeypatch.setattr(auth_service, "register_user", lotada)
-    for _ in range(6):
-        assert (await registrar_de(cliente, "x@exemplo.com")).status_code == 409
-
-
-async def test_registrar_normaliza_email_para_minusculas(cliente):
-    resposta = await registrar(cliente, email="PME@Exemplo.COM")
-
-    assert resposta.status_code == 201
-    assert resposta.json()["email"] == EMAIL
+    usuario = await sessao.scalar(select(Usuario))
+    assert usuario.email == EMAIL
 
 
 async def test_registrar_rejeita_senha_curta(cliente):
-    resposta = await registrar(cliente, senha="curta")
+    resposta = await pedir_cadastro(cliente, senha="curta")
 
     assert resposta.status_code == 422
 
@@ -161,7 +300,7 @@ async def test_registrar_rejeita_senha_curta(cliente):
 async def test_erro_de_validacao_nao_devolve_a_senha(cliente):
     """A senha não pode vazar nem no corpo do erro 422 do Pydantic."""
     senha = "abc"
-    resposta = await registrar(cliente, senha=senha)
+    resposta = await pedir_cadastro(cliente, senha=senha)
 
     assert resposta.status_code == 422
     assert senha not in resposta.text
@@ -169,7 +308,7 @@ async def test_erro_de_validacao_nao_devolve_a_senha(cliente):
 
 async def test_erro_de_validacao_ainda_indica_o_campo(cliente):
     """Esconder `input` não pode cegar o frontend sobre qual campo falhou."""
-    resposta = await registrar(cliente, senha="abc")
+    resposta = await pedir_cadastro(cliente, senha="abc")
 
     erro = resposta.json()["detail"][0]
     assert erro["loc"][-1] == "senha"
@@ -418,13 +557,21 @@ async def test_logout_marca_flag_de_revogacao(cliente, sessao):
 
     await cliente.post("/api/v1/auth/logout", json={"refresh_token": tokens["refresh_token"]})
 
-    registro = await sessao.scalar(select(TokenAtualizacao))
+    registro = await sessao.scalar(
+        select(TokenAtualizacao).where(
+            TokenAtualizacao.token_hash == hash_token(tokens["refresh_token"])
+        )
+    )
     assert registro.revogado is True
 
 
 async def test_refresh_expirado_e_recusado(cliente, sessao):
     tokens = await registrar_e_logar(cliente)
-    registro = await sessao.scalar(select(TokenAtualizacao))
+    registro = await sessao.scalar(
+        select(TokenAtualizacao).where(
+            TokenAtualizacao.token_hash == hash_token(tokens["refresh_token"])
+        )
+    )
     registro.expira_em = datetime.now(UTC) - timedelta(seconds=1)
     await sessao.commit()
 

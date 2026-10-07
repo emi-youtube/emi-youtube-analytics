@@ -8,171 +8,181 @@
       <h2 class="form__titulo">Criar acesso</h2>
       <p class="form__alternativa">Já tem conta? <a routerLink="/login">Entrar</a></p>
 
-      <div class="modos" role="radiogroup" aria-label="Como você vai entrar">
-        <button
-          type="button"
-          class="modos__opcao"
-          role="radio"
-          [attr.aria-checked]="modo() === 'criar'"
-          [class.modos__opcao--ativa]="modo() === 'criar'"
-          (click)="escolher('criar')"
-        >
-          Criar empresa
-        </button>
-        <button
-          type="button"
-          class="modos__opcao"
-          role="radio"
-          [attr.aria-checked]="modo() === 'convite'"
-          [class.modos__opcao--ativa]="modo() === 'convite'"
-          (click)="escolher('convite')"
-        >
-          Tenho um convite
-        </button>
-      </div>
-
-      @if (erro(); as mensagem) {
-        <p class="form__erro" role="alert">
-          {{ mensagem }}
-          @if (contaCriada()) {
-            <a routerLink="/login">Ir para a entrada</a>
-          }
+      @if (emailEnviadoPara(); as email) {
+        <p class="form__sucesso" role="status" data-testid="cadastro-enviado">
+          Enviamos um link para <strong>{{ email }}</strong
+          >. Abra-o em até 24 horas para criar a sua empresa. Se ele não chegar em alguns minutos,
+          confira a caixa de spam ou faça o cadastro de novo.
         </p>
-      }
-
-      @if (modo() === 'convite' && !convite()) {
-        <div class="campo">
-          <label class="campo__rotulo" for="codigo">Link ou código do convite</label>
-          <input
-            id="codigo"
-            class="campo__entrada"
-            type="text"
-            [formControl]="codigoConvite"
-            placeholder="Cole aqui o link que você recebeu"
-            autocomplete="off"
-            [class.campo__entrada--invalido]="codigoConvite.invalid && codigoConvite.touched"
-          />
-          <p class="campo__dica">Quem convidou recebe o link ao gerar o convite.</p>
+        <a class="botao" routerLink="/login">Ir para a entrada</a>
+      } @else {
+        <div class="modos" role="radiogroup" aria-label="Como você vai entrar">
+          <button
+            type="button"
+            class="modos__opcao"
+            role="radio"
+            [attr.aria-checked]="modo() === 'criar'"
+            [class.modos__opcao--ativa]="modo() === 'criar'"
+            (click)="escolher('criar')"
+          >
+            Criar empresa
+          </button>
+          <button
+            type="button"
+            class="modos__opcao"
+            role="radio"
+            [attr.aria-checked]="modo() === 'convite'"
+            [class.modos__opcao--ativa]="modo() === 'convite'"
+            (click)="escolher('convite')"
+          >
+            Tenho um convite
+          </button>
         </div>
 
-        <button
-          class="botao"
-          type="button"
-          [disabled]="consultandoConvite()"
-          (click)="validarCodigo()"
-        >
-          {{ consultandoConvite() ? 'Validando…' : 'Validar convite' }}
-        </button>
-      } @else {
-        @if (convite(); as c) {
-          <p class="convite" data-testid="convite">
-            Você vai entrar na empresa <strong>{{ c.nome_empresa }}</strong> como
-            {{ c.papel_empresa === 'dono' ? 'dono' : 'membro' }}.
+        @if (erro(); as mensagem) {
+          <p class="form__erro" role="alert">
+            {{ mensagem }}
+            @if (contaCriada()) {
+              <a routerLink="/login">Ir para a entrada</a>
+            }
           </p>
         }
 
-        <div class="campo">
-          <label class="campo__rotulo" for="nome">Nome</label>
-          <input
-            id="nome"
-            class="campo__entrada"
-            type="text"
-            formControlName="nome"
-            placeholder="Como devemos chamar você"
-            autocomplete="name"
-            [class.campo__entrada--invalido]="invalido('nome')"
-          />
-          @if (invalido('nome')) {
-            <p class="campo__ajuda">Informe seu nome.</p>
-          }
-        </div>
-
-        @if (modo() === 'criar') {
+        @if (modo() === 'convite' && !convite()) {
           <div class="campo">
-            <label class="campo__rotulo" for="nome_empresa">Nome da empresa</label>
+            <label class="campo__rotulo" for="codigo">Link ou código do convite</label>
             <input
-              id="nome_empresa"
+              id="codigo"
               class="campo__entrada"
               type="text"
-              formControlName="nome_empresa"
-              placeholder="Como sua empresa aparece para a equipe"
-              autocomplete="organization"
-              [class.campo__entrada--invalido]="invalido('nome_empresa')"
+              [formControl]="codigoConvite"
+              placeholder="Cole aqui o link que você recebeu"
+              autocomplete="off"
+              [class.campo__entrada--invalido]="codigoConvite.invalid && codigoConvite.touched"
             />
-            @if (invalido('nome_empresa')) {
-              <p class="campo__ajuda">Informe o nome da empresa.</p>
+            <p class="campo__dica">Quem convidou recebe o link ao gerar o convite.</p>
+          </div>
+
+          <button
+            class="botao"
+            type="button"
+            [disabled]="consultandoConvite()"
+            (click)="validarCodigo()"
+          >
+            {{ consultandoConvite() ? 'Validando…' : 'Validar convite' }}
+          </button>
+        } @else {
+          @if (convite(); as c) {
+            <p class="convite" data-testid="convite">
+              Você vai entrar na empresa <strong>{{ c.nome_empresa }}</strong> como
+              {{ c.papel_empresa === 'dono' ? 'dono' : 'membro' }}.
+            </p>
+          }
+
+          <div class="campo">
+            <label class="campo__rotulo" for="nome">Nome</label>
+            <input
+              id="nome"
+              class="campo__entrada"
+              type="text"
+              formControlName="nome"
+              placeholder="Como devemos chamar você"
+              autocomplete="name"
+              [class.campo__entrada--invalido]="invalido('nome')"
+            />
+            @if (invalido('nome')) {
+              <p class="campo__ajuda">Informe seu nome.</p>
             }
           </div>
+
+          @if (modo() === 'criar') {
+            <div class="campo">
+              <label class="campo__rotulo" for="nome_empresa">Nome da empresa</label>
+              <input
+                id="nome_empresa"
+                class="campo__entrada"
+                type="text"
+                formControlName="nome_empresa"
+                placeholder="Como sua empresa aparece para a equipe"
+                autocomplete="organization"
+                [class.campo__entrada--invalido]="invalido('nome_empresa')"
+              />
+              @if (invalido('nome_empresa')) {
+                <p class="campo__ajuda">Informe o nome da empresa.</p>
+              }
+            </div>
+          }
+
+          <div class="campo">
+            <label class="campo__rotulo" for="email">E-mail</label>
+            <input
+              id="email"
+              class="campo__entrada"
+              type="email"
+              formControlName="email"
+              placeholder="voce@suaempresa.com.br"
+              autocomplete="username"
+              [class.campo__entrada--invalido]="invalido('email')"
+            />
+            @if (convite()) {
+              <p class="campo__dica">O convite vale só para este e-mail.</p>
+            } @else if (invalido('email')) {
+              <p class="campo__ajuda">Informe um e-mail válido.</p>
+            }
+          </div>
+
+          <div class="campo">
+            <label class="campo__rotulo" for="senha">Senha</label>
+            <input
+              id="senha"
+              class="campo__entrada"
+              type="password"
+              formControlName="senha"
+              autocomplete="new-password"
+              [class.campo__entrada--invalido]="invalido('senha')"
+            />
+            @if (invalido('senha')) {
+              <p class="campo__ajuda">A senha deve ter ao menos {{ senhaMinima }} caracteres.</p>
+            } @else {
+              <p class="campo__dica">Ao menos {{ senhaMinima }} caracteres.</p>
+            }
+          </div>
+
+          <div class="campo">
+            <label class="campo__rotulo" for="confirmacao">Confirme a senha</label>
+            <input
+              id="confirmacao"
+              class="campo__entrada"
+              type="password"
+              formControlName="confirmacao"
+              autocomplete="new-password"
+              [class.campo__entrada--invalido]="invalido('confirmacao') || senhasDiferentes()"
+            />
+            @if (invalido('confirmacao')) {
+              <p class="campo__ajuda">Repita a senha.</p>
+            } @else if (senhasDiferentes()) {
+              <p class="campo__ajuda">As senhas não são iguais.</p>
+            }
+          </div>
+
+          <label class="aceite">
+            <input type="checkbox" formControlName="aceite_termos" data-testid="aceite-termos" />
+            <span>
+              Li e aceito os
+              <a routerLink="/termos" target="_blank" rel="noopener">Termos de Uso</a> e a
+              <a routerLink="/privacidade" target="_blank" rel="noopener">Política de Privacidade</a
+              >.
+            </span>
+          </label>
+
+          <button
+            class="botao"
+            type="submit"
+            [disabled]="enviando() || contaCriada() || !form.controls.aceite_termos.value"
+          >
+            {{ enviando() ? 'Criando conta…' : 'Criar conta' }}
+          </button>
         }
-
-        <div class="campo">
-          <label class="campo__rotulo" for="email">E-mail</label>
-          <input
-            id="email"
-            class="campo__entrada"
-            type="email"
-            formControlName="email"
-            placeholder="voce@suaempresa.com.br"
-            autocomplete="username"
-            [class.campo__entrada--invalido]="invalido('email')"
-          />
-          @if (convite()) {
-            <p class="campo__dica">O convite vale só para este e-mail.</p>
-          } @else if (invalido('email')) {
-            <p class="campo__ajuda">Informe um e-mail válido.</p>
-          }
-        </div>
-
-        <div class="campo">
-          <label class="campo__rotulo" for="senha">Senha</label>
-          <input
-            id="senha"
-            class="campo__entrada"
-            type="password"
-            formControlName="senha"
-            autocomplete="new-password"
-            [class.campo__entrada--invalido]="invalido('senha')"
-          />
-          @if (invalido('senha')) {
-            <p class="campo__ajuda">A senha deve ter ao menos {{ senhaMinima }} caracteres.</p>
-          } @else {
-            <p class="campo__dica">Ao menos {{ senhaMinima }} caracteres.</p>
-          }
-        </div>
-
-        <div class="campo">
-          <label class="campo__rotulo" for="confirmacao">Confirme a senha</label>
-          <input
-            id="confirmacao"
-            class="campo__entrada"
-            type="password"
-            formControlName="confirmacao"
-            autocomplete="new-password"
-            [class.campo__entrada--invalido]="invalido('confirmacao') || senhasDiferentes()"
-          />
-          @if (invalido('confirmacao')) {
-            <p class="campo__ajuda">Repita a senha.</p>
-          } @else if (senhasDiferentes()) {
-            <p class="campo__ajuda">As senhas não são iguais.</p>
-          }
-        </div>
-
-        <label class="aceite">
-          <input type="checkbox" formControlName="aceite_termos" data-testid="aceite-termos" />
-          <span>
-            Li e aceito os
-            <a routerLink="/termos" target="_blank" rel="noopener">Termos de Uso</a> e a
-            <a routerLink="/privacidade" target="_blank" rel="noopener">Política de Privacidade</a>.
-          </span>
-        </label>
-
-        <button
-          class="botao"
-          type="submit"
-          [disabled]="enviando() || contaCriada() || !form.controls.aceite_termos.value"
-        >
-          {{ enviando() ? 'Criando conta…' : 'Criar conta' }}
-        </button>
       }
 
       <aside class="aviso">

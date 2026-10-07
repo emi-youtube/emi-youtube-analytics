@@ -28,7 +28,7 @@ Controladores: a equipe do projeto GIOVANA FONSECA BATSCHER, GIOVANNE DA SILVA B
 
 | Dado | Finalidade | Base legal (art. 7º) | Observação |
 |---|---|---|---|
-| E-mail, senha e nome da empresa | Criar e proteger a conta, separar os dados por empresa, enviar convites e links de redefinição de senha | Execução do serviço solicitado (inc. V) | Senha guardada só como hash (bcrypt) |
+| E-mail, senha e nome da empresa | Criar e proteger a conta, separar os dados por empresa, confirmar o e-mail no cadastro, enviar convites e links de redefinição de senha | Execução do serviço solicitado (inc. V) | Senha guardada só como hash (bcrypt) |
 | Termos aceitos (versão e data) | Comprovar o consentimento aos termos | Cumprimento de obrigação / legítimo interesse | Registrado no cadastro |
 | Comentários públicos do YouTube | Classificar sentimentos e agrupar temas | Legítimo interesse acadêmico; dado tornado público (§4º) | O nome do autor não é guardado: apenas um código SHA-256 (pseudonimização) |
 | Registros técnicos (logs, tentativas de login) | Segurança e prevenção de fraude | Legítimo interesse (inc. IX) | Mantidos por prazo curto |
@@ -48,13 +48,13 @@ Importante: o código irreversível do autor é pseudonimização, não anonimiz
 
 - Hugging Face (apenas para baixar o modelo; nenhum comentário é enviado).
 
-- Resend (envio dos e-mails de convite e de redefinição de senha; recebe o endereço de quem recebe e o texto da mensagem; pode processar dados fora do Brasil).
+- Resend (envio dos e-mails de confirmação de cadastro, de convite e de redefinição de senha; recebe o endereço de quem recebe e o texto da mensagem; pode processar dados fora do Brasil).
 
 Os comentários não são enviados a serviços de IA de terceiros na classificação: o modelo roda no nosso servidor. Os provedores acima são operadores e, portanto, também são terceiros; parte deles trata dados fora do Brasil, com salvaguardas contratuais dos próprios provedores (LGPD, art. 33).
 
 ## 6. Quanto tempo guardamos
 
-Dados da conta: enquanto a conta existir. Comentários e resultados: até 3 meses após a execução, quando são excluídos. O expurgo automático ainda será implementado; até lá, a exclusão é feita sob pedido. Ao fim do projeto acadêmico, os dados de teste serão excluídos ou anonimizados.
+Dados da conta: enquanto a conta existir. Pedido de cadastro não confirmado: apagado depois de 24 horas. Comentários e resultados: até 3 meses após a execução, quando são excluídos. O expurgo automático ainda será implementado; até lá, a exclusão é feita sob pedido. Ao fim do projeto acadêmico, os dados de teste serão excluídos ou anonimizados.
 
 Corpus de pesquisa: os textos de comentários públicos usados no treinamento e na avaliação do modelo, com o autor pseudonimizado, pertencem ao projeto acadêmico e não à empresa; por isso permanecem depois da exclusão de uma conta ou empresa e não são publicados com identificação do autor.
 
@@ -74,4 +74,4 @@ Por ser um protótipo acadêmico, o sistema pode ficar indisponível ou ser desa
 
 Mudanças nestes termos geram nova versão e novo aceite. Dúvidas: emi.youtube.analytics@gmail.com.
 
-Histórico de versões: 1.0 (06/10/2026), versão inicial; 1.1 (07/10/2026), inclusão do Resend entre os operadores (seção 5) e do envio de e-mails entre as finalidades (seção 4).
+Histórico de versões: 1.0 (06/10/2026), versão inicial; 1.1 (07/10/2026), inclusão do Resend entre os operadores (seção 5), da confirmação do e-mail no cadastro e do envio de e-mails entre as finalidades (seção 4) e do prazo dos cadastros não confirmados (seção 6).

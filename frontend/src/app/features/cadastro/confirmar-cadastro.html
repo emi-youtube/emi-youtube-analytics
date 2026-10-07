@@ -1,0 +1,17 @@
+<div class="acesso">
+  <app-vitrine />
+
+  <section class="acesso__painel">
+    <div class="form">
+      <h2 class="form__titulo">Confirmar cadastro</h2>
+
+      @if (erro(); as mensagem) {
+        <p class="form__erro" role="alert" data-testid="confirmacao-erro">{{ mensagem }}</p>
+        <a class="botao" routerLink="/cadastro">Fazer o cadastro de novo</a>
+        <p class="form__alternativa">Já tem conta? <a routerLink="/login">Entrar</a></p>
+      } @else {
+        <p class="form__sucesso" role="status">Confirmando o seu e-mail e criando a empresa…</p>
+      }
+    </div>
+  </section>
+</div>
