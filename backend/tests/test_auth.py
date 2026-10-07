@@ -93,6 +93,58 @@ async def test_registrar_email_duplicado_retorna_409(cliente):
     assert resposta.status_code == 409
 
 
+async def registrar_de(cliente: AsyncClient, email: str, ip: str = "203.0.113.9"):
+    corpo = {
+        "nome": NOME,
+        "email": email,
+        "senha": SENHA,
+        "aceite_termos": True,
+        "nome_empresa": NOME_EMPRESA,
+    }
+    return await cliente.post("/api/v1/auth/registrar", json=corpo, headers={"X-Forwarded-For": ip})
+
+
+async def test_varredura_de_emails_no_cadastro_e_freada_por_ip(cliente):
+    await registrar(cliente)  # a conta que a varredura vai "descobrir"
+    for _ in range(5):
+        assert (await registrar_de(cliente, EMAIL)).status_code == 409
+
+    # Estourado o limite, a origem leva 429 até para um e-mail NOVO: a resposta
+    # depende do que ela já tentou, não de o e-mail existir.
+    bloqueado = await registrar_de(cliente, "novo@exemplo.com")
+    assert bloqueado.status_code == 429
+    assert int(bloqueado.headers["Retry-After"]) > 0
+
+
+async def test_limite_do_cadastro_e_por_origem(cliente):
+    await registrar(cliente)
+    for _ in range(5):
+        await registrar_de(cliente, EMAIL, ip="203.0.113.9")
+
+    outra_origem = await registrar_de(cliente, "outra@exemplo.com", ip="198.51.100.4")
+    assert outra_origem.status_code == 201
+
+
+async def test_cadastros_bem_sucedidos_nao_contam_para_o_limite(cliente):
+    # Uma turma cadastrando ao mesmo tempo, atrás do mesmo IP, não pode travar.
+    for i in range(8):
+        resposta = await registrar_de(cliente, f"aluno{i}@exemplo.com")
+        assert resposta.status_code == 201
+
+
+async def test_409_de_empresa_lotada_nao_conta_como_varredura(cliente, monkeypatch):
+    from fastapi import HTTPException
+
+    from app.services import auth as auth_service
+
+    async def lotada(*_args, **_kwargs):
+        raise HTTPException(status_code=409, detail="A empresa já atingiu o limite.")
+
+    monkeypatch.setattr(auth_service, "register_user", lotada)
+    for _ in range(6):
+        assert (await registrar_de(cliente, "x@exemplo.com")).status_code == 409
+
+
 async def test_registrar_normaliza_email_para_minusculas(cliente):
     resposta = await registrar(cliente, email="PME@Exemplo.COM")
 

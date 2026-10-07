@@ -32,6 +32,10 @@ from app.services import termos as termos_service
 
 logger = logging.getLogger(__name__)
 
+# O 409 de e-mail repetido revela que a conta existe. A rota conta essas respostas por
+# IP (api/v1/auth.py) para frear a varredura; a constante é o que ela reconhece.
+EMAIL_JA_CADASTRADO = "Já existe uma conta com este e-mail."
+
 # UC01: 5 tentativas malsucedidas no mesmo e-mail em 10 min -> bloqueio de 15 min
 MAX_TENTATIVAS = 5
 JANELA_TENTATIVAS = timedelta(minutes=10)
@@ -152,10 +156,7 @@ async def register_user(db: AsyncSession, dados: UserRegister) -> Usuario:
 
     existente = await db.scalar(select(Usuario).where(Usuario.email == email))
     if existente is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Já existe uma conta com este e-mail.",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_JA_CADASTRADO)
 
     if dados.token_convite is not None:
         convite = await _consumir_convite(db, dados.token_convite, email)
@@ -188,8 +189,7 @@ async def register_user(db: AsyncSession, dados: UserRegister) -> Usuario:
         # Corrida com outro cadastro do mesmo e-mail: o UNIQUE do banco decide.
         await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Já existe uma conta com este e-mail.",
+            status_code=status.HTTP_409_CONFLICT, detail=EMAIL_JA_CADASTRADO
         ) from None
     await db.refresh(usuario, ["empresa"])
 

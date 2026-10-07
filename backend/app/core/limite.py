@@ -1,6 +1,6 @@
 """Limite de requisições por chave, em memória, para rotas públicas sensíveis.
 
-Usado no "esqueci minha senha" por IP. Fica em memória do processo de propósito: a
+Usado no "esqueci minha senha" e no cadastro, por IP. Fica em memória do processo de propósito: a
 API roda com UM worker do uvicorn (startup.sh), e o pior caso de um reinício é o
 contador zerar — aceitável para um freio de abuso. A fila e o resto do estado
 continuam no Postgres; isto não é estado de negócio.
@@ -23,6 +23,22 @@ class LimitePorChave:
             c for c, ev in self._eventos.items() if not ev or ev[-1] <= agora - self.janela
         ]:
             del self._eventos[chave]
+
+    def espera(self, chave: str) -> float | None:
+        """Segundos de espera se a chave já estourou, ou None. NÃO conta evento.
+
+        Para limites que só contam um tipo de resultado (ex.: cadastro com e-mail já
+        usado): consulta-se antes de atender e registra-se depois, se for o caso.
+        """
+        agora = time.monotonic()
+        eventos = self._eventos.get(chave)
+        if not eventos:
+            return None
+        while eventos and eventos[0] <= agora - self.janela:
+            eventos.popleft()
+        if len(eventos) >= self.maximo:
+            return eventos[0] + self.janela - agora
+        return None
 
     def registrar(self, chave: str) -> float | None:
         """Conta um evento. Devolve os segundos de espera se estourou, ou None."""
