@@ -182,9 +182,9 @@ async def devolver_presos(db: AsyncSession, limite_minutos: int, max_tentativas:
     mesmo tempo e não podem tratar o mesmo job duas vezes.
 
     Reprocessar é seguro porque os três workers são idempotentes ou atômicos: a
-    coleta só commita no fim (morrer no meio não deixa vídeo pela metade), a
-    inferência pula comentário que já tem análise, e os tópicos verificam se a
-    execução já tem tema.
+    coleta apaga, no início, o que uma tentativa anterior tenha deixado gravado e
+    recomeça (`coleta._apagar_coleta_da_execucao`), a inferência pula comentário que
+    já tem análise, e os tópicos verificam se a execução já tem tema.
     """
     limite = datetime.now(UTC) - timedelta(minutes=limite_minutos)
 

@@ -20,6 +20,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta, timezone
 
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -270,9 +271,40 @@ async def _coletar_video(
     return lote
 
 
+async def _apagar_coleta_da_execucao(db: AsyncSession, id_execucao: int) -> int:
+    """Apaga os vídeos (e seus comentários) já gravados para a execução. NÃO faz commit.
+
+    **Por que existe.** A coleta grava tudo num commit só no fim, mas
+    `fila.registrar_tentativa` commita a sessão a cada erro transitório, para a
+    contagem sobreviver a uma queda do worker. Esse commit leva junto o que a coleta
+    já tinha posto na sessão: os vídeos anteriores e seus comentários. Sem limpar,
+    a tentativa seguinte (job devolvido pela recuperação) esbarrava no UNIQUE
+    `uq_videos_execucao_video` e a execução terminava em erro em vez de retomar, e
+    uma falha definitiva deixava a coleta parcial gravada numa execução em erro.
+
+    Seguro porque, durante a coleta, a execução ainda não tem análise nem tema: as
+    etapas seguintes só são publicadas quando a coleta conclui.
+    """
+    videos = select(Video.id_video).where(Video.id_execucao == id_execucao)
+    # Comentários explicitamente, sem depender do ON DELETE CASCADE.
+    await db.execute(delete(Comentario).where(Comentario.id_video.in_(videos)))
+    apagados = await db.execute(delete(Video).where(Video.id_execucao == id_execucao))
+    return apagados.rowcount or 0
+
+
 async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
     """Executa um job de coleta já reivindicado. Devolve o total de comentários."""
     payload = job.payload or {}
+
+    # Reprocessamento: começa do zero, na mesma transação da coleta nova.
+    restos = await _apagar_coleta_da_execucao(db, job.id_execucao)
+    if restos:
+        logger.warning(
+            "coleta anterior incompleta descartada, recomecando id_execucao=%s videos=%s",
+            job.id_execucao,
+            restos,
+        )
+
     ids = _ids_de_video(payload, job.id_execucao)
     recorte = _recorte(payload, job.id_execucao)
 
@@ -363,11 +395,17 @@ async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
 async def _descartar_parcial(db: AsyncSession, job: Job) -> None:
     """Desfaz o que a coleta tinha gravado e recarrega o job.
 
+    O rollback desfaz o que ainda não foi commitado; o que um `registrar_tentativa`
+    já commitou é apagado em seguida, e sai no mesmo commit que manda o job para a
+    DLQ. Assim a execução em erro não fica com metade dos vídeos.
+
     O rollback expira os objetos da sessão; sem o refresh, ler `job.tipo` para
     montar a linha da DLQ dispararia um carregamento preguiçoso fora do contexto
     assíncrono do SQLAlchemy.
     """
+    id_execucao = job.id_execucao  # lido antes: o rollback expira o objeto
     await db.rollback()
+    await _apagar_coleta_da_execucao(db, id_execucao)
     await db.refresh(job)
 
 
