@@ -530,12 +530,22 @@ são configuração, com os padrões acima.
 - **Chave própria por empresa foi descartada:** as políticas mandam usar só as credenciais
   atribuídas ao próprio projeto e não compartilhá-las (III.D.1.d). Fica como trabalho
   futuro o reaproveitamento de coletas recentes do mesmo vídeo.
-- **Pendência de conformidade antes de pedir mais cota.** Comentário público obtido com a
-  chave, sem login do autor, é *Non-Authorized Data*: as políticas permitem guardá-lo por
-  **no máximo 30 dias**, depois apagar ou atualizar (III.E.4.d). Hoje os comentários ficam
-  sem prazo (o expurgo previsto era de 3 meses). E as métricas de sentimento podem contar
-  como *métrica derivada* (III.E.4.h), que o formulário trata à parte (III.L). As duas
-  coisas precisam de decisão da equipe antes da auditoria.
+- **Pendências de conformidade com as políticas da API**, que valem para o uso atual e são
+  condição da auditoria de ampliação (decisão da equipe, nada disso foi implementado):
+  1. **Termos e privacidade (III.A.1 e III.A.2):** os termos precisam exibir o link para os
+     Termos de Serviço do YouTube e dizer que o usuário concorda com eles; a política de
+     privacidade precisa avisar que o app usa os YouTube API Services e linkar a Política de
+     Privacidade do Google. A versão 1.1 cita a YouTube Data API entre os operadores, mas não
+     traz esses links.
+  2. **Guarda do texto (III.E.4.d):** comentário público obtido com a chave, sem login do
+     autor, é *Non-Authorized Data*: no máximo **30 dias**, depois apagar ou atualizar. Hoje
+     fica sem prazo (o expurgo previsto nos termos era de 3 meses).
+  3. **Métrica derivada (III.E.4.h e III.L):** em regra é proibido criar dados ou métricas
+     derivados dos dados da API. A *derived metrics policy* admite explicitamente análise de
+     sentimento por PLN sobre comentários, desde que o desenvolvedor aceite essa política no
+     próprio formulário (caso de uso "Analytics & Reporting") e não infira atributos
+     protegidos. Com o aceite, métricas derivadas (os resultados de sentimento e temas) podem
+     ficar até 36 meses; o texto dos comentários continua nos 30 dias.
 - Mais uma tabela de infraestrutura: o banco passa a ter 20 (12 de domínio e 8 de
   infraestrutura). `jobs` ganha `disponivel_em` e `motivo_espera`. As linhas com mais de
   35 dias saem na própria escrita (regra 7).
