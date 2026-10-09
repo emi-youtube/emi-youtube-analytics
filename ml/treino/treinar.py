@@ -225,6 +225,10 @@ class Resultado:
     melhor_epoca: int
     estado: dict[str, Any] | None = None
     segundos: float = 0.0
+    # Os rótulos previstos na validação, na época que o resultado descreve. Quem usa é
+    # o diagnóstico por vídeo (`validacao_por_video.py`), que precisa juntar as
+    # previsões de cada dobra; os relatórios do treino não as gravam.
+    previstos: list[str] | None = None
 
 
 def fixar_semente(semente: int = SEMENTE) -> None:
@@ -309,6 +313,7 @@ def treinar_uma_vez(
     modelo_base: str = MODELO_BASE,
     semente: int = SEMENTE,
     guardar_estado: bool = True,
+    selecionar_epoca: bool = True,
 ) -> Resultado:
     """Treina uma configuração e devolve o melhor estado pela validação.
 
@@ -316,6 +321,10 @@ def treinar_uma_vez(
     pela perda de validação daria o mesmo peso às três classes na conta errada; a
     métrica que decide o projeto é o F1 macro (CLAUDE.md regra 8), e é ela que escolhe
     o checkpoint.
+
+    `selecionar_epoca=False` devolve a **última** época, sem olhar qual foi a melhor. É
+    para quando a "validação" faz papel de teste — o diagnóstico por vídeo avalia a
+    dobra de fora, e escolher a época por ela inflaria o número que se quer medir.
     """
     fixar_semente(semente)
     inicio = time.perf_counter()
@@ -366,6 +375,7 @@ def treinar_uma_vez(
     melhor_epoca = 0
     melhor_estado: dict[str, Any] | None = None
     melhores_metricas = None
+    melhores_previstos: list[str] | None = None
     perda_por_epoca: list[float] = []
     f1_por_epoca: list[float] = []
 
@@ -403,10 +413,11 @@ def treinar_uma_vez(
             metricas.acuracia,
         )
 
-        if metricas.f1_macro > melhor_f1:
+        if metricas.f1_macro > melhor_f1 or not selecionar_epoca:
             melhor_f1 = metricas.f1_macro
             melhor_epoca = epoca
             melhores_metricas = metricas
+            melhores_previstos = previstos
             if guardar_estado:
                 melhor_estado = {
                     chave: valor.detach().cpu().clone()
@@ -430,6 +441,7 @@ def treinar_uma_vez(
         melhor_epoca=melhor_epoca,
         estado=melhor_estado,
         segundos=time.perf_counter() - inicio,
+        previstos=melhores_previstos,
     )
 
 
