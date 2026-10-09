@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { adminGuard, authGuard, guestGuard } from './core/auth/auth.guard';
 
 /**
  * Duas árvores: as telas de acesso (login e cadastro), públicas, e tudo o mais
@@ -130,6 +130,13 @@ export const routes: Routes = [
         path: 'conta',
         title: 'Minha conta · Emi YouTube Analytics',
         loadComponent: () => import('./features/conta/conta').then((m) => m.Conta),
+      },
+      {
+        // Administração da plataforma (ADR-015): só o papel global `admin`.
+        path: 'admin/cota',
+        title: 'Cota do YouTube · Administração · Emi YouTube Analytics',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/admin/cota-admin').then((m) => m.CotaAdmin),
       },
     ],
   },

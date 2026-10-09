@@ -35,7 +35,7 @@ export class Shell {
 
   protected readonly usuario = this.auth.usuario;
 
-  protected readonly itens: NavItem[] = [
+  private readonly itensBase: NavItem[] = [
     {
       rotulo: 'Início',
       rota: '/inicio',
@@ -62,6 +62,17 @@ export class Shell {
       icone: 'M4 20.5V5.5h9v15M13 9.5h7v11M7 9h3M7 13h3M7 17h3M16 13h1.5M16 17h1.5M2.5 20.5h19',
     },
   ];
+
+  /** Item da administração: só aparece para o papel global `admin` (ADR-015). */
+  private readonly itemAdmin: NavItem = {
+    rotulo: 'Cota do YouTube',
+    rota: '/admin/cota',
+    icone: 'M4 20h16M6 20V10M10 20V4M14 20v-7M18 20v-11',
+  };
+
+  protected readonly itens = computed(() =>
+    this.usuario()?.papel === 'admin' ? [...this.itensBase, this.itemAdmin] : this.itensBase,
+  );
 
   /** ADR-012: abre o modal bloqueante e torna o resto da tela inerte. */
   protected readonly termosPendentes = computed(() => this.usuario()?.termos_pendentes === true);

@@ -11,10 +11,12 @@ import pytest
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.models.empresa import Empresa
 from app.models.execucao import Execucao
 from app.models.job import Job
 from app.models.job_dlq import JobDlq
 from app.models.uso_cota_youtube import ID_AJUSTE, UsoCotaYoutube
+from app.models.usuario import Usuario
 from app.models.video import Video
 from app.services import cota
 from app.services.execucao import anexar_espera, esperas
@@ -342,3 +344,85 @@ async def test_painel_mostra_o_consumo_do_dia(cliente, sessao):
     assert corpo["cota_youtube"]["unidades_usadas"] == 120
     assert corpo["cota_youtube"]["unidades_limite"] == 10000
     assert corpo["cota_youtube"]["renova_em"]
+
+
+# --------------------------------------------------------------------------- visão do admin
+
+ROTA_ADMIN_COTA = "/api/v1/admin/cota-youtube"
+
+
+async def autenticar_admin(cliente, sessao, email: str) -> dict:
+    headers = await autenticar(cliente, email)
+    usuario = await sessao.scalar(select(Usuario).where(Usuario.email == email))
+    usuario.papel = "admin"
+    await sessao.commit()
+    return headers
+
+
+async def test_cota_por_empresa_e_so_para_admin(cliente):
+    headers = await autenticar(cliente, "pme@exemplo.com")
+
+    assert (await cliente.get(ROTA_ADMIN_COTA, headers=headers)).status_code == 403
+    assert (await cliente.get(ROTA_ADMIN_COTA)).status_code == 401
+
+
+async def test_admin_ve_o_dia_por_empresa(cliente, sessao):
+    headers = await autenticar_admin(cliente, sessao, "admin@exemplo.com")
+    grande = Empresa(nome="Loja Grande")
+    pequena = Empresa(nome="Loja Pequena")
+    sessao.add_all([grande, pequena])
+    await sessao.commit()
+    await cota.registrar_uso(sessao, grande.id_empresa, 2500)
+    await cota.registrar_uso(sessao, pequena.id_empresa, 40)
+    await cota.registrar_uso(sessao, pequena.id_empresa, 60, datetime.now(UTC) - timedelta(days=3))
+    await cota.registrar_uso(sessao, ID_AJUSTE, 100)
+
+    corpo = (await cliente.get(ROTA_ADMIN_COTA, headers=headers)).json()
+
+    assert corpo["usado_hoje"] == 2640
+    assert corpo["ajuste_hoje"] == 100
+    assert corpo["limite"] == 10000
+    assert corpo["teto_folga"] == 7000
+    nomes = [e["nome"] for e in corpo["empresas"]]
+    assert nomes == ["Loja Grande", "Loja Pequena"]  # o ajuste não é empresa
+    primeira, segunda = corpo["empresas"]
+    assert primeira["acima_da_fatia"] is True
+    assert segunda["unidades_hoje"] == 40
+    assert segunda["unidades_periodo"] == 100
+    assert segunda["acima_da_fatia"] is False
+
+
+async def test_historico_tem_um_ponto_por_dia_com_zero_nos_vazios(cliente, sessao):
+    headers = await autenticar_admin(cliente, sessao, "admin2@exemplo.com")
+    await cota.registrar_uso(sessao, 7, 300, datetime.now(UTC) - timedelta(days=2))
+    await cota.registrar_uso(sessao, 7, 100)
+
+    corpo = (await cliente.get(f"{ROTA_ADMIN_COTA}?dias=7", headers=headers)).json()
+
+    assert len(corpo["historico"]) == 7
+    assert [p["unidades"] for p in corpo["historico"]][-3:] == [300, 0, 100]
+    assert corpo["pico_no_periodo"] == 300
+    assert corpo["media_no_periodo"] == round(400 / 7, 1)
+    # Empresa que não existe mais continua na conta: a API já cobrou.
+    assert corpo["empresas"][0]["nome"] == "Empresa excluída (#7)"
+
+
+async def test_admin_ve_quem_esta_esperando_a_cota(cliente, sessao):
+    headers = await autenticar_admin(cliente, sessao, "admin3@exemplo.com")
+    job = await montar_job(sessao)
+    id_empresa = await empresa_do(sessao, job)
+    await fila.adiar(sessao, job, datetime.now(UTC) + timedelta(hours=2), cota.MOTIVO_COTA)
+
+    corpo = (await cliente.get(ROTA_ADMIN_COTA, headers=headers)).json()
+
+    linha = next(e for e in corpo["empresas"] if e["id_empresa"] == id_empresa)
+    assert linha["execucoes_aguardando"] == 1
+
+
+@pytest.mark.parametrize("dias", [0, 36])
+async def test_periodo_fora_do_historico_e_recusado(cliente, sessao, dias):
+    headers = await autenticar_admin(cliente, sessao, f"admin-d{dias}@exemplo.com")
+
+    resposta = await cliente.get(f"{ROTA_ADMIN_COTA}?dias={dias}", headers=headers)
+
+    assert resposta.status_code == 422

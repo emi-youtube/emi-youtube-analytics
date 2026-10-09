@@ -13,7 +13,7 @@ const AUTH = `${environment.apiBaseUrl}/auth`;
 describe('Shell', () => {
   let httpMock: HttpTestingController;
 
-  function montar(termosPendentes: boolean): HTMLElement {
+  function montar(termosPendentes: boolean, papel = 'usuario_pme'): HTMLElement {
     TestBed.inject(AuthService).login({ email: 'a@b.com', senha: 'x' }).subscribe();
     httpMock
       .expectOne(`${AUTH}/login`)
@@ -22,7 +22,7 @@ describe('Shell', () => {
       id_usuario: 1,
       nome: 'Marina Rocha',
       email: 'a@b.com',
-      papel: 'usuario_pme',
+      papel,
       papel_empresa: 'dono',
       empresa: { id_empresa: 1, nome: 'Loja' },
       criado_em: '2026-09-20T00:00:00',
@@ -44,6 +44,16 @@ describe('Shell', () => {
   afterEach(() => {
     httpMock.verify();
     localStorage.clear();
+  });
+
+  it('o item da cota do YouTube só aparece para o admin da plataforma', () => {
+    expect(montar(false).textContent).not.toContain('Cota do YouTube');
+  });
+
+  it('admin vê o item da cota do YouTube na nav', () => {
+    const tela = montar(false, 'admin');
+
+    expect(tela.querySelector('a[href="/admin/cota"]')?.textContent).toContain('Cota do YouTube');
   });
 
   it('termos pendentes: abre o modal e deixa o resto da tela inerte', () => {
