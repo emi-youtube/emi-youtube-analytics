@@ -47,14 +47,19 @@
   background: var(--accent);
 }
 
-/* Marcas de referência: finas, na cor da tinta, por cima do trilho. */
+/* Marcas de referência: finas, na cor da tinta, por cima do trilho e do preenchido,
+   com um anel da cor da superfície para não sumirem quando o uso passa delas. */
 .medidor__marca {
   position: absolute;
-  top: -4px;
-  bottom: -4px;
+  z-index: 1;
+  top: -5px;
+  bottom: -5px;
   width: 2px;
   margin-left: -1px;
   background: var(--ink-muted);
+  box-shadow:
+    -2px 0 0 var(--surface),
+    2px 0 0 var(--surface);
 }
 
 .medidor__marca--teto {
