@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { adminGuard, authGuard, guestGuard } from './core/auth/auth.guard';
 
 /**
  * Duas árvores: as telas de acesso (login e cadastro), públicas, e tudo o mais
@@ -40,6 +40,15 @@ export const routes: Routes = [
     path: 'redefinir-senha',
     title: 'Redefinir senha · Emi YouTube Analytics',
     loadComponent: () => import('./features/senha/redefinir-senha').then((m) => m.RedefinirSenha),
+  },
+  {
+    // Link do e-mail de confirmação do cadastro de empresa nova (ADR-014). Sem
+    // guard, como o de redefinir senha: o link precisa abrir mesmo numa aba com
+    // sessão; confirmar abre a sessão da conta nova.
+    path: 'confirmar-cadastro',
+    title: 'Confirmar cadastro · Emi YouTube Analytics',
+    loadComponent: () =>
+      import('./features/cadastro/confirmar-cadastro').then((m) => m.ConfirmarCadastro),
   },
   {
     // Termos e Política (ADR-012): públicos e sem guard nenhum — quem vai se
@@ -121,6 +130,13 @@ export const routes: Routes = [
         path: 'conta',
         title: 'Minha conta · Emi YouTube Analytics',
         loadComponent: () => import('./features/conta/conta').then((m) => m.Conta),
+      },
+      {
+        // Administração da plataforma (ADR-015): só o papel global `admin`.
+        path: 'admin/cota',
+        title: 'Cota do YouTube · Administração · Emi YouTube Analytics',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/admin/cota-admin').then((m) => m.CotaAdmin),
       },
     ],
   },

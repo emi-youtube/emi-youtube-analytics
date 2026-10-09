@@ -16,6 +16,11 @@ from app.models.aceite_termos import AceiteTermos
 logger = logging.getLogger(__name__)
 
 
+def versao_vigente() -> str:
+    """A versão vigente, lida na hora (testes e trocas de versão mudam a constante)."""
+    return config.VERSAO_TERMOS
+
+
 async def termos_pendentes(db: AsyncSession, id_usuario: int) -> bool:
     """Verdadeiro se não há aceite da versão vigente."""
     aceite = await db.scalar(

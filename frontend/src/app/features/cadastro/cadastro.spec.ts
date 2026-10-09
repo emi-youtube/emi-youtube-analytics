@@ -136,7 +136,7 @@ describe('Cadastro', () => {
     httpMock.expectNone(`${AUTH}/registrar`);
   });
 
-  it('criar empresa: registra com nome_empresa, entra e vai para /inicio', () => {
+  it('criar empresa: pede o cadastro e manda confirmar pelo e-mail, sem entrar', () => {
     montar();
     preencher();
 
@@ -150,17 +150,18 @@ describe('Cadastro', () => {
       nome_empresa: 'Loja da Marina',
       aceite_termos: true,
     });
-    registro.flush(USUARIO, { status: 201, statusText: 'Created' });
+    registro.flush(
+      { detail: 'Enviamos um link para o seu e-mail.' },
+      { status: 202, statusText: 'Accepted' },
+    );
+    fixture.detectChanges();
 
-    const login = httpMock.expectOne(`${AUTH}/login`);
-    expect(login.request.body).toEqual({
-      email: 'marina@empresa.com.br',
-      senha: 'senha-forte-1',
-    });
-    login.flush({ access_token: 'access-1', refresh_token: 'refresh-1', token_type: 'bearer' });
-    httpMock.expectOne(`${AUTH}/eu`).flush(USUARIO);
-
-    expect(navegou).toEqual(['/inicio']);
+    // ADR-014: nada de login automático; a conta nasce no link do e-mail.
+    httpMock.expectNone(`${AUTH}/login`);
+    expect(navegou).toEqual([]);
+    const aviso = fixture.nativeElement.querySelector('[data-testid="cadastro-enviado"]');
+    expect(aviso.textContent).toContain('marina@empresa.com.br');
+    expect(fixture.nativeElement.querySelector('form input#senha')).toBeNull();
   });
 
   it('convite pelo link: consulta, trava o e-mail e registra com o token', () => {
@@ -230,8 +231,11 @@ describe('Cadastro', () => {
     expect(tokenDoConvite('  abc  ')).toBe('abc');
   });
 
-  it('traduz o 409 de e-mail já cadastrado', () => {
-    montar();
+  it('por convite, traduz o 409 de e-mail já cadastrado', () => {
+    montar('tok-123');
+    httpMock
+      .expectOne(`${AUTH}/convites/consultar`)
+      .flush({ email: 'c@empresa.com.br', nome_empresa: 'Loja', papel_empresa: 'membro' });
     preencher();
 
     componente().enviar();
@@ -266,8 +270,11 @@ describe('Cadastro', () => {
     expect(componente().erro()).toBe('A empresa atingiu o limite de membros.');
   });
 
-  it('avisa que a conta existe quando só o login automático falha', () => {
-    montar();
+  it('por convite, avisa que a conta existe quando só o login automático falha', () => {
+    montar('tok-123');
+    httpMock
+      .expectOne(`${AUTH}/convites/consultar`)
+      .flush({ email: 'c@empresa.com.br', nome_empresa: 'Loja', papel_empresa: 'membro' });
     preencher();
 
     componente().enviar();

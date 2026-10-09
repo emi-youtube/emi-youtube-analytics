@@ -1,8 +1,10 @@
 """Cliente da YouTube Data API v3 usado pelo worker de coleta.
 
 Custo de cota (CLAUDE.md regra 4): `commentThreads.list` e `videos.list` custam
-1 unidade por chamada; `search.list` custa 100. Este cliente recusa `search` na
-porta de entrada — os IDs de vídeo vêm curados nos filtros do modelo.
+1 unidade por chamada, da cota geral de 10.000 por dia. `search.list` tem, desde
+1º/06/2026, cota própria de 100 chamadas por dia para o projeto inteiro (antes custava
+100 unidades da geral). Este cliente recusa `search` na porta de entrada — os IDs de
+vídeo vêm curados nos filtros do modelo.
 
 LGPD (CLAUDE.md regra 2): o autor do comentário é convertido em hash aqui dentro,
 no ponto mais próximo possível da API. Nada acima desta camada chega a ver o
@@ -10,7 +12,8 @@ nome, o canal ou o ID original de quem comentou.
 """
 
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -34,6 +37,19 @@ MAX_COMENTARIOS_POR_PAGINA = 100
 
 RECURSO_PROIBIDO = "search"
 
+# Custo de cada chamada em unidades da cota geral. `search` nunca chega aqui (tem cota
+# própria de 100 chamadas por dia e é recusado antes). Recurso desconhecido conta 1, o
+# mais barato, e a conta fica por baixo — o que corrige a diferença é `marcar_esgotada`
+# quando a API disser que acabou.
+CUSTO_POR_RECURSO = {"videos": 1, "commentThreads": 1}
+
+# Motivos de 403 que significam "a cota DIÁRIA acabou". Esperar a renovação resolve;
+# repetir agora, não.
+MOTIVOS_COTA_DIARIA = frozenset({"quotaExceeded", "dailyLimitExceeded"})
+# Motivos de 403 que significam "devagar": limite por segundo, e não por dia. Passa
+# com espera, como o 429.
+MOTIVOS_RITMO = frozenset({"rateLimitExceeded", "userRateLimitExceeded"})
+
 
 class ErroYouTube(Exception):
     """Base dos erros do cliente."""
@@ -44,11 +60,32 @@ class ErroTransitorio(ErroYouTube):
 
 
 class ErroPermanente(ErroYouTube):
-    """Chave inválida, vídeo inexistente, cota estourada: repetir não resolve."""
+    """Chave inválida, vídeo inexistente, requisição recusada: repetir não resolve."""
+
+
+class CotaEsgotada(ErroYouTube):
+    """Não há cota para esta coleta AGORA; vale esperar a renovação (ADR-015).
+
+    Irmã de `ErroPermanente`, e não filha: o chamador não pode tratá-la como falha
+    definitiva. Duas origens, que `da_api` distingue: o nosso orçamento do dia acabou
+    (`False`) ou foi a própria API quem recusou com `quotaExceeded` (`True`).
+    """
+
+    def __init__(self, mensagem: str, *, da_api: bool = False) -> None:
+        super().__init__(mensagem)
+        self.da_api = da_api
 
 
 class ComentariosDesabilitados(ErroYouTube):
     """O vídeo existe, mas tem comentários desativados — não é falha da execução."""
+
+
+@dataclass
+class Medida:
+    """O que uma coleta gastou de cota, e o quanto ainda pode gastar."""
+
+    orcamento: int | None = None
+    unidades: int = 0
 
 
 @dataclass(frozen=True)
@@ -118,13 +155,43 @@ class ClienteYouTube:
     def __init__(self, api_key: str, http: httpx.AsyncClient) -> None:
         self._api_key = api_key
         self._http = http
+        self._medida: Medida | None = None
+
+    @contextmanager
+    def medir(self, orcamento: int | None = None) -> Iterator[Medida]:
+        """Conta as unidades gastas nas chamadas feitas dentro do bloco.
+
+        Com `orcamento`, a chamada que o ultrapassaria nem sai: levanta `CotaEsgotada`.
+        É o que segura uma coleta com filtro, cujo custo não dá para prever, antes de
+        ela gastar o dia de todo mundo. O cliente é de um processo que roda um job por
+        vez, então o estado fica no próprio cliente; o `Medida` devolvido continua
+        legível depois do bloco, também quando ele termina em erro.
+        """
+        medida = Medida(orcamento=orcamento)
+        self._medida = medida
+        try:
+            yield medida
+        finally:
+            self._medida = None
 
     async def _get(self, recurso: str, params: dict) -> dict:
         if recurso == RECURSO_PROIBIDO:
-            # Guarda de última instância: 100 unidades de cota contra 1 dos outros
-            # endpoints estoura a cota diária em poucas execuções.
+            # Guarda de última instância: a busca tem cota própria de 100 chamadas por
+            # dia para o projeto inteiro, dividida entre todas as empresas.
             raise ErroPermanente(
                 "search.list é proibido no projeto (CLAUDE.md regra 4): use IDs de vídeo curados."
+            )
+
+        custo = CUSTO_POR_RECURSO.get(recurso, 1)
+        medida = self._medida
+        if (
+            medida is not None
+            and medida.orcamento is not None
+            and medida.unidades + custo > medida.orcamento
+        ):
+            raise CotaEsgotada(
+                f"orçamento de cota do dia esgotado ({medida.unidades} de "
+                f"{medida.orcamento} unidades) em {recurso}"
             )
 
         try:
@@ -138,6 +205,11 @@ class ClienteYouTube:
         except httpx.TransportError as erro:
             raise ErroTransitorio(f"falha de rede em {recurso}: {erro}") from erro
 
+        # A API cobra a chamada que chegou até ela, mesmo a que volta com erro. Falha
+        # de rede não chegou, e por isso não conta.
+        if medida is not None:
+            medida.unidades += custo
+
         if resposta.status_code == httpx.codes.TOO_MANY_REQUESTS:
             raise ErroTransitorio(f"429 em {recurso}")
 
@@ -148,6 +220,14 @@ class ClienteYouTube:
             motivo = _motivo_do_erro(resposta)
             if motivo == "commentsDisabled":
                 raise ComentariosDesabilitados(motivo)
+            if motivo in MOTIVOS_COTA_DIARIA:
+                raise CotaEsgotada(
+                    f"a cota diária da YouTube API acabou ({resposta.status_code} em "
+                    f"{recurso}, motivo={motivo})",
+                    da_api=True,
+                )
+            if motivo in MOTIVOS_RITMO:
+                raise ErroTransitorio(f"{resposta.status_code} em {recurso} (motivo={motivo})")
             raise ErroPermanente(f"{resposta.status_code} em {recurso} (motivo={motivo or '?'})")
 
         return resposta.json()

@@ -381,10 +381,60 @@ Ordem recomendada: **frontend primeiro**, backend logo depois. Antes do merge:
 
 Não há variável de ambiente nova.
 
-### B.2. E-mail transacional (convites e "esqueci minha senha")
+### B.1.2. Azure — a migration 0013 (confirmação do cadastro) e o que ela exige
 
-O backend envia dois e-mails: o convite para a empresa e o link de redefinição de
-senha. O provedor escolhido é o **Resend** (plano gratuito: 3.000 e-mails/mês, 100
+A `0013` (ADR-014 em `docs/BANCO.md`) só CRIA uma tabela (`cadastros_pendentes`), com
+RLS. O código novo exige a tabela; como sempre, ela roda no arranque, antes da API.
+
+**Antes do merge, confira o e-mail (seção B.2).** Com a 0013, quem cria empresa nova
+só ganha a conta ao abrir o link que recebe por e-mail. Sem `EMAIL_PROVEDOR=resend`,
+sem `RESEND_API_KEY` válida ou sem domínio verificado no Resend, o link não chega e
+**nenhum cadastro de empresa nova se conclui em produção**. Cadastro por convite e
+login não dependem disso.
+
+| Situação | Efeito |
+|---|---|
+| backend novo + frontend antigo | a tela antiga recebe 202 no lugar de 201, tenta o login automático e falha ("Sua conta foi criada, mas…"); o link chega por e-mail e funciona, mas a página `/confirmar-cadastro` ainda não existe |
+| frontend novo + backend antigo | o pedido cria a conta na hora (201) e a tela mostra "enviamos um link", que não vem; a conta já existe e entra pelo login |
+
+Ordem recomendada: **backend primeiro e o frontend logo em seguida**, com o e-mail já
+testado (um pedido de cadastro para um endereço da equipe tem de chegar). A termos 1.1
+(seção B.1.1) pede o contrário, frontend primeiro: se as duas forem juntas, publique o
+frontend e o backend em seguida, sem intervalo.
+
+Depois do deploy: `EMI_TESTE_POSTGRES_URL=<Supabase> pytest tests/test_rls.py` e um
+cadastro de ponta a ponta com um e-mail da equipe.
+
+### B.1.3. Azure — a migration 0014 (cota da YouTube API)
+
+A `0014` (ADR-015 em `docs/BANCO.md`) cria `uso_cota_youtube` (com RLS) e acrescenta
+duas colunas a `jobs`. Roda no arranque, antes da API, e o backend novo exige as colunas.
+Não há ordem entre frontend e backend: o frontend antigo ignora o campo novo.
+
+Variáveis opcionais, todas com padrão: `YOUTUBE_COTA_DIARIA` (10000),
+`YOUTUBE_COTA_RESERVA` (500), `YOUTUBE_COTA_FATIA_POR_EMPRESA` (2000) e
+`YOUTUBE_COTA_FOLGA_COMPARTILHADA` (0.7). Se o Google ampliar a cota do projeto, só a
+primeira muda. **Confira no console do Google Cloud o valor real da cota** (APIs e
+serviços, YouTube Data API v3, Cotas) antes de confiar no padrão.
+
+**Quem vê a cota por empresa** é o papel global `admin` (tela "Cota do YouTube" na nav,
+rota `/admin/cota`). Não há tela para promover alguém: é uma linha no SQL Editor do
+Supabase, para a conta de quem opera a plataforma:
+
+```sql
+UPDATE usuarios SET papel = 'admin' WHERE email = '<e-mail da pessoa>';
+```
+
+O papel vale no próximo carregamento da página (o backend lê o usuário a cada requisição).
+
+O `requirements.txt` ganhou `tzdata`: o App Service reinstala as dependências no deploy.
+Depois do deploy: `EMI_TESTE_POSTGRES_URL=<Supabase> pytest tests/test_rls.py`.
+
+### B.2. E-mail transacional (convites, "esqueci minha senha" e confirmação do cadastro)
+
+O backend envia quatro e-mails: o convite para a empresa, o link de redefinição de
+senha, o link de confirmação do cadastro de empresa nova e o aviso a quem já tem conta
+e recebeu um pedido de cadastro (ADR-014). O provedor escolhido é o **Resend** (plano gratuito: 3.000 e-mails/mês, 100
 por dia — sobra para o projeto), chamado por HTTP direto, sem SDK.
 
 1. Crie a conta em resend.com e gere uma **API key** com permissão só de envio.

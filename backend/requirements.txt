@@ -13,6 +13,10 @@ email-validator==2.2.0
 # usado pelo worker de coleta (cliente da YouTube Data API)
 httpx==0.28.1
 
+# Fuso do Pacifico da cota da YouTube API (services/cota.py): a cota zera a meia-noite
+# de la, com horario de verao. Garante o banco de fusos onde o sistema nao o traz.
+tzdata==2025.2
+
 # Pre-processamento COMPARTILHADO com o ml/ (pacote proprio na raiz do repo).
 # O worker de inferencia precisa aplicar ao comentario que chega EXATAMENTE a mesma
 # transformacao que o corpus de treino sofreu; por isso o codigo e um so, e nao uma

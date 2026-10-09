@@ -20,16 +20,21 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta, timezone
 
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.comentario import Comentario
+from app.models.execucao import Execucao
 from app.models.job import Job
+from app.models.modelo_analise import ModeloAnalise
 from app.models.video import Video
+from app.services import cota
 from app.workers import fila
 from app.workers.youtube import (
     ClienteYouTube,
     ComentariosDesabilitados,
+    CotaEsgotada,
     ErroPermanente,
     ErroTransitorio,
     LoteComentarios,
@@ -105,9 +110,9 @@ def _ids_de_video(payload: dict, id_execucao: int) -> list[str]:
         )
 
     if filtros.get("canais"):
-        # Expandir canal em vídeos exigiria search.list (100 unidades, proibido pelo
-        # CLAUDE.md). channels.list + playlistItems.list fariam isso por 1 unidade,
-        # mas isso é escopo de outro card.
+        # Expandir canal em vídeos exigiria search.list (100 chamadas/dia no projeto,
+        # proibido pelo CLAUDE.md). channels.list + playlistItems.list fariam isso por
+        # 1 unidade, mas isso é escopo de outro card.
         logger.warning(
             "filtro 'canais' ainda não é expandido pelo worker id_execucao=%s", id_execucao
         )
@@ -270,9 +275,40 @@ async def _coletar_video(
     return lote
 
 
+async def _apagar_coleta_da_execucao(db: AsyncSession, id_execucao: int) -> int:
+    """Apaga os vídeos (e seus comentários) já gravados para a execução. NÃO faz commit.
+
+    **Por que existe.** A coleta grava tudo num commit só no fim, mas
+    `fila.registrar_tentativa` commita a sessão a cada erro transitório, para a
+    contagem sobreviver a uma queda do worker. Esse commit leva junto o que a coleta
+    já tinha posto na sessão: os vídeos anteriores e seus comentários. Sem limpar,
+    a tentativa seguinte (job devolvido pela recuperação) esbarrava no UNIQUE
+    `uq_videos_execucao_video` e a execução terminava em erro em vez de retomar, e
+    uma falha definitiva deixava a coleta parcial gravada numa execução em erro.
+
+    Seguro porque, durante a coleta, a execução ainda não tem análise nem tema: as
+    etapas seguintes só são publicadas quando a coleta conclui.
+    """
+    videos = select(Video.id_video).where(Video.id_execucao == id_execucao)
+    # Comentários explicitamente, sem depender do ON DELETE CASCADE.
+    await db.execute(delete(Comentario).where(Comentario.id_video.in_(videos)))
+    apagados = await db.execute(delete(Video).where(Video.id_execucao == id_execucao))
+    return apagados.rowcount or 0
+
+
 async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
     """Executa um job de coleta já reivindicado. Devolve o total de comentários."""
     payload = job.payload or {}
+
+    # Reprocessamento: começa do zero, na mesma transação da coleta nova.
+    restos = await _apagar_coleta_da_execucao(db, job.id_execucao)
+    if restos:
+        logger.warning(
+            "coleta anterior incompleta descartada, recomecando id_execucao=%s videos=%s",
+            job.id_execucao,
+            restos,
+        )
+
     ids = _ids_de_video(payload, job.id_execucao)
     recorte = _recorte(payload, job.id_execucao)
 
@@ -363,32 +399,103 @@ async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
 async def _descartar_parcial(db: AsyncSession, job: Job) -> None:
     """Desfaz o que a coleta tinha gravado e recarrega o job.
 
+    O rollback desfaz o que ainda não foi commitado; o que um `registrar_tentativa`
+    já commitou é apagado em seguida, e sai no mesmo commit que manda o job para a
+    DLQ. Assim a execução em erro não fica com metade dos vídeos.
+
     O rollback expira os objetos da sessão; sem o refresh, ler `job.tipo` para
     montar a linha da DLQ dispararia um carregamento preguiçoso fora do contexto
     assíncrono do SQLAlchemy.
     """
+    id_execucao = job.id_execucao  # lido antes: o rollback expira o objeto
     await db.rollback()
+    await _apagar_coleta_da_execucao(db, id_execucao)
     await db.refresh(job)
 
 
+def _estimativa_de_custo(payload: dict) -> int:
+    """Unidades de cota que a coleta pede, lidas do payload sem registrar aviso.
+
+    Os avisos de filtro torto saem uma vez só, em `processar`; aqui o valor inválido
+    simplesmente cai no teto do worker.
+    """
+    filtros = payload.get("filtros") or {}
+    videos = [v for v in filtros.get("videos", []) if str(v).strip()]
+    teto = settings.worker_max_comentarios_por_execucao
+    pedido = filtros.get("limite_comentarios")
+    valido = isinstance(pedido, int) and not isinstance(pedido, bool) and pedido >= 1
+    return cota.estimar_custo(len(videos), min(pedido, teto) if valido else teto)
+
+
+async def _empresa_da_execucao(db: AsyncSession, id_execucao: int) -> int:
+    return await db.scalar(
+        select(ModeloAnalise.id_empresa)
+        .join(Execucao, Execucao.id_modelo == ModeloAnalise.id_modelo)
+        .where(Execucao.id_execucao == id_execucao)
+    )
+
+
+async def _registrar_uso(db: AsyncSession, id_empresa: int, unidades: int) -> None:
+    """Soma o gasto ao dia da empresa. Nunca derruba o job: o pior caso é contar a menos."""
+    try:
+        await cota.registrar_uso(db, id_empresa, unidades)
+    except Exception:
+        await db.rollback()
+        logger.exception("nao foi possivel registrar o uso de cota id_empresa=%s", id_empresa)
+
+
+async def _adiar_por_cota(db: AsyncSession, job: Job, motivo: str, *, da_api: bool = False) -> None:
+    """Em vez de falhar, a coleta espera a cota renovar (ADR-015)."""
+    agora = datetime.now(UTC)
+    if da_api:
+        await cota.marcar_esgotada(db, agora)
+    await fila.adiar(db, job, cota.proxima_renovacao(agora), cota.MOTIVO_COTA)
+    logger.warning(
+        "coleta adiada ate a renovacao da cota id_execucao=%s motivo=%s", job.id_execucao, motivo
+    )
+
+
 async def executar_proximo(db: AsyncSession, cliente: ClienteYouTube) -> bool:
-    """Reivindica e processa um job. `False` quando não havia nada na fila."""
+    """Reivindica e processa um job. `False` quando não havia nada na fila.
+
+    **Cota (ADR-015).** Antes de falar com a API, pede o orçamento da empresa. Se não
+    cobre o custo estimado, o job é ADIADO até a renovação e nada é gasto. Durante a
+    coleta o cliente conta as unidades e para quando o orçamento acaba. Em qualquer
+    desfecho o gasto é registrado, também o da coleta que falhou: a API cobra do mesmo
+    jeito.
+    """
     job = await fila.reivindicar(db, TIPO_JOB)
     if job is None:
         return False
 
+    id_empresa = await _empresa_da_execucao(db, job.id_execucao)
+    orcamento = await cota.orcamento_da_empresa(db, id_empresa, datetime.now(UTC))
+    custo = _estimativa_de_custo(job.payload or {})
+    if orcamento < custo:
+        await _adiar_por_cota(db, job, f"orcamento {orcamento} menor que o custo estimado {custo}")
+        return True
+
     try:
-        await processar(db, job, cliente)
+        with cliente.medir(orcamento) as medida:
+            await processar(db, job, cliente)
+    except CotaEsgotada as erro:
+        await _descartar_parcial(db, job)
+        await _adiar_por_cota(db, job, str(erro), da_api=erro.da_api)
+        await _registrar_uso(db, id_empresa, medida.unidades)
+        return True
     except FalhaColeta as erro:
         await _descartar_parcial(db, job)
         await fila.enviar_para_dlq(db, job, str(erro))
+        await _registrar_uso(db, id_empresa, medida.unidades)
         return True
     except Exception as erro:
         # Rede de segurança: nenhum job pode ficar preso em 'processando'.
         await _descartar_parcial(db, job)
         logger.exception("falha inesperada na coleta id_execucao=%s", job.id_execucao)
         await fila.enviar_para_dlq(db, job, f"erro inesperado: {erro!r}")
+        await _registrar_uso(db, id_empresa, medida.unidades)
         return True
 
     await fila.concluir(db, job)
+    await _registrar_uso(db, id_empresa, medida.unidades)
     return True

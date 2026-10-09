@@ -10,7 +10,8 @@ responde 202 — a coleta roda no worker, fora do ciclo da requisição.
 """
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -128,3 +129,31 @@ async def list_for_user(db: AsyncSession, usuario: Usuario) -> Sequence[Execucao
         .order_by(Execucao.id_execucao.desc())
     )
     return resultado.all()
+
+
+async def esperas(db: AsyncSession, ids_execucao: Iterable[int]) -> dict[int, datetime]:
+    """`{id_execucao: hora}` das execuções cujo job espera a cota da YouTube renovar.
+
+    Só entra quem tem job pendente com `disponivel_em` no futuro (ADR-015). O resto é
+    execução que está de fato na fila ou rodando.
+    """
+    ids = list(ids_execucao)
+    if not ids:
+        return {}
+    linhas = await db.execute(
+        select(Job.id_execucao, Job.disponivel_em).where(
+            Job.id_execucao.in_(ids),
+            Job.status == STATUS_PENDENTE,
+            Job.disponivel_em.is_not(None),
+            Job.disponivel_em > datetime.now(UTC),
+        )
+    )
+    return {id_execucao: hora for id_execucao, hora in linhas}
+
+
+async def anexar_espera(db: AsyncSession, execucoes: Sequence[Execucao]) -> Sequence[Execucao]:
+    """Preenche `retoma_em` nas execuções que esperam a cota. Devolve as mesmas."""
+    por_id = await esperas(db, [e.id_execucao for e in execucoes if e.status == STATUS_PENDENTE])
+    for execucao in execucoes:
+        execucao.retoma_em = por_id.get(execucao.id_execucao)
+    return execucoes

@@ -1,0 +1,133 @@
+<header class="cabecalho">
+  <div class="cabecalho__texto">
+    <h1>Cota do YouTube</h1>
+    <p class="muted">
+      Administração da plataforma. A cota diária é do projeto e a chave é uma só: todas as empresas
+      dividem o mesmo saldo. Quando ele acaba, as análises esperam a renovação.
+    </p>
+  </div>
+</header>
+
+@if (falha(); as mensagem) {
+  <div class="falha" role="alert">
+    <span>{{ mensagem }}</span>
+    <button class="botao botao--secundario botao--pequeno" type="button" (click)="carregar()">
+      Tentar de novo
+    </button>
+  </div>
+}
+
+@if (carregando()) {
+  <p class="muted">Carregando…</p>
+} @else if (dados(); as d) {
+  <section class="card bloco" data-testid="hoje">
+    <h2 class="bloco__titulo">Hoje</h2>
+    <p class="hoje__numero">
+      <span class="numeral">{{ numero(d.usado_hoje) }}</span>
+      <span class="muted">de {{ numero(d.limite) }} unidades</span>
+    </p>
+    @if (medidor(); as m) {
+      <div
+        class="medidor"
+        role="img"
+        [attr.aria-label]="
+          numero(d.usado_hoje) + ' de ' + numero(d.limite) + ' unidades usadas hoje'
+        "
+      >
+        <span class="medidor__usado" [style.width.%]="m.usado"></span>
+        <span class="medidor__marca" [style.left.%]="m.folga"></span>
+        <span class="medidor__marca medidor__marca--teto" [style.left.%]="m.teto"></span>
+      </div>
+      <div class="medidor__rotulos muted" aria-hidden="true">
+        <span [style.left.%]="m.folga">{{ numero(d.teto_folga) }}</span>
+        <span [style.left.%]="m.teto">{{ numero(d.limite - d.reserva) }}</span>
+      </div>
+    }
+    <ul class="hoje__legenda muted">
+      <li>
+        Até {{ numero(d.teto_folga) }}: qualquer empresa pode passar da fatia de
+        {{ numero(d.fatia_por_empresa) }}.
+      </li>
+      <li>
+        Depois de {{ numero(d.limite - d.reserva) }}: ninguém coleta (reserva de
+        {{ numero(d.reserva) }}).
+      </li>
+      <li>Renova {{ dataHoraLegivel(d.renova_em) }} (meia-noite do Pacífico).</li>
+      @if (d.ajuste_hoje > 0) {
+        <li>
+          Inclui {{ numero(d.ajuste_hoje) }} unidades de ajuste: a API avisou que a cota acabou
+          antes da nossa conta.
+        </li>
+      }
+    </ul>
+  </section>
+
+  <section class="secao-admin">
+    <h2 class="bloco__titulo">Por empresa</h2>
+    @if (d.empresas.length === 0) {
+      <p class="card estado muted">Nenhuma empresa usou a cota nos últimos {{ d.dias }} dias.</p>
+    } @else {
+      <div class="card tabela__caixa">
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th scope="col">Empresa</th>
+              <th scope="col" class="num">Hoje</th>
+              <th scope="col" class="num">Da fatia</th>
+              <th scope="col" class="num">Últimos {{ d.dias }} dias</th>
+              <th scope="col" class="num">Aguardando</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (empresa of d.empresas; track empresa.id_empresa) {
+              <tr>
+                <td>
+                  <span class="tabela__nome">{{ empresa.nome }}</span>
+                  @if (empresa.acima_da_fatia) {
+                    <span class="badge badge--processando tabela__selo">acima da fatia</span>
+                  }
+                </td>
+                <td class="num">{{ numero(empresa.unidades_hoje) }}</td>
+                <td class="num">{{ percentualDaFatia(empresa.unidades_hoje) }}</td>
+                <td class="num">{{ numero(empresa.unidades_periodo) }}</td>
+                <td class="num">
+                  {{ empresa.execucoes_aguardando > 0 ? empresa.execucoes_aguardando : '—' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <section class="card bloco" data-testid="historico">
+    <div class="historico__topo">
+      <h2 class="bloco__titulo">Últimos {{ d.dias }} dias</h2>
+      <p class="muted">
+        Pico {{ numero(d.pico_no_periodo) }} · média {{ numero(d.media_no_periodo) }} por dia
+      </p>
+    </div>
+    <p class="historico__leitura" aria-live="polite">{{ leitura() }}</p>
+    <div class="historico" (mouseleave)="emFoco.set(null)">
+      @for (barra of barras(); track barra.dia) {
+        <button
+          type="button"
+          class="historico__coluna"
+          [attr.aria-label]="diaCurto(barra.dia) + ': ' + numero(barra.unidades) + ' unidades'"
+          (mouseenter)="emFoco.set(barra)"
+          (focus)="emFoco.set(barra)"
+        >
+          <span class="historico__barra" [style.height.%]="barra.altura"></span>
+        </button>
+      }
+    </div>
+    <div class="historico__eixo muted">
+      <span>{{ diaCurto(d.historico[0].dia) }}</span>
+      <span>hoje</span>
+    </div>
+    <p class="bloco__nota muted">
+      É o histórico que o pedido de ampliação de cota ao Google pede como uso esperado.
+    </p>
+  </section>
+}

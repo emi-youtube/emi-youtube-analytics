@@ -1,6 +1,6 @@
 """Limite de requisições por chave, em memória, para rotas públicas sensíveis.
 
-Usado no "esqueci minha senha" por IP. Fica em memória do processo de propósito: a
+Usado no "esqueci minha senha" e no cadastro, por IP. Fica em memória do processo de propósito: a
 API roda com UM worker do uvicorn (startup.sh), e o pior caso de um reinício é o
 contador zerar — aceitável para um freio de abuso. A fila e o resto do estado
 continuam no Postgres; isto não é estado de negócio.

@@ -8,10 +8,14 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import avisar_configuracao_suspeita, settings
+from app.core.logs import configurar_logs
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # Primeiro o log: sem isto os `logger.info` dos serviços não saem no processo da
+    # API (ver core/logs.py). Antes do aviso abaixo, para ele sair já formatado.
+    configurar_logs(settings.log_level)
     # No arranque, uma vez: configuração que não derruba nada mas quebra em silêncio.
     avisar_configuracao_suspeita(settings)
     yield

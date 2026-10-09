@@ -285,7 +285,7 @@ depois da exclusão da conta ou da empresa e não é publicado com identificaç�
 
 ### Bases legais por dado
 
-Transcritas da seção 4 de `termos-v1.md`, que é a fonte oficial: se um dia
+Transcritas da seção 4 dos termos vigentes (`termos-v1.1.md`), que é a fonte oficial: se um dia
 divergirem, vale o texto dos termos e esta tabela é corrigida. A coluna "No sistema"
 diz onde cada dado mora.
 
@@ -386,10 +386,12 @@ com membros sem oferecer saída.
 | convidar, revogar convite, remover membro | ✘ (403) | ✔ | — reservado |
 | promover / rebaixar | ✘ (403) | ✔ (sobra ≥ 1 dono; teto de 3) | — reservado |
 | baixar os próprios dados, excluir a conta | ✔ | ✔ (regras de saída acima) | — reservado |
+| ver a cota do YouTube de todas as empresas (ADR-015) | ✘ (403) | ✘ (403) | ✔ |
 
-"Admin — reservado": o papel global `admin` existe (`USUARIOS.papel`) e só serve à
-rota de teste de `requer_admin`. Ele não dá poder dentro de uma empresa e não aparece
-em tela; o admin é dono ou membro da própria empresa como qualquer um.
+"Admin — reservado": o papel global `admin` existe (`USUARIOS.papel`). Ele não dá
+poder dentro de uma empresa; o admin é dono ou membro da própria empresa como qualquer
+um. O único uso dele é a administração da plataforma: a tela da cota do YouTube por
+empresa (ADR-015), só leitura.
 
 ### Consequências e limites
 
@@ -401,3 +403,149 @@ em tela; o admin é dono ou membro da própria empresa como qualquer um.
 - O diagrama de casos de uso fica fora do repositório: o ator "Dono da empresa"
   (especialização de "Usuário") precisa ser acrescentado lá, com os casos "Gerenciar
   membros" e "Alterar papel".
+
+## ADR-014 — Cadastro de empresa nova só vale depois de confirmar o e-mail
+
+**Status:** aceita (migração `0013`; branch `sprint4/correcoes-da-revisao`).
+
+### Contexto
+
+O cadastro respondia **409** quando o e-mail já tinha conta. A resposta permitia
+descobrir quem está cadastrado, em contraste com o login e o "esqueci a senha", que
+respondem igual com ou sem conta (UC01). Um freio por IP só reduz a varredura; para
+eliminá-la, o cadastro precisa responder igual nos dois casos, e isso só é possível se
+a conta não nascer na hora: alguém tem de provar que o e-mail é seu.
+
+### Decisão
+
+1. **Empresa nova responde sempre 202, com o mesmo corpo** (`POST /auth/registrar` com
+   `nome_empresa`). O e-mail sai em segundo plano: e-mail sem conta recebe o link de
+   confirmação (24 h); e-mail com conta recebe um aviso ("alguém tentou criar uma conta
+   com este e-mail"). O bcrypt roda nos dois caminhos, para o tempo de resposta também
+   não diferir.
+2. **A conta só nasce no link** (`POST /auth/confirmar-cadastro {token}`): empresa,
+   usuário dono e aceite dos termos num commit só, e a resposta já traz o par de tokens
+   (a tela vai direto para o início). Até lá os dados ficam em `cadastros_pendentes`
+   (infraestrutura, fora do DER): um pedido por e-mail (um novo substitui o anterior e
+   invalida o link antigo), token só como SHA-256, vencidos apagados na escrita
+   (regra 7), RLS ligado (ADR-010).
+3. **O aceite grava a versão dos termos que a pessoa aceitou ao preencher**, guardada no
+   pedido, e não a vigente no momento do clique.
+4. **Convite continua sem confirmação** e responde 201: o convite é um segredo de uso
+   único emitido para aquele e-mail. O convite passa a ser validado **antes** de olhar se
+   o e-mail tem conta; na ordem antiga, um token qualquer respondia 409 ou 400 conforme o
+   e-mail tivesse conta, e a rota de convite também servia para a varredura.
+5. **Limites:** 10 pedidos de empresa nova por IP a cada 15 min (429, depende só da
+   origem) e, silencioso, 3 e-mails de cadastro por endereço por hora (sem isso, qualquer
+   um encheria a caixa de outra pessoa). Os dois em memória, como o do "esqueci a senha".
+6. **409 só onde quem pergunta já provou o e-mail:** abrir um link de confirmação de um
+   e-mail que ganhou conta no meio do caminho (por convite, por exemplo) responde 409 e
+   apaga o pedido.
+
+### Consequências e limites
+
+- **O cadastro de empresa nova passa a depender do e-mail.** Sem provedor configurado
+  (`EMAIL_PROVEDOR=log`) ou sem domínio verificado no Resend, ninguém consegue concluir
+  um cadastro novo em produção. Ver `docs/DEPLOY.md`, seção B.1.2.
+- O limite por IP enxerga o IP que chega ao Azure; atrás do repasse da Vercel, ele pode
+  ser o da Vercel, comum a todos. Dez pedidos por 15 minutos cobrem uma turma, mas não
+  um evento grande. Corrigir exige confiar num cabeçalho da Vercel, o que fica à parte.
+- Mais uma tabela de infraestrutura: o banco passa a ter 19 (12 de domínio e 7 de
+  infraestrutura), e a API ganha uma rota (`confirmar-cadastro`).
+
+---
+
+## ADR-015 — Cota da YouTube API: contar, repartir e esperar
+
+**Status:** aceita (migração `0014`; branch `sprint4/correcoes-da-revisao`).
+
+### Contexto
+
+A YouTube Data API v3 dá **10.000 unidades por dia por projeto** do Google Cloud, e o
+sistema usa **uma chave só**: todas as empresas dividem o mesmo saldo, que zera à
+meia-noite do fuso do Pacífico. O custo é pequeno (`commentThreads.list` e `videos.list`
+custam 1 unidade; a execução de 5.000 comentários de um vídeo custa cerca de 51, e o teto
+de leitura limita o pior caso, com termo de pesquisa, a cerca de 200), mas havia três
+problemas:
+
+(Desde 1º/06/2026 o `search.list` não sai mais dessa cota: tem cota própria de **100
+chamadas por dia** para o projeto inteiro. Antes custava 100 unidades da cota geral. A
+proibição da regra 4 continua, agora por outro motivo: 100 buscas por dia divididas entre
+todas as empresas não sustentam o produto.)
+
+1. **Chave compartilhada sem divisão.** Uma empresa que dispara muitas execuções podia
+   zerar o dia das outras.
+2. **Sem contagem.** Só se descobria que a cota acabara quando uma coleta falhava. O
+   cartão "Cota do YouTube hoje" existia no contrato da API, mas o backend devolvia `null`.
+3. **Falha definitiva.** O 403 `quotaExceeded` era tratado como erro permanente: a
+   execução ia para a DLQ e a empresa perdia o pedido por algo que não era culpa dela.
+
+### Decisão
+
+1. **Contar.** `uso_cota_youtube(dia, id_empresa, unidades)`, com o dia do **Pacífico**
+   (com horário de verão; por isso `zoneinfo` e o pacote `tzdata`). O cliente da API
+   conta cada chamada (`ClienteYouTube.medir`) e o worker soma ao dia da empresa, também
+   quando a coleta falha: a API cobra do mesmo jeito.
+2. **Repartir.** Antes de coletar, o worker pede o orçamento da empresa
+   (`services/cota.orcamento_da_empresa`): vale o menor entre o que resta do dia (menos
+   uma **reserva** de 500) e o maior entre *o que falta da fatia da empresa* (2.000) e
+   *a folga compartilhada* (até 70% do dia). Com o dia vazio qualquer empresa usa até 70%;
+   passados os 70%, quem já gastou além da fatia espera, e quem gastou menos ainda tem o
+   resto da própria fatia. Ninguém consome o dia inteiro e ninguém fica sem a sua parte.
+3. **Esperar, e não falhar.** Sem orçamento para o custo estimado, ou quando a cota acaba
+   no meio (orçamento medido ou `quotaExceeded` da própria API), o job é **adiado** até a
+   próxima meia-noite do Pacífico (`jobs.disponivel_em`), a coleta parcial é descartada
+   (recomeça do zero, como no reprocessamento) e a execução continua `pendente`, sem gastar
+   tentativa nem ir para a DLQ. A tela mostra "aguardando a cota do YouTube renovar" e a
+   hora em que volta. Se a API disser que acabou, o contador do dia é igualado ao limite
+   (linha de ajuste, `id_empresa = 0`) e as demais coletas esperam sem bater nela.
+4. **403 por ritmo é transitório.** `rateLimitExceeded` e `userRateLimitExceeded` são
+   limite por segundo, e não por dia: passam a repetir com espera, como o 429.
+5. **O cartão "Cota do YouTube hoje" passa a ter número:** o total contado do dia contra
+   o limite, com a hora de renovação. É um agregado, sem dado de empresa nenhuma.
+6. **O admin da plataforma vê a cota por empresa** (`GET /admin/cota-youtube`, tela
+   `/admin/cota`): o dia de hoje (usado, folga, reserva, ajuste, renovação), uma linha por
+   empresa (hoje, % da fatia, período, execuções esperando) e o total de cada um dos
+   últimos 30 dias. É a **única leitura que atravessa as empresas** (exceção deliberada ao
+   ADR-011): a cota é do projeto, e quem opera a plataforma precisa ver o saldo. Mostra só
+   nome da empresa e números de cota. É também o primeiro uso do papel global `admin`,
+   antes "reservado" (ADR-013).
+
+Os valores (`youtube_cota_diaria`, `_reserva`, `_fatia_por_empresa`, `_folga_compartilhada`)
+são configuração, com os padrões acima.
+
+### Consequências e limites
+
+- **A empresa não perde a análise, perde tempo.** No pior caso a coleta espera até a
+  renovação (algumas horas). Com os padrões, a capacidade do dia é da ordem de centenas
+  de execuções típicas, bem acima do uso previsto para PMEs.
+- **O que não resolve:** acima do que o projeto comporta, o caminho é **pedir ampliação de
+  cota ao Google**, pelo *YouTube API Services – Audit and Quota Extension Form*, que exige
+  passar na auditoria de conformidade (Developer Policies, III.D.3). Multiplicar a cota com
+  vários projetos não é permitido: cada cliente da API tem exatamente um projeto
+  (III.D.1.c).
+- **A contagem é nossa, e não a do Google.** Chamadas feitas por fora do app (scripts do
+  `ml/`, testes manuais com a mesma chave) não entram; a reserva e o ajuste cobrem a
+  diferença. Contar a menos nunca derruba o job.
+- **Chave própria por empresa foi descartada:** as políticas mandam usar só as credenciais
+  atribuídas ao próprio projeto e não compartilhá-las (III.D.1.d). Fica como trabalho
+  futuro o reaproveitamento de coletas recentes do mesmo vídeo.
+- **Pendências de conformidade com as políticas da API**, que valem para o uso atual e são
+  condição da auditoria de ampliação (decisão da equipe, nada disso foi implementado):
+  1. **Termos e privacidade (III.A.1 e III.A.2):** os termos precisam exibir o link para os
+     Termos de Serviço do YouTube e dizer que o usuário concorda com eles; a política de
+     privacidade precisa avisar que o app usa os YouTube API Services e linkar a Política de
+     Privacidade do Google. A versão 1.1 cita a YouTube Data API entre os operadores, mas não
+     traz esses links.
+  2. **Guarda do texto (III.E.4.d):** comentário público obtido com a chave, sem login do
+     autor, é *Non-Authorized Data*: no máximo **30 dias**, depois apagar ou atualizar. Hoje
+     fica sem prazo (o expurgo previsto nos termos era de 3 meses).
+  3. **Métrica derivada (III.E.4.h e III.L):** em regra é proibido criar dados ou métricas
+     derivados dos dados da API. A *derived metrics policy* admite explicitamente análise de
+     sentimento por PLN sobre comentários, desde que o desenvolvedor aceite essa política no
+     próprio formulário (caso de uso "Analytics & Reporting") e não infira atributos
+     protegidos. Com o aceite, métricas derivadas (os resultados de sentimento e temas) podem
+     ficar até 36 meses; o texto dos comentários continua nos 30 dias.
+- Mais uma tabela de infraestrutura: o banco passa a ter 20 (12 de domínio e 8 de
+  infraestrutura). `jobs` ganha `disponivel_em` e `motivo_espera`. As linhas com mais de
+  35 dias saem na própria escrita (regra 7).

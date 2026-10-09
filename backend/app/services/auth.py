@@ -21,6 +21,8 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
+from app.models.aceite_termos import AceiteTermos
+from app.models.cadastro_pendente import CadastroPendente
 from app.models.convite import Convite
 from app.models.empresa import Empresa
 from app.models.tentativa_login import TentativaLogin
@@ -31,6 +33,10 @@ from app.schemas.auth import UserRegister
 from app.services import termos as termos_service
 
 logger = logging.getLogger(__name__)
+
+# Só sai em caminhos em que quem pergunta já provou ser dono do e-mail (link de
+# confirmação aberto) ou tem um convite válido para ele (ADR-014).
+EMAIL_JA_CADASTRADO = "Já existe uma conta com este e-mail."
 
 # UC01: 5 tentativas malsucedidas no mesmo e-mail em 10 min -> bloqueio de 15 min
 MAX_TENTATIVAS = 5
@@ -51,6 +57,9 @@ PAPEL_MEMBRO = "membro"
 VALIDADE_REDEFINICAO = timedelta(minutes=30)
 MAX_REDEFINICOES_POR_HORA = 3
 
+# Confirmação do cadastro de empresa nova (ADR-014): o link vale 24 h.
+VALIDADE_CONFIRMACAO = timedelta(hours=24)
+
 # UC01: a mesma mensagem para e-mail inexistente e para senha errada — a resposta
 # não pode revelar se a conta existe.
 CREDENCIAIS_INVALIDAS = "E-mail ou senha inválidos."
@@ -59,6 +68,10 @@ CREDENCIAIS_INVALIDAS = "E-mail ou senha inválidos."
 CONVITE_INVALIDO = "Convite inválido ou expirado."
 EMPRESA_LOTADA = "A empresa atingiu o limite de membros."
 LINK_REDEFINICAO_INVALIDO = "Link de redefinição inválido ou expirado."
+LINK_CONFIRMACAO_INVALIDO = "Link de confirmação inválido ou expirado. Faça o cadastro de novo."
+CADASTRO_SOLICITADO = (
+    "Enviamos um link para o seu e-mail. Abra-o em até 24 horas para concluir o cadastro."
+)
 REFRESH_INVALIDO = "Refresh token inválido ou expirado."
 BLOQUEADO = "Muitas tentativas malsucedidas. Tente novamente mais tarde."
 
@@ -146,27 +159,23 @@ async def _consumir_convite(db: AsyncSession, token: str, email: str) -> Convite
     return convite
 
 
-async def register_user(db: AsyncSession, dados: UserRegister) -> Usuario:
-    """Cria a conta: dona de uma empresa nova, ou membro da empresa do convite."""
+async def registrar_por_convite(db: AsyncSession, dados: UserRegister) -> Usuario:
+    """Cria a conta de quem entra por convite: membro (ou dono) da empresa do convite.
+
+    Sem confirmação de e-mail: o convite é um segredo de uso único emitido para
+    aquele endereço, e quem o tem já provou ter recebido o link.
+
+    O convite é validado ANTES de olhar se o e-mail tem conta. Na ordem inversa, um
+    token qualquer com um e-mail qualquer respondia 409 (tem conta) ou 400 (não tem),
+    e a rota de convite virava um jeito de descobrir quem está cadastrado.
+    """
     email = normalizar_email(dados.email)
+    convite = await _consumir_convite(db, dados.token_convite, email)
 
     existente = await db.scalar(select(Usuario).where(Usuario.email == email))
     if existente is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Já existe uma conta com este e-mail.",
-        )
-
-    if dados.token_convite is not None:
-        convite = await _consumir_convite(db, dados.token_convite, email)
-        id_empresa, papel_empresa = convite.id_empresa, convite.papel_empresa
-    else:
-        empresa = Empresa(nome=dados.nome_empresa)
-        db.add(empresa)
-        # flush para o banco atribuir o id que o usuário referencia; a empresa e o
-        # dono nascem na mesma transação.
-        await db.flush()
-        id_empresa, papel_empresa = empresa.id_empresa, PAPEL_DONO
+        # Só chega aqui quem tem um convite válido PARA ESTE e-mail.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_JA_CADASTRADO)
 
     usuario = Usuario(
         nome=dados.nome.strip(),
@@ -174,8 +183,8 @@ async def register_user(db: AsyncSession, dados: UserRegister) -> Usuario:
         senha_hash=hash_password(dados.senha.get_secret_value()),
         # Nunca vem do cliente: aceitar `papel` na requisição permitiria criar admin.
         papel=PAPEL_PADRAO,
-        id_empresa=id_empresa,
-        papel_empresa=papel_empresa,
+        id_empresa=convite.id_empresa,
+        papel_empresa=convite.papel_empresa,
     )
     db.add(usuario)
     try:
@@ -188,17 +197,121 @@ async def register_user(db: AsyncSession, dados: UserRegister) -> Usuario:
         # Corrida com outro cadastro do mesmo e-mail: o UNIQUE do banco decide.
         await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Já existe uma conta com este e-mail.",
+            status_code=status.HTTP_409_CONFLICT, detail=EMAIL_JA_CADASTRADO
         ) from None
     await db.refresh(usuario, ["empresa"])
 
     logger.info(
-        "usuario registrado id_usuario=%s id_empresa=%s papel_empresa=%s via_convite=%s",
+        "usuario registrado id_usuario=%s id_empresa=%s papel_empresa=%s via_convite=True",
         usuario.id_usuario,
         usuario.id_empresa,
         usuario.papel_empresa,
-        dados.token_convite is not None,
+    )
+    return usuario
+
+
+async def solicitar_cadastro(db: AsyncSession, dados: UserRegister) -> tuple[str, str, str]:
+    """Cadastro de empresa nova (ADR-014). Devolve o e-mail a enviar: (para, assunto, texto).
+
+    Quem chama responde 202 IGUAL nos dois casos e envia em segundo plano: e-mail sem
+    conta recebe o link de confirmação (a conta só nasce quando ele for aberto);
+    e-mail com conta recebe um aviso. Nem o corpo, nem o status, nem o tempo de
+    resposta dizem qual dos dois aconteceu: o bcrypt roda nos dois caminhos.
+    """
+    email = normalizar_email(dados.email)
+    # Antes de qualquer ramificação, para os dois caminhos custarem o mesmo tempo.
+    senha_hash = hash_password(dados.senha.get_secret_value())
+    agora = datetime.now(UTC)
+
+    # Regra 7: pedidos vencidos saem aqui, na escrita que já está acontecendo.
+    await db.execute(
+        delete(CadastroPendente)
+        .execution_options(synchronize_session="fetch")
+        .where(CadastroPendente.expira_em < agora)
+    )
+
+    existente = await db.scalar(select(Usuario.id_usuario).where(Usuario.email == email))
+    if existente is not None:
+        await db.commit()
+        logger.info("cadastro pedido para e-mail que ja tem conta id_usuario=%s", existente)
+        assunto, texto = email_conta_existente()
+        return email, assunto, texto
+
+    # Um pedido por e-mail: o novo substitui o anterior, e o link antigo deixa de valer.
+    await db.execute(
+        delete(CadastroPendente)
+        .execution_options(synchronize_session="fetch")
+        .where(CadastroPendente.email == email)
+    )
+    token = gerar_token_opaco()
+    db.add(
+        CadastroPendente(
+            email=email,
+            nome=dados.nome.strip(),
+            nome_empresa=dados.nome_empresa,
+            senha_hash=senha_hash,
+            versao_termos=termos_service.versao_vigente(),
+            token_hash=hash_token(token),
+            expira_em=agora + VALIDADE_CONFIRMACAO,
+            criado_em=agora,
+        )
+    )
+    await db.commit()
+    logger.info("cadastro pendente criado email_hash=%s", hash_token(email))
+    assunto, texto = email_confirmacao(token, dados.nome_empresa)
+    return email, assunto, texto
+
+
+async def confirmar_cadastro(db: AsyncSession, token: str) -> Usuario:
+    """Abre o link: cria a empresa, a conta de dono e o aceite, num commit só."""
+    invalido = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail=LINK_CONFIRMACAO_INVALIDO
+    )
+    pendente = await db.scalar(
+        select(CadastroPendente).where(CadastroPendente.token_hash == hash_token(token))
+    )
+    if pendente is None or _as_utc(pendente.expira_em) <= datetime.now(UTC):
+        raise invalido
+
+    email = pendente.email
+    if await db.scalar(select(Usuario.id_usuario).where(Usuario.email == email)) is not None:
+        # O e-mail ganhou conta enquanto o link esperava (um convite, por exemplo).
+        # Quem abriu o link provou ser dono do endereço: dizer isso não revela nada.
+        await db.delete(pendente)
+        await db.commit()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_JA_CADASTRADO)
+
+    empresa = Empresa(nome=pendente.nome_empresa)
+    db.add(empresa)
+    # flush para o banco atribuir o id que o usuário referencia; a empresa e o dono
+    # nascem na mesma transação.
+    await db.flush()
+    usuario = Usuario(
+        nome=pendente.nome,
+        email=email,
+        senha_hash=pendente.senha_hash,
+        papel=PAPEL_PADRAO,
+        id_empresa=empresa.id_empresa,
+        papel_empresa=PAPEL_DONO,
+    )
+    db.add(usuario)
+    try:
+        await db.flush()
+        # A versão aceita ao preencher, não a vigente agora (ADR-014).
+        db.add(AceiteTermos(id_usuario=usuario.id_usuario, versao_termos=pendente.versao_termos))
+        await db.delete(pendente)
+        await db.commit()
+    except IntegrityError:
+        # Duas abas abrindo o mesmo link: o UNIQUE do e-mail deixa passar uma.
+        await db.rollback()
+        raise invalido from None
+    await db.refresh(usuario, ["empresa"])
+
+    logger.info(
+        "usuario registrado id_usuario=%s id_empresa=%s papel_empresa=%s via_convite=False",
+        usuario.id_usuario,
+        usuario.id_empresa,
+        usuario.papel_empresa,
     )
     return usuario
 
@@ -561,4 +674,29 @@ def email_redefinicao(token: str) -> tuple[str, str]:
         f"Abra o link abaixo em até {minutos} minutos:\n"
         f"{link_do_frontend('/redefinir-senha', f'token={token}')}\n\n"
         "Se não foi você, ignore este e-mail: a sua senha continua a mesma.",
+    )
+
+
+def email_confirmacao(token: str, nome_empresa: str) -> tuple[str, str]:
+    """(assunto, texto) do e-mail que confirma o cadastro de empresa nova."""
+    horas = int(VALIDADE_CONFIRMACAO.total_seconds() // 3600)
+    return (
+        "Confirme o seu cadastro — Emi Analytics",
+        f"Para criar a empresa {nome_empresa} no Emi Analytics, confirme o seu e-mail.\n\n"
+        f"Abra o link abaixo em até {horas} horas:\n"
+        f"{link_do_frontend('/confirmar-cadastro', f'token={token}')}\n\n"
+        "Se não foi você, ignore este e-mail: nenhuma conta será criada.",
+    )
+
+
+def email_conta_existente() -> tuple[str, str]:
+    """(assunto, texto) do aviso a quem já tem conta e recebeu um pedido de cadastro."""
+    base = settings.frontend_url.rstrip("/")
+    return (
+        "Tentativa de cadastro — Emi Analytics",
+        "Alguém tentou criar uma conta no Emi Analytics com este e-mail, mas ele já tem "
+        "conta.\n\n"
+        f"Se foi você, entre em {base}/login. Se esqueceu a senha, peça um link novo em "
+        f"{base}/esqueci-senha.\n\n"
+        "Se não foi você, ignore este e-mail: nada mudou na sua conta.",
     )

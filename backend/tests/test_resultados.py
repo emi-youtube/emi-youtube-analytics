@@ -769,8 +769,9 @@ async def test_painel_totais_e_cota(cliente, sessao):
         "execucoes_concluidas": 1,
         "videos_acompanhados": 2,
     }
-    # Ninguém registra consumo de cota ainda: nulo, não número inventado.
-    assert corpo["cota_youtube"] is None
+    # Nenhuma coleta rodou neste teste: o cartão existe e o contador está zerado.
+    assert corpo["cota_youtube"]["unidades_usadas"] == 0
+    assert corpo["cota_youtube"]["unidades_limite"] == 10000
     assert corpo["versao_modelo"]["nome_modelo"] == "lexico-sentilex"
     assert corpo["versao_modelo"]["metricas_avaliacao"] is None
 

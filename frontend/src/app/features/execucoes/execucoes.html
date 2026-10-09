@@ -116,6 +116,11 @@
             </td>
             <td>
               <span [class]="classeDoBadge(execucao.status)">{{ rotulos[execucao.status] }}</span>
+              @if (execucao.retoma_em) {
+                <span class="tabela__id muted">
+                  aguardando a cota do YouTube, volta {{ dataHoraLegivel(execucao.retoma_em) }}
+                </span>
+              }
             </td>
             <td class="tabela__data">{{ dataHoraLegivel(execucao.iniciado_em) }}</td>
             <td class="tabela__data">{{ dataHoraLegivel(execucao.concluido_em) }}</td>

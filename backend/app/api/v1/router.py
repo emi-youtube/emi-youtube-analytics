@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.admin import router as admin_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.conta import router as conta_router
 from app.api.v1.empresa import router as empresa_router
@@ -16,3 +17,4 @@ api_router.include_router(conta_router, tags=["conta"])
 api_router.include_router(modelos_analise_router, tags=["modelos-analise"])
 api_router.include_router(execucoes_router, tags=["execucoes"])
 api_router.include_router(painel_router, tags=["painel"])
+api_router.include_router(admin_router, tags=["admin"])

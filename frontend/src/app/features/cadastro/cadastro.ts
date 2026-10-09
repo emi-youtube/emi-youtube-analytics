@@ -25,8 +25,9 @@ type Modo = 'criar' | 'convite';
  * UC02 — criação de conta. Consome `POST /api/v1/auth/registrar`.
  *
  * Dois caminhos (ADR-011): "Criar empresa" faz da pessoa a dona de uma empresa
- * nova; "Tenho um convite" a põe na empresa de quem convidou, com o e-mail do
- * convite travado — o backend recusa qualquer outro.
+ * nova, depois de ela confirmar o e-mail pelo link que recebe (ADR-014);
+ * "Tenho um convite" a põe na empresa de quem convidou, com o e-mail do convite
+ * travado — o backend recusa qualquer outro.
  */
 @Component({
   selector: 'app-cadastro',
@@ -47,6 +48,8 @@ export class Cadastro {
   protected readonly erro = signal<string | null>(null);
   /** Trava o botão depois de `ContaCriadaSemSessao`: reenviar daria 409. */
   protected readonly contaCriada = signal(false);
+  /** Empresa nova (ADR-014): o e-mail para onde foi o link de confirmação. */
+  protected readonly emailEnviadoPara = signal<string | null>(null);
 
   /** Convite já validado no servidor; enquanto nulo, o modo convite pede o código. */
   protected readonly convite = signal<ConviteParaCadastro | null>(null);
@@ -152,7 +155,23 @@ export class Cadastro {
     this.enviando.set(true);
     this.erro.set(null);
 
-    this.auth.registrar(dados).subscribe({
+    if (!dados.token_convite) {
+      // Empresa nova: a resposta é a mesma tenha o e-mail conta ou não; o resto
+      // segue pelo e-mail (link de confirmação, ou aviso a quem já tem conta).
+      this.auth.pedirCadastro(dados).subscribe({
+        next: () => {
+          this.enviando.set(false);
+          this.emailEnviadoPara.set(dados.email);
+        },
+        error: (erro: unknown) => {
+          this.enviando.set(false);
+          this.erro.set(this.mensagemDoCadastro(erro));
+        },
+      });
+      return;
+    }
+
+    this.auth.registrarPorConvite(dados).subscribe({
       next: () => {
         void this.router.navigateByUrl('/inicio');
       },
@@ -174,9 +193,10 @@ export class Cadastro {
   }
 
   /**
-   * O 409 de e-mail repetido tem uma saída melhor do que "tente de novo"; o 409
-   * de empresa lotada e o 400 de convite inválido já vêm com texto próprio do
-   * backend e vão pelo tradutor comum.
+   * O 409 de e-mail repetido (só no convite: empresa nova responde igual com ou
+   * sem conta) tem uma saída melhor do que "tente de novo"; o 409 de empresa
+   * lotada e o 400 de convite inválido já vêm com texto próprio do backend e vão
+   * pelo tradutor comum.
    */
   private mensagemDoCadastro(erro: unknown): string {
     const detalhe = mensagemDeErro(erro, 'Não foi possível criar sua conta. Tente de novo.');

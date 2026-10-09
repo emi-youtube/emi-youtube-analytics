@@ -71,14 +71,43 @@ export class AuthService {
   }
 
   /**
-   * UC02 — cria a conta e já entra com ela.
+   * Empresa nova (ADR-014): só PEDE o cadastro. O backend responde 202 igual
+   * tenha o e-mail conta ou não e manda um link; a conta nasce quando a pessoa
+   * abre o link (`confirmarCadastro`).
+   */
+  pedirCadastro(dados: RegisterRequest): Observable<MensagemResponse> {
+    return this.http.post<MensagemResponse>(`${this.baseUrl}/registrar`, dados, {
+      context: skipAuth(),
+    });
+  }
+
+  /**
+   * Link do e-mail de confirmação (`/confirmar-cadastro?token=...`): cria a
+   * empresa e a conta de dono e já devolve a sessão.
+   */
+  confirmarCadastro(token: string): Observable<UserResponse> {
+    return this.http
+      .post<TokenPairResponse>(
+        `${this.baseUrl}/confirmar-cadastro`,
+        { token },
+        { context: skipAuth() },
+      )
+      .pipe(
+        tap((tokens) => this.guardarTokens(tokens)),
+        switchMap(() => this.loadCurrentUser()),
+      );
+  }
+
+  /**
+   * UC02 por convite — cria a conta e já entra com ela.
    *
+   * Por convite não há confirmação: o link do convite já chegou por e-mail.
    * `POST /auth/registrar` devolve o usuário, não tokens; a sessão vem do
    * login encadeado. Se esse login falhar, o erro sai como
    * `ContaCriadaSemSessao` para a tela não dizer que o cadastro deu errado —
    * a conta existe.
    */
-  registrar(dados: RegisterRequest): Observable<UserResponse> {
+  registrarPorConvite(dados: RegisterRequest): Observable<UserResponse> {
     return this.http
       .post<UserResponse>(`${this.baseUrl}/registrar`, dados, { context: skipAuth() })
       .pipe(

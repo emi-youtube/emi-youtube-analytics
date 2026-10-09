@@ -5,6 +5,7 @@ As esperas do backoff são substituídas para o teste não dormir 30s.
 """
 
 import logging
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
@@ -26,6 +27,7 @@ from app.workers.youtube import (
     ErroPermanente,
     ErroTransitorio,
     LoteComentarios,
+    Medida,
     VideoColetado,
 )
 
@@ -55,6 +57,15 @@ class ClienteFalso:
         self.ids_pedidos: list[list[str]] = []
         self.chamadas_de_comentario = 0
         self.pedidos_de_comentario: list[dict] = []
+        self.orcamentos_recebidos: list[int | None] = []
+        self.unidades_por_job = 0
+
+    @contextmanager
+    def medir(self, orcamento=None):
+        """Como o cliente real: entrega a medida; o teste decide o que ela marca."""
+        self.orcamentos_recebidos.append(orcamento)
+        medida = Medida(orcamento=orcamento, unidades=self.unidades_por_job)
+        yield medida
 
     def _talvez_falhar(self) -> None:
         if self.erros_ate_funcionar:
@@ -527,6 +538,82 @@ async def test_falha_nao_deixa_video_pela_metade(sessao, sem_espera):
     assert (await sessao.scalars(select(Video))).all() == []
     assert (await sessao.scalars(select(Comentario))).all() == []
     assert await sessao.scalar(select(JobDlq)) is not None
+
+
+class ClienteComErrosNoVideo(ClienteFalso):
+    """Dublê em que um vídeo falha numa SEQUÊNCIA de erros, um por chamada."""
+
+    def __init__(self, *, sequencia: dict[str, list[Exception]], **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.sequencia = {k: list(v) for k, v in sequencia.items()}
+
+    async def listar_comentarios(self, youtube_video_id: str, limite: int, **kwargs):
+        pendentes = self.sequencia.get(youtube_video_id)
+        if pendentes:
+            self.chamadas_de_comentario += 1
+            raise pendentes.pop(0)
+        return await super().listar_comentarios(youtube_video_id, limite, **kwargs)
+
+
+async def test_falha_depois_de_erro_transitorio_nao_deixa_parcial(sessao, sem_espera):
+    """O erro transitório commita a contagem de tentativas e, com ela, o vídeo A.
+
+    A falha definitiva logo depois precisa apagar esse vídeo também: a execução em
+    erro não pode ficar com metade da coleta.
+    """
+    await montar_job(sessao, filtros={"videos": [VIDEO_A, VIDEO_B]})
+    cliente = ClienteComErrosNoVideo(
+        videos=[video(VIDEO_A), video(VIDEO_B)],
+        comentarios={VIDEO_A: [comentario("a1")]},
+        sequencia={VIDEO_B: [ErroTransitorio("503"), ErroPermanente("403 cota")]},
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+
+    assert (await sessao.scalars(select(Video))).all() == []
+    assert (await sessao.scalars(select(Comentario))).all() == []
+    assert await sessao.scalar(select(JobDlq)) is not None
+
+
+async def test_reprocessamento_recomeca_a_coleta_do_zero(sessao, sem_espera, caplog):
+    """Job devolvido à fila depois de um commit parcial: retoma em vez de falhar.
+
+    Antes, o vídeo deixado pela tentativa anterior estourava o UNIQUE
+    `uq_videos_execucao_video` e a execução acabava em erro.
+    """
+    job = await montar_job(sessao, filtros={"videos": [VIDEO_A, VIDEO_B]})
+    # O que a tentativa anterior deixou commitado antes de o worker cair.
+    sobra = Video(
+        id_execucao=job.id_execucao, youtube_video_id=VIDEO_A, titulo="velho", canal="velho"
+    )
+    sessao.add(sobra)
+    await sessao.flush()
+    sessao.add(
+        Comentario(
+            id_video=sobra.id_video,
+            youtube_comment_id="a1",
+            autor_hash=hash_token(ID_CANAL_AUTOR),
+            texto="velho",
+        )
+    )
+    await sessao.commit()
+
+    cliente = ClienteFalso(
+        videos=[video(VIDEO_A), video(VIDEO_B)],
+        comentarios={VIDEO_A: [comentario("a1"), comentario("a2")], VIDEO_B: [comentario("b1")]},
+    )
+    with caplog.at_level(logging.WARNING, logger="app.workers.coleta"):
+        await coleta.executar_proximo(sessao, cliente)
+
+    assert await sessao.scalar(select(JobDlq)) is None
+    await sessao.refresh(job)
+    assert job.status == "concluida"
+    videos = (await sessao.scalars(select(Video))).all()
+    assert sorted(v.youtube_video_id for v in videos) == [VIDEO_A, VIDEO_B]
+    assert all(v.titulo == "Campanha de verão" for v in videos)
+    comentarios = (await sessao.scalars(select(Comentario))).all()
+    assert sorted(c.youtube_comment_id for c in comentarios) == ["a1", "a2", "b1"]
+    assert "coleta anterior incompleta descartada" in caplog.text
 
 
 # --------------------------------------------------------------------------- teto

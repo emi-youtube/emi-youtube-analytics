@@ -9,6 +9,8 @@ export interface Execucao {
   status: StatusExecucao;
   iniciado_em: string | null;
   concluido_em: string | null;
+  /** Só quando a execução espera a cota do YouTube renovar: a hora em que volta (ADR-015). */
+  retoma_em?: string | null;
 }
 
 /** Corpo de `POST /execucoes` — o resto a execução deriva do modelo. */

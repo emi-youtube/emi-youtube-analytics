@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import async_session_factory
+from app.core.logs import configurar_logs
 from app.inferencia.base import Classificador, ClassificadorIndisponivel
 from app.inferencia.bertimbau import ClassificadorBertimbau
 from app.inferencia.lexico import ClassificadorLexico
@@ -128,16 +129,9 @@ async def _ciclo(parar: asyncio.Event, cliente: ClienteYouTube, classificador: C
 
 
 async def main() -> None:
-    logging.basicConfig(
-        level=settings.log_level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-    # Segunda camada da proteção da chave: em INFO o httpx loga a URL completa de
-    # cada requisição. Hoje a chave vai no cabeçalho (workers/youtube.py), então a
-    # URL já não a contém — mas qualquer parâmetro sensível que venha a entrar na
-    # query cairia no log de novo. WARNING mantém erro de rede visível e cala o resto.
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    # A mesma configuração da API (core/logs.py), inclusive o silêncio do httpx, que
+    # é a segunda camada da proteção da chave do YouTube.
+    configurar_logs(settings.log_level)
 
     try:
         async with async_session_factory() as db:

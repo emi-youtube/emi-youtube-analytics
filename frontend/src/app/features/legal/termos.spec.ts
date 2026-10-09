@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
-import texto from '../../../assets/legal/termos-v1.md';
+import texto from '../../../assets/legal/termos-v1.1.md';
 import { ANCORA_PRIVACIDADE, ancora, renderizarMarkdown } from './markdown';
 import { Termos } from './termos';
 
@@ -41,8 +41,8 @@ describe('Termos', () => {
     expect(artigo.querySelector('h1')?.id).not.toBe('');
   });
 
-  // Pulado enquanto termos-v1.md for o marcador de lugar (o texto aprovado ainda não
-  // entrou no repositório); passa a valer sozinho quando o arquivo for trocado.
+  // Pulado enquanto o arquivo dos termos vigentes for o marcador de lugar (o texto
+  // aprovado ainda não entrou no repositório); passa a valer sozinho quando for trocado.
   it.skipIf(texto.includes('TEXTO PENDENTE'))(
     'o texto vigente tem a seção 4, alvo de /privacidade',
     () => {

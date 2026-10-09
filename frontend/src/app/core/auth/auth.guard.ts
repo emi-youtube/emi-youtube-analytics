@@ -59,3 +59,27 @@ export const guestGuard: CanActivateFn = () => {
     .ensureSession()
     .pipe(map((autenticado) => (autenticado ? router.createUrlTree(['/inicio']) : true)));
 };
+
+/**
+ * Telas da administração da plataforma (papel global `admin`). Fica abaixo do
+ * `authGuard` do Shell, mas não conta com a ordem: num F5 o usuário ainda não foi
+ * carregado, então reconstrói a sessão antes de olhar o papel.
+ *
+ * Esconder a tela é conforto; quem barra é o backend, que responde 403.
+ */
+export const adminGuard: CanActivateFn = () => {
+  const router = inject(Router);
+  const auth = inject(AuthService);
+
+  if (!isPlatformBrowser(inject(PLATFORM_ID))) {
+    return true;
+  }
+
+  const decidir = () =>
+    auth.usuario()?.papel === 'admin' ? true : router.createUrlTree(['/inicio']);
+
+  if (auth.isAuthenticated() && auth.usuario()) {
+    return decidir();
+  }
+  return auth.ensureSession().pipe(map(() => decidir()));
+};

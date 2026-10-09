@@ -1,9 +1,10 @@
 /**
  * Conjunto de demonstração das telas de análise.
  *
- * Existe porque o worker de inferência ainda não roda: sem ele não há
- * ANALISES_SENTIMENTO, TEMAS nem COMENTARIO_TEMA no banco, e as telas de
- * Início, Resultados e Comentários não teriam o que mostrar.
+ * Nasceu antes dos workers de inferência e de tópicos, quando não havia
+ * ANALISES_SENTIMENTO, TEMAS nem COMENTARIO_TEMA no banco. Hoje serve para
+ * desenvolver e testar as telas de Início, Resultados e Comentários sem banco e
+ * para as capturas de tela com dados fictícios.
  *
  * Os textos imitam o que a coleta real traz — português informal, gíria,
  * ironia, erro de digitação e emoji — porque é isso que o BERTimbau vai

@@ -203,14 +203,21 @@
     </div>
 
     <!--
-      Sem tema não é erro nem tela quebrada: é etapa que ainda não roda. O
-      agrupamento depende do worker de tópicos, que não existe. Dizer isso é
-      melhor que estampar "0 temas" sobre uma lista vazia.
+      Sem tema não é erro: o worker de tópicos conclui a execução sem tema quando
+      não há material para agrupar (menos comentários que o mínimo, ou texto que
+      sobra pouco depois de tirar emoji, link e palavras comuns). O motivo exato
+      fica no log; a tela explica as duas causas, em vez de estampar "0 temas".
     -->
     @if (r.temas.length === 0) {
-      <p class="painel__nota muted">
-        O agrupamento por tema ainda não roda nesta versão do sistema. Os comentários já estão
-        classificados por sentimento — a lista completa está disponível abaixo.
+      <p class="painel__nota muted" data-testid="sem-temas">
+        @if (r.distribuicao.total < minimoParaTemas) {
+          Os temas só são calculados a partir de {{ minimoParaTemas }} comentários, e esta execução
+          tem {{ numero(r.distribuicao.total) }}.
+        } @else {
+          Não foi possível agrupar estes comentários em temas: depois de tirar emoji, links e
+          palavras muito comuns, sobrou pouco texto para comparar.
+        }
+        Os comentários já estão classificados por sentimento e podem ser vistos na lista completa.
       </p>
       <div class="temas__rodape">
         <a class="temas__link" [routerLink]="['/resultados', r.id_execucao, 'comentarios']">
