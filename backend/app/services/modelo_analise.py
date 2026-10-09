@@ -33,7 +33,7 @@ def _validar_escopo(filtros: dict | None) -> None:
 
     São os vídeos que definem o que coletar — `commentThreads.list` parte de um
     ID de vídeo, e descobrir vídeos por texto exigiria `search.list`, proibido
-    pelo CLAUDE.md (regra 4) por custar 100 unidades de cota contra 1.
+    pelo CLAUDE.md (regra 4): tem cota própria de só 100 chamadas por dia no projeto.
 
     O termo de pesquisa é opcional: ele descreve a campanha e viaja congelado no
     payload do job, mas não delimita a coleta sozinho.

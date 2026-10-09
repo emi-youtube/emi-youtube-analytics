@@ -65,7 +65,7 @@ def item_comentario(
 
 
 async def test_search_list_e_recusado_pelo_cliente():
-    """CLAUDE.md regra 4: search.list custa 100 unidades contra 1 dos outros."""
+    """CLAUDE.md regra 4: search.list tem cota própria de 100 chamadas/dia no projeto."""
     cliente, chamadas = cliente_com(lambda _: httpx.Response(200, json={}))
 
     with pytest.raises(ErroPermanente, match=r"search\.list"):

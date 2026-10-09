@@ -1,8 +1,10 @@
 """Cliente da YouTube Data API v3 usado pelo worker de coleta.
 
 Custo de cota (CLAUDE.md regra 4): `commentThreads.list` e `videos.list` custam
-1 unidade por chamada; `search.list` custa 100. Este cliente recusa `search` na
-porta de entrada — os IDs de vídeo vêm curados nos filtros do modelo.
+1 unidade por chamada, da cota geral de 10.000 por dia. `search.list` tem, desde
+1º/06/2026, cota própria de 100 chamadas por dia para o projeto inteiro (antes custava
+100 unidades da geral). Este cliente recusa `search` na porta de entrada — os IDs de
+vídeo vêm curados nos filtros do modelo.
 
 LGPD (CLAUDE.md regra 2): o autor do comentário é convertido em hash aqui dentro,
 no ponto mais próximo possível da API. Nada acima desta camada chega a ver o
@@ -35,9 +37,10 @@ MAX_COMENTARIOS_POR_PAGINA = 100
 
 RECURSO_PROIBIDO = "search"
 
-# Custo de cada chamada em unidades de cota. `search` (100) nunca chega aqui: é
-# recusado antes. Recurso desconhecido conta 1, o mais barato, e a conta fica por baixo
-# — o que corrige a diferença é `marcar_esgotada` quando a API disser que acabou.
+# Custo de cada chamada em unidades da cota geral. `search` nunca chega aqui (tem cota
+# própria de 100 chamadas por dia e é recusado antes). Recurso desconhecido conta 1, o
+# mais barato, e a conta fica por baixo — o que corrige a diferença é `marcar_esgotada`
+# quando a API disser que acabou.
 CUSTO_POR_RECURSO = {"videos": 1, "commentThreads": 1}
 
 # Motivos de 403 que significam "a cota DIÁRIA acabou". Esperar a renovação resolve;
@@ -173,8 +176,8 @@ class ClienteYouTube:
 
     async def _get(self, recurso: str, params: dict) -> dict:
         if recurso == RECURSO_PROIBIDO:
-            # Guarda de última instância: 100 unidades de cota contra 1 dos outros
-            # endpoints estoura a cota diária em poucas execuções.
+            # Guarda de última instância: a busca tem cota própria de 100 chamadas por
+            # dia para o projeto inteiro, dividida entre todas as empresas.
             raise ErroPermanente(
                 "search.list é proibido no projeto (CLAUDE.md regra 4): use IDs de vídeo curados."
             )

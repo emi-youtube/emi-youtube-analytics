@@ -417,6 +417,16 @@ Variáveis opcionais, todas com padrão: `YOUTUBE_COTA_DIARIA` (10000),
 primeira muda. **Confira no console do Google Cloud o valor real da cota** (APIs e
 serviços, YouTube Data API v3, Cotas) antes de confiar no padrão.
 
+**Quem vê a cota por empresa** é o papel global `admin` (tela "Cota do YouTube" na nav,
+rota `/admin/cota`). Não há tela para promover alguém: é uma linha no SQL Editor do
+Supabase, para a conta de quem opera a plataforma:
+
+```sql
+UPDATE usuarios SET papel = 'admin' WHERE email = '<e-mail da pessoa>';
+```
+
+O papel vale no próximo carregamento da página (o backend lê o usuário a cada requisição).
+
 O `requirements.txt` ganhou `tzdata`: o App Service reinstala as dependências no deploy.
 Depois do deploy: `EMI_TESTE_POSTGRES_URL=<Supabase> pytest tests/test_rls.py`.
 

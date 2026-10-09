@@ -386,10 +386,12 @@ com membros sem oferecer saída.
 | convidar, revogar convite, remover membro | ✘ (403) | ✔ | — reservado |
 | promover / rebaixar | ✘ (403) | ✔ (sobra ≥ 1 dono; teto de 3) | — reservado |
 | baixar os próprios dados, excluir a conta | ✔ | ✔ (regras de saída acima) | — reservado |
+| ver a cota do YouTube de todas as empresas (ADR-015) | ✘ (403) | ✘ (403) | ✔ |
 
-"Admin — reservado": o papel global `admin` existe (`USUARIOS.papel`) e só serve à
-rota de teste de `requer_admin`. Ele não dá poder dentro de uma empresa e não aparece
-em tela; o admin é dono ou membro da própria empresa como qualquer um.
+"Admin — reservado": o papel global `admin` existe (`USUARIOS.papel`). Ele não dá
+poder dentro de uma empresa; o admin é dono ou membro da própria empresa como qualquer
+um. O único uso dele é a administração da plataforma: a tela da cota do YouTube por
+empresa (ADR-015), só leitura.
 
 ### Consequências e limites
 
@@ -462,8 +464,14 @@ a conta não nascer na hora: alguém tem de provar que o e-mail é seu.
 A YouTube Data API v3 dá **10.000 unidades por dia por projeto** do Google Cloud, e o
 sistema usa **uma chave só**: todas as empresas dividem o mesmo saldo, que zera à
 meia-noite do fuso do Pacífico. O custo é pequeno (`commentThreads.list` e `videos.list`
-custam 1 unidade; a execução de 5.000 comentários custa algumas dezenas, e o teto de
-leitura limita o pior caso a cerca de 200), mas havia três problemas:
+custam 1 unidade; a execução de 5.000 comentários de um vídeo custa cerca de 51, e o teto
+de leitura limita o pior caso, com termo de pesquisa, a cerca de 200), mas havia três
+problemas:
+
+(Desde 1º/06/2026 o `search.list` não sai mais dessa cota: tem cota própria de **100
+chamadas por dia** para o projeto inteiro. Antes custava 100 unidades da cota geral. A
+proibição da regra 4 continua, agora por outro motivo: 100 buscas por dia divididas entre
+todas as empresas não sustentam o produto.)
 
 1. **Chave compartilhada sem divisão.** Uma empresa que dispara muitas execuções podia
    zerar o dia das outras.
@@ -495,6 +503,13 @@ leitura limita o pior caso a cerca de 200), mas havia três problemas:
    limite por segundo, e não por dia: passam a repetir com espera, como o 429.
 5. **O cartão "Cota do YouTube hoje" passa a ter número:** o total contado do dia contra
    o limite, com a hora de renovação. É um agregado, sem dado de empresa nenhuma.
+6. **O admin da plataforma vê a cota por empresa** (`GET /admin/cota-youtube`, tela
+   `/admin/cota`): o dia de hoje (usado, folga, reserva, ajuste, renovação), uma linha por
+   empresa (hoje, % da fatia, período, execuções esperando) e o total de cada um dos
+   últimos 30 dias. É a **única leitura que atravessa as empresas** (exceção deliberada ao
+   ADR-011): a cota é do projeto, e quem opera a plataforma precisa ver o saldo. Mostra só
+   nome da empresa e números de cota. É também o primeiro uso do papel global `admin`,
+   antes "reservado" (ADR-013).
 
 Os valores (`youtube_cota_diaria`, `_reserva`, `_fatia_por_empresa`, `_folga_compartilhada`)
 são configuração, com os padrões acima.
@@ -505,13 +520,22 @@ são configuração, com os padrões acima.
   renovação (algumas horas). Com os padrões, a capacidade do dia é da ordem de centenas
   de execuções típicas, bem acima do uso previsto para PMEs.
 - **O que não resolve:** acima do que o projeto comporta, o caminho é **pedir ampliação de
-  cota ao Google** (auditoria de conformidade da YouTube API Services). Criar vários
-  projetos para multiplicar a cota viola as políticas da API e não foi considerado.
+  cota ao Google**, pelo *YouTube API Services – Audit and Quota Extension Form*, que exige
+  passar na auditoria de conformidade (Developer Policies, III.D.3). Multiplicar a cota com
+  vários projetos não é permitido: cada cliente da API tem exatamente um projeto
+  (III.D.1.c).
 - **A contagem é nossa, e não a do Google.** Chamadas feitas por fora do app (scripts do
   `ml/`, testes manuais com a mesma chave) não entram; a reserva e o ajuste cobrem a
   diferença. Contar a menos nunca derruba o job.
-- **Fica como trabalho futuro:** chave própria por empresa (cada uma com a sua cota,
-  guardada cifrada) e reaproveitamento de coletas recentes do mesmo vídeo.
+- **Chave própria por empresa foi descartada:** as políticas mandam usar só as credenciais
+  atribuídas ao próprio projeto e não compartilhá-las (III.D.1.d). Fica como trabalho
+  futuro o reaproveitamento de coletas recentes do mesmo vídeo.
+- **Pendência de conformidade antes de pedir mais cota.** Comentário público obtido com a
+  chave, sem login do autor, é *Non-Authorized Data*: as políticas permitem guardá-lo por
+  **no máximo 30 dias**, depois apagar ou atualizar (III.E.4.d). Hoje os comentários ficam
+  sem prazo (o expurgo previsto era de 3 meses). E as métricas de sentimento podem contar
+  como *métrica derivada* (III.E.4.h), que o formulário trata à parte (III.L). As duas
+  coisas precisam de decisão da equipe antes da auditoria.
 - Mais uma tabela de infraestrutura: o banco passa a ter 20 (12 de domínio e 8 de
   infraestrutura). `jobs` ganha `disponivel_em` e `motivo_espera`. As linhas com mais de
   35 dias saem na própria escrita (regra 7).

@@ -110,9 +110,9 @@ def _ids_de_video(payload: dict, id_execucao: int) -> list[str]:
         )
 
     if filtros.get("canais"):
-        # Expandir canal em vídeos exigiria search.list (100 unidades, proibido pelo
-        # CLAUDE.md). channels.list + playlistItems.list fariam isso por 1 unidade,
-        # mas isso é escopo de outro card.
+        # Expandir canal em vídeos exigiria search.list (100 chamadas/dia no projeto,
+        # proibido pelo CLAUDE.md). channels.list + playlistItems.list fariam isso por
+        # 1 unidade, mas isso é escopo de outro card.
         logger.warning(
             "filtro 'canais' ainda não é expandido pelo worker id_execucao=%s", id_execucao
         )
