@@ -450,3 +450,68 @@ a conta não nascer na hora: alguém tem de provar que o e-mail é seu.
   um evento grande. Corrigir exige confiar num cabeçalho da Vercel, o que fica à parte.
 - Mais uma tabela de infraestrutura: o banco passa a ter 19 (12 de domínio e 7 de
   infraestrutura), e a API ganha uma rota (`confirmar-cadastro`).
+
+---
+
+## ADR-015 — Cota da YouTube API: contar, repartir e esperar
+
+**Status:** aceita (migração `0014`; branch `sprint4/correcoes-da-revisao`).
+
+### Contexto
+
+A YouTube Data API v3 dá **10.000 unidades por dia por projeto** do Google Cloud, e o
+sistema usa **uma chave só**: todas as empresas dividem o mesmo saldo, que zera à
+meia-noite do fuso do Pacífico. O custo é pequeno (`commentThreads.list` e `videos.list`
+custam 1 unidade; a execução de 5.000 comentários custa algumas dezenas, e o teto de
+leitura limita o pior caso a cerca de 200), mas havia três problemas:
+
+1. **Chave compartilhada sem divisão.** Uma empresa que dispara muitas execuções podia
+   zerar o dia das outras.
+2. **Sem contagem.** Só se descobria que a cota acabara quando uma coleta falhava. O
+   cartão "Cota do YouTube hoje" existia no contrato da API, mas o backend devolvia `null`.
+3. **Falha definitiva.** O 403 `quotaExceeded` era tratado como erro permanente: a
+   execução ia para a DLQ e a empresa perdia o pedido por algo que não era culpa dela.
+
+### Decisão
+
+1. **Contar.** `uso_cota_youtube(dia, id_empresa, unidades)`, com o dia do **Pacífico**
+   (com horário de verão; por isso `zoneinfo` e o pacote `tzdata`). O cliente da API
+   conta cada chamada (`ClienteYouTube.medir`) e o worker soma ao dia da empresa, também
+   quando a coleta falha: a API cobra do mesmo jeito.
+2. **Repartir.** Antes de coletar, o worker pede o orçamento da empresa
+   (`services/cota.orcamento_da_empresa`): vale o menor entre o que resta do dia (menos
+   uma **reserva** de 500) e o maior entre *o que falta da fatia da empresa* (2.000) e
+   *a folga compartilhada* (até 70% do dia). Com o dia vazio qualquer empresa usa até 70%;
+   passados os 70%, quem já gastou além da fatia espera, e quem gastou menos ainda tem o
+   resto da própria fatia. Ninguém consome o dia inteiro e ninguém fica sem a sua parte.
+3. **Esperar, e não falhar.** Sem orçamento para o custo estimado, ou quando a cota acaba
+   no meio (orçamento medido ou `quotaExceeded` da própria API), o job é **adiado** até a
+   próxima meia-noite do Pacífico (`jobs.disponivel_em`), a coleta parcial é descartada
+   (recomeça do zero, como no reprocessamento) e a execução continua `pendente`, sem gastar
+   tentativa nem ir para a DLQ. A tela mostra "aguardando a cota do YouTube renovar" e a
+   hora em que volta. Se a API disser que acabou, o contador do dia é igualado ao limite
+   (linha de ajuste, `id_empresa = 0`) e as demais coletas esperam sem bater nela.
+4. **403 por ritmo é transitório.** `rateLimitExceeded` e `userRateLimitExceeded` são
+   limite por segundo, e não por dia: passam a repetir com espera, como o 429.
+5. **O cartão "Cota do YouTube hoje" passa a ter número:** o total contado do dia contra
+   o limite, com a hora de renovação. É um agregado, sem dado de empresa nenhuma.
+
+Os valores (`youtube_cota_diaria`, `_reserva`, `_fatia_por_empresa`, `_folga_compartilhada`)
+são configuração, com os padrões acima.
+
+### Consequências e limites
+
+- **A empresa não perde a análise, perde tempo.** No pior caso a coleta espera até a
+  renovação (algumas horas). Com os padrões, a capacidade do dia é da ordem de centenas
+  de execuções típicas, bem acima do uso previsto para PMEs.
+- **O que não resolve:** acima do que o projeto comporta, o caminho é **pedir ampliação de
+  cota ao Google** (auditoria de conformidade da YouTube API Services). Criar vários
+  projetos para multiplicar a cota viola as políticas da API e não foi considerado.
+- **A contagem é nossa, e não a do Google.** Chamadas feitas por fora do app (scripts do
+  `ml/`, testes manuais com a mesma chave) não entram; a reserva e o ajuste cobrem a
+  diferença. Contar a menos nunca derruba o job.
+- **Fica como trabalho futuro:** chave própria por empresa (cada uma com a sua cota,
+  guardada cifrada) e reaproveitamento de coletas recentes do mesmo vídeo.
+- Mais uma tabela de infraestrutura: o banco passa a ter 20 (12 de domínio e 8 de
+  infraestrutura). `jobs` ganha `disponivel_em` e `motivo_espera`. As linhas com mais de
+  35 dias saem na própria escrita (regra 7).

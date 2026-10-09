@@ -405,6 +405,21 @@ frontend e o backend em seguida, sem intervalo.
 Depois do deploy: `EMI_TESTE_POSTGRES_URL=<Supabase> pytest tests/test_rls.py` e um
 cadastro de ponta a ponta com um e-mail da equipe.
 
+### B.1.3. Azure — a migration 0014 (cota da YouTube API)
+
+A `0014` (ADR-015 em `docs/BANCO.md`) cria `uso_cota_youtube` (com RLS) e acrescenta
+duas colunas a `jobs`. Roda no arranque, antes da API, e o backend novo exige as colunas.
+Não há ordem entre frontend e backend: o frontend antigo ignora o campo novo.
+
+Variáveis opcionais, todas com padrão: `YOUTUBE_COTA_DIARIA` (10000),
+`YOUTUBE_COTA_RESERVA` (500), `YOUTUBE_COTA_FATIA_POR_EMPRESA` (2000) e
+`YOUTUBE_COTA_FOLGA_COMPARTILHADA` (0.7). Se o Google ampliar a cota do projeto, só a
+primeira muda. **Confira no console do Google Cloud o valor real da cota** (APIs e
+serviços, YouTube Data API v3, Cotas) antes de confiar no padrão.
+
+O `requirements.txt` ganhou `tzdata`: o App Service reinstala as dependências no deploy.
+Depois do deploy: `EMI_TESTE_POSTGRES_URL=<Supabase> pytest tests/test_rls.py`.
+
 ### B.2. E-mail transacional (convites, "esqueci minha senha" e confirmação do cadastro)
 
 O backend envia quatro e-mails: o convite para a empresa, o link de redefinição de
