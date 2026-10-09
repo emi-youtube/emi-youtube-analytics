@@ -46,6 +46,15 @@ async def enfileirar(id_execucao: int, *, confirmar: bool) -> int:
         if execucao is None:
             print(f"execucao {id_execucao} nao existe")
             return 0
+        if execucao.comentarios_apagados_em is not None:
+            # O expurgo de 30 dias (ADR-015) já apagou os textos: não há o que remodelar,
+            # e um job aqui iria para a DLQ. Refazer a análise é coletar de novo.
+            print(
+                f"execucao {id_execucao}: os comentarios foram apagados em "
+                f"{execucao.comentarios_apagados_em:%d/%m/%Y} (prazo de 30 dias do YouTube); "
+                "para novos temas, refaca a analise"
+            )
+            return 0
 
         temas = await db.scalar(
             select(func.count()).select_from(Tema).where(Tema.id_execucao == id_execucao)

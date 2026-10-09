@@ -57,6 +57,22 @@ describe('Resultado', () => {
     expect(nota).not.toContain('a partir de');
   });
 
+  it('depois do expurgo de 30 dias, avisa e mostra o vídeo sem título pelo ID', () => {
+    const base = RESULTADOS_DEMO.get(12)!;
+    const [primeiro, ...resto] = base.videos;
+    const tela = renderizar({
+      ...base,
+      comentarios_apagados_em: '2026-10-23T10:30:00Z',
+      comentarios_representativos: [],
+      videos: [{ ...primeiro, video: { ...primeiro.video, titulo: '', canal: '' } }, ...resto],
+    });
+
+    const conteudo = tela.textContent!.replace(/\s+/g, ' ');
+    expect(conteudo).toContain('Os comentários desta análise foram apagados');
+    expect(conteudo).toContain(`Título apagado · ${primeiro.video.youtube_video_id}`);
+    expect(conteudo).not.toContain('Comentários representativos');
+  });
+
   it('com temas, não mostra a nota', () => {
     const tela = renderizar(RESULTADOS_DEMO.get(12)!);
 

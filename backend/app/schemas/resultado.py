@@ -280,6 +280,12 @@ class ResultadoExecucao(BaseModel):
     id_modelo: int
     nome_modelo_analise: str
     concluido_em: datetime | None
+    # Prazo dos comentários (ADR-015): as políticas do YouTube não deixam guardar o
+    # texto por mais de 30 dias. `disponiveis_ate` é quando o expurgo vai apagar;
+    # `apagados_em`, quando apagou. Depois disso, as listas de comentários vêm vazias
+    # e o resto da tela continua.
+    comentarios_disponiveis_ate: datetime | None = None
+    comentarios_apagados_em: datetime | None = None
     distribuicao: DistribuicaoSentimento
     alcance: AlcanceExecucao
     recorte: RecorteColeta
@@ -318,3 +324,7 @@ class PaginaComentarios(BaseModel):
     # filtro de sentimento: é o que mantém os chips "Positivo · 160" visíveis
     # depois de o usuário clicar num deles.
     contagem_por_sentimento: DistribuicaoSentimento
+    # Os mesmos campos de `ResultadoExecucao`: com `apagados_em` preenchido, a lista
+    # vem vazia porque o expurgo de 30 dias apagou os textos (ADR-015).
+    comentarios_disponiveis_ate: datetime | None = None
+    comentarios_apagados_em: datetime | None = None

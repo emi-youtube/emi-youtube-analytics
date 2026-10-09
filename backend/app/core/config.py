@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # não variável de ambiente: muda junto com o texto em
 # `frontend/src/assets/legal/termos-v<versão>.md`, no mesmo PR. Ao mudar, todo usuário
 # passa a ter aceite pendente e aceita de novo no próximo acesso.
-VERSAO_TERMOS = "1.1"
+VERSAO_TERMOS = "1.2"
 
 
 class Settings(BaseSettings):
@@ -115,6 +115,19 @@ class Settings(BaseSettings):
     # só sobra o que falta da fatia de cada uma: é o que impede uma empresa de
     # esgotar o dia das outras.
     youtube_cota_folga_compartilhada: float = 0.7
+
+    # --- Guarda dos dados do YouTube (ADR-015, `workers/expurgo.py`) ---------------
+    # Políticas dos YouTube API Services, III.E.4.d: o que vem da API sem login do autor
+    # fica no máximo 30 dias; depois, apagar ou atualizar. O expurgo apaga o texto dos
+    # comentários um dia antes do prazo, porque roda de hora em hora e não pode passar.
+    youtube_guarda_dias: int = 30
+    # Título e canal são atualizados a partir deste ponto, para chegar ao 30º dia com
+    # alguns dias de folga se a cota da empresa estiver esgotada.
+    youtube_atualizar_metadados_apos_dias: int = 25
+    # Resultados, visualizações e curtidas da coleta: até 36 meses (derived metrics
+    # policy). 1.095 dias é um pouco menos que 3 anos, e por isso fica do lado seguro.
+    youtube_guarda_resultados_dias: int = 1095
+    worker_expurgo_intervalo_segundos: int = 3600
 
     @property
     def cors_origins_list(self) -> list[str]:

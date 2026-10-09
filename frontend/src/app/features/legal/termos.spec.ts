@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
-import texto from '../../../assets/legal/termos-v1.1.md';
+import texto from '../../../assets/legal/termos-v1.2.md';
 import { ANCORA_PRIVACIDADE, ancora, renderizarMarkdown } from './markdown';
 import { Termos } from './termos';
 
@@ -22,6 +22,25 @@ describe('renderizarMarkdown', () => {
 
   it('âncora sem acento nem pontuação', () => {
     expect(ancora('4. Política de Privacidade — Dados')).toBe('4-politica-de-privacidade-dados');
+  });
+});
+
+describe('texto vigente (políticas dos YouTube API Services)', () => {
+  const html = renderizarMarkdown(texto);
+
+  it('liga os Termos de Serviço do YouTube e diz que o usuário concorda com eles (III.A.1)', () => {
+    expect(html).toContain('href="https://www.youtube.com/t/terms"');
+    expect(texto).toContain('Ao usar o Emi, você concorda em seguir os');
+  });
+
+  it('avisa do uso dos YouTube API Services e liga a Política do Google (III.A.2)', () => {
+    expect(texto).toContain('YouTube API Services');
+    expect(html).toContain('href="https://www.google.com/policies/privacy"');
+  });
+
+  it('declara os prazos que o expurgo cumpre (III.E.4.d)', () => {
+    expect(texto).toContain('apagado em até 30 dias depois da coleta');
+    expect(texto).toContain('até 36 meses');
   });
 });
 

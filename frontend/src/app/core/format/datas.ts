@@ -89,3 +89,21 @@ export function dataHoraCompleta(iso: string | Date | null): string {
   }
   return DATA_HORA_COMPLETA.format(data).replace(', ', ' às ');
 }
+
+const DATA_COMPLETA = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+
+/** `23/10/2026` — data absoluta sem hora, para prazos ("disponíveis até"). */
+export function dataCompleta(iso: string | null | undefined): string {
+  if (!iso) {
+    return '—';
+  }
+  const data = comoData(iso);
+  if (Number.isNaN(data.getTime())) {
+    return '—';
+  }
+  return DATA_COMPLETA.format(data);
+}

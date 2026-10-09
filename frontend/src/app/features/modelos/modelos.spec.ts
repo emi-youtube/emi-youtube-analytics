@@ -98,6 +98,15 @@ describe('ModeloForm (edição de modelo de colega)', () => {
     httpMock.expectNone({ method: 'PATCH', url: `${URL}/5` });
   });
 
+  it('avisa, antes de executar, que os comentários ficam só 30 dias (ADR-015)', () => {
+    const tela: HTMLElement = montar(true).nativeElement;
+
+    const aviso = tela.querySelector('[data-testid="aviso-prazo-comentarios"]')?.textContent ?? '';
+    expect(aviso).toContain('até 30 dias');
+    expect(aviso).toContain('políticas da API do YouTube');
+    expect(aviso).toContain('percentuais, os temas e os indicadores');
+  });
+
   it('com permissão: formulário livre', () => {
     const fixture = montar(true);
     const tela: HTMLElement = fixture.nativeElement;
