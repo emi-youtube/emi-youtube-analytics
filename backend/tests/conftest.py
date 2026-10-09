@@ -50,6 +50,7 @@ from app.models.tema import Tema
 from app.models.tentativa_login import TentativaLogin
 from app.models.token_atualizacao import TokenAtualizacao
 from app.models.token_redefinicao_senha import TokenRedefinicaoSenha
+from app.models.uso_cota_youtube import UsoCotaYoutube
 from app.models.usuario import Usuario
 from app.models.versao_modelo import VersaoModelo
 from app.models.video import Video
@@ -60,6 +61,7 @@ TABELAS_TESTADAS = [
     Usuario.__table__,
     AceiteTermos.__table__,
     CadastroPendente.__table__,
+    UsoCotaYoutube.__table__,
     Convite.__table__,
     TokenAtualizacao.__table__,
     TokenRedefinicaoSenha.__table__,

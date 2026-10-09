@@ -39,3 +39,9 @@ class Job(Base):
     # passou do tempo limite (`workers/fila.devolver_presos`). Nulo enquanto o
     # job está pendente, e nas linhas anteriores à migration 0009.
     reivindicado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Job ADIADO: só pode ser reivindicado a partir desta hora. Hoje o único motivo é
+    # a cota diária da YouTube API (ADR-015): em vez de falhar, a coleta espera a
+    # renovação. Nulo = disponível já. `reivindicar` ignora o job até a hora chegar.
+    disponivel_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Por que o job espera, em palavras para a tela.
+    motivo_espera: Mapped[str | None] = mapped_column(String(200), nullable=True)

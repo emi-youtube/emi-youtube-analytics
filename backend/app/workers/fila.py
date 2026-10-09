@@ -17,7 +17,7 @@ na DLQ, sem saber o que cada tipo de job faz. Quem sabe a ORDEM das etapas é
 import logging
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.execucao import Execucao
@@ -48,9 +48,15 @@ async def reivindicar(db: AsyncSession, tipo: str) -> Job | None:
     A execução vai junto para 'processando': é o que o usuário vê no GET /execucoes
     enquanto a coleta acontece (UC04).
     """
+    agora = datetime.now(UTC)
     job = await db.scalar(
         select(Job)
-        .where(Job.tipo == tipo, Job.status == STATUS_PENDENTE)
+        .where(
+            Job.tipo == tipo,
+            Job.status == STATUS_PENDENTE,
+            # Job adiado (cota da YouTube, ADR-015) só sai da espera na hora marcada.
+            or_(Job.disponivel_em.is_(None), Job.disponivel_em <= agora),
+        )
         .order_by(Job.criado_em, Job.id_job)
         .limit(1)
         .with_for_update(skip_locked=True)
@@ -61,7 +67,10 @@ async def reivindicar(db: AsyncSession, tipo: str) -> Job | None:
     job.status = STATUS_PROCESSANDO
     # Marca a hora da reivindicação: é por ela que o reaper reconhece o job que
     # um worker morto deixou para trás.
-    job.reivindicado_em = datetime.now(UTC)
+    job.reivindicado_em = agora
+    # A espera terminou: a tela não deve mais dizer que ele aguarda a cota.
+    job.disponivel_em = None
+    job.motivo_espera = None
 
     execucao = await db.get(Execucao, job.id_execucao)
     if execucao is not None:
@@ -79,6 +88,35 @@ async def reivindicar(db: AsyncSession, tipo: str) -> Job | None:
         "job reivindicado id_job=%s tipo=%s id_execucao=%s", job.id_job, job.tipo, job.id_execucao
     )
     return job
+
+
+async def adiar(db: AsyncSession, job: Job, ate: datetime, motivo: str) -> None:
+    """Devolve o job à fila, mas só reivindicável a partir de `ate`. Faz commit.
+
+    Não é falha: não conta tentativa (as já gastas neste ciclo zeram, porque a próxima
+    rodada é uma coleta nova) e não vai para a DLQ. A execução volta a `pendente` e a
+    tela mostra o motivo. Usado quando a cota diária da YouTube API acaba (ADR-015).
+    """
+    id_job, id_execucao = job.id_job, job.id_execucao
+
+    job.status = STATUS_PENDENTE
+    job.reivindicado_em = None
+    job.tentativas = 0
+    job.disponivel_em = ate
+    job.motivo_espera = motivo[:200]
+
+    execucao = await db.get(Execucao, id_execucao)
+    if execucao is not None:
+        execucao.status = STATUS_PENDENTE
+
+    await db.commit()
+    logger.warning(
+        "job adiado id_job=%s id_execucao=%s ate=%s motivo=%s",
+        id_job,
+        id_execucao,
+        ate.isoformat(),
+        motivo,
+    )
 
 
 async def registrar_tentativa(db: AsyncSession, job: Job) -> int:

@@ -32,3 +32,8 @@ class Execucao(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pendente")
     iniciado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     concluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # NÃO é coluna. Quando o job da coleta está adiado esperando a cota da YouTube
+    # renovar (ADR-015), o serviço preenche esta hora antes de responder; fora disso
+    # é None. Vive aqui só para o schema de resposta ler do mesmo objeto.
+    retoma_em = None

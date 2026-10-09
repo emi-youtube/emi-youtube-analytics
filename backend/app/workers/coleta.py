@@ -25,12 +25,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.comentario import Comentario
+from app.models.execucao import Execucao
 from app.models.job import Job
+from app.models.modelo_analise import ModeloAnalise
 from app.models.video import Video
+from app.services import cota
 from app.workers import fila
 from app.workers.youtube import (
     ClienteYouTube,
     ComentariosDesabilitados,
+    CotaEsgotada,
     ErroPermanente,
     ErroTransitorio,
     LoteComentarios,
@@ -409,24 +413,89 @@ async def _descartar_parcial(db: AsyncSession, job: Job) -> None:
     await db.refresh(job)
 
 
+def _estimativa_de_custo(payload: dict) -> int:
+    """Unidades de cota que a coleta pede, lidas do payload sem registrar aviso.
+
+    Os avisos de filtro torto saem uma vez só, em `processar`; aqui o valor inválido
+    simplesmente cai no teto do worker.
+    """
+    filtros = payload.get("filtros") or {}
+    videos = [v for v in filtros.get("videos", []) if str(v).strip()]
+    teto = settings.worker_max_comentarios_por_execucao
+    pedido = filtros.get("limite_comentarios")
+    valido = isinstance(pedido, int) and not isinstance(pedido, bool) and pedido >= 1
+    return cota.estimar_custo(len(videos), min(pedido, teto) if valido else teto)
+
+
+async def _empresa_da_execucao(db: AsyncSession, id_execucao: int) -> int:
+    return await db.scalar(
+        select(ModeloAnalise.id_empresa)
+        .join(Execucao, Execucao.id_modelo == ModeloAnalise.id_modelo)
+        .where(Execucao.id_execucao == id_execucao)
+    )
+
+
+async def _registrar_uso(db: AsyncSession, id_empresa: int, unidades: int) -> None:
+    """Soma o gasto ao dia da empresa. Nunca derruba o job: o pior caso é contar a menos."""
+    try:
+        await cota.registrar_uso(db, id_empresa, unidades)
+    except Exception:
+        await db.rollback()
+        logger.exception("nao foi possivel registrar o uso de cota id_empresa=%s", id_empresa)
+
+
+async def _adiar_por_cota(db: AsyncSession, job: Job, motivo: str, *, da_api: bool = False) -> None:
+    """Em vez de falhar, a coleta espera a cota renovar (ADR-015)."""
+    agora = datetime.now(UTC)
+    if da_api:
+        await cota.marcar_esgotada(db, agora)
+    await fila.adiar(db, job, cota.proxima_renovacao(agora), cota.MOTIVO_COTA)
+    logger.warning(
+        "coleta adiada ate a renovacao da cota id_execucao=%s motivo=%s", job.id_execucao, motivo
+    )
+
+
 async def executar_proximo(db: AsyncSession, cliente: ClienteYouTube) -> bool:
-    """Reivindica e processa um job. `False` quando não havia nada na fila."""
+    """Reivindica e processa um job. `False` quando não havia nada na fila.
+
+    **Cota (ADR-015).** Antes de falar com a API, pede o orçamento da empresa. Se não
+    cobre o custo estimado, o job é ADIADO até a renovação e nada é gasto. Durante a
+    coleta o cliente conta as unidades e para quando o orçamento acaba. Em qualquer
+    desfecho o gasto é registrado, também o da coleta que falhou: a API cobra do mesmo
+    jeito.
+    """
     job = await fila.reivindicar(db, TIPO_JOB)
     if job is None:
         return False
 
+    id_empresa = await _empresa_da_execucao(db, job.id_execucao)
+    orcamento = await cota.orcamento_da_empresa(db, id_empresa, datetime.now(UTC))
+    custo = _estimativa_de_custo(job.payload or {})
+    if orcamento < custo:
+        await _adiar_por_cota(db, job, f"orcamento {orcamento} menor que o custo estimado {custo}")
+        return True
+
     try:
-        await processar(db, job, cliente)
+        with cliente.medir(orcamento) as medida:
+            await processar(db, job, cliente)
+    except CotaEsgotada as erro:
+        await _descartar_parcial(db, job)
+        await _adiar_por_cota(db, job, str(erro), da_api=erro.da_api)
+        await _registrar_uso(db, id_empresa, medida.unidades)
+        return True
     except FalhaColeta as erro:
         await _descartar_parcial(db, job)
         await fila.enviar_para_dlq(db, job, str(erro))
+        await _registrar_uso(db, id_empresa, medida.unidades)
         return True
     except Exception as erro:
         # Rede de segurança: nenhum job pode ficar preso em 'processando'.
         await _descartar_parcial(db, job)
         logger.exception("falha inesperada na coleta id_execucao=%s", job.id_execucao)
         await fila.enviar_para_dlq(db, job, f"erro inesperado: {erro!r}")
+        await _registrar_uso(db, id_empresa, medida.unidades)
         return True
 
     await fila.concluir(db, job)
+    await _registrar_uso(db, id_empresa, medida.unidades)
     return True

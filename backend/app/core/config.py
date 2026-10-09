@@ -102,6 +102,20 @@ class Settings(BaseSettings):
     worker_max_comentarios_lidos_por_execucao: int = 20000
     youtube_timeout_seconds: int = 30
 
+    # --- Cota diária da YouTube Data API (ADR-015 de docs/BANCO.md) ---------------
+    # O Google dá 10.000 unidades por dia por projeto, e a chave é uma só: todas as
+    # empresas dividem. Ver `services/cota.py` para a regra completa.
+    youtube_cota_diaria: int = 10000
+    # Margem que o app nunca gasta: cobre o que a mesma chave consome fora daqui
+    # (teste manual, scripts do ml/) e a imprecisão da nossa contagem.
+    youtube_cota_reserva: int = 500
+    # A parte do dia garantida a cada empresa, mesmo com o dia cheio.
+    youtube_cota_fatia_por_empresa: int = 2000
+    # Fração do dia até a qual uma empresa pode passar da própria fatia. Acima dela,
+    # só sobra o que falta da fatia de cada uma: é o que impede uma empresa de
+    # esgotar o dia das outras.
+    youtube_cota_folga_compartilhada: float = 0.7
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

@@ -5,6 +5,7 @@ As esperas do backoff são substituídas para o teste não dormir 30s.
 """
 
 import logging
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
@@ -26,6 +27,7 @@ from app.workers.youtube import (
     ErroPermanente,
     ErroTransitorio,
     LoteComentarios,
+    Medida,
     VideoColetado,
 )
 
@@ -55,6 +57,15 @@ class ClienteFalso:
         self.ids_pedidos: list[list[str]] = []
         self.chamadas_de_comentario = 0
         self.pedidos_de_comentario: list[dict] = []
+        self.orcamentos_recebidos: list[int | None] = []
+        self.unidades_por_job = 0
+
+    @contextmanager
+    def medir(self, orcamento=None):
+        """Como o cliente real: entrega a medida; o teste decide o que ela marca."""
+        self.orcamentos_recebidos.append(orcamento)
+        medida = Medida(orcamento=orcamento, unidades=self.unidades_por_job)
+        yield medida
 
     def _talvez_falhar(self) -> None:
         if self.erros_ate_funcionar:
