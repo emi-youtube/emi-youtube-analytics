@@ -33,6 +33,11 @@ export interface ModeloNoPainel {
   motivo_da_falha: string | null;
   /** Execução concluída mais recente, para o link de resultados. */
   id_execucao_concluida: number | null;
+  /**
+   * Preenchido quando a última execução espera a cota diária da YouTube API renovar:
+   * é a hora em que a coleta volta sozinha (ADR-015).
+   */
+  retoma_em?: string | null;
 }
 
 /** Cartão "No total". */
@@ -45,9 +50,9 @@ export interface TotaisUsuario {
 /**
  * Cartão "Cota do YouTube hoje".
  *
- * ATENÇÃO — isto não sai de nenhuma tabela. O consumo de cota é contabilizado
- * pelo worker de coleta contra a YouTube Data API; para a tela mostrar o
- * número é preciso que alguém passe a registrá-lo. Ver README.
+ * O consumo é o que o worker de coleta registrou (`uso_cota_youtube`, ADR-015), somado
+ * entre as empresas: a cota é do projeto e a chave é uma só. Um agregado, sem dado de
+ * empresa nenhuma. Com a cota esgotada a coleta não falha, espera a renovação.
  */
 export interface CotaYoutube {
   unidades_usadas: number;

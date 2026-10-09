@@ -10,10 +10,12 @@ Não há laço sobre comentários aqui — o maior laço percorre os modelos da 
 
 import logging
 from collections import defaultdict
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.analise_sentimento import AnaliseSentimento
 from app.models.comentario import Comentario
 from app.models.execucao import Execucao
@@ -24,12 +26,14 @@ from app.models.usuario import Usuario
 from app.models.versao_modelo import VersaoModelo
 from app.models.video import Video
 from app.schemas.painel import (
+    CotaYoutube,
     DestaqueExecucao,
     ModeloNoPainel,
     ResumoPainel,
     TotaisUsuario,
 )
-from app.services import escopo
+from app.services import cota, escopo
+from app.services.execucao import esperas
 from app.services.resultado import (
     contagens_por_execucao,
     distribuicao_de,
@@ -41,6 +45,17 @@ logger = logging.getLogger(__name__)
 
 STATUS_CONCLUIDA = "concluida"
 STATUS_ERRO = "erro"
+STATUS_PENDENTE = "pendente"
+
+
+async def _cota_de_hoje(db: AsyncSession) -> CotaYoutube:
+    """O cartão da cota: o que o app contou hoje contra o limite do projeto."""
+    agora = datetime.now(UTC)
+    return CotaYoutube(
+        unidades_usadas=await cota.usado_hoje(db, agora),
+        unidades_limite=settings.youtube_cota_diaria,
+        renova_em=cota.proxima_renovacao(agora),
+    )
 
 
 async def _execucoes_do_usuario(db: AsyncSession, usuario: Usuario) -> list[Execucao]:
@@ -167,6 +182,8 @@ async def resumo(db: AsyncSession, usuario: Usuario) -> ResumoPainel:
         db, [e.id_execucao for e in execucoes if e.status == STATUS_ERRO]
     )
 
+    em_espera = await esperas(db, [e.id_execucao for e in execucoes if e.status == STATUS_PENDENTE])
+
     linhas_modelo: list[ModeloNoPainel] = []
     for modelo in modelos:
         do_modelo = por_modelo.get(modelo.id_modelo, [])
@@ -188,6 +205,7 @@ async def resumo(db: AsyncSession, usuario: Usuario) -> ResumoPainel:
                     else None
                 ),
                 id_execucao_concluida=concluida.id_execucao if concluida else None,
+                retoma_em=em_espera.get(ultima.id_execucao) if ultima is not None else None,
             )
         )
 
@@ -220,8 +238,6 @@ async def resumo(db: AsyncSession, usuario: Usuario) -> ResumoPainel:
             execucoes_concluidas=len(concluidas),
             videos_acompanhados=int(videos_distintos or 0),
         ),
-        # Nulo por ausência de registro, não por erro: ninguém contabiliza o
-        # consumo de cota ainda. Ver `schemas/painel.py`.
-        cota_youtube=None,
+        cota_youtube=await _cota_de_hoje(db),
         versao_modelo=versao,
     )

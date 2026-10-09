@@ -19,3 +19,6 @@ class ExecucaoResponse(BaseModel):
     status: str
     iniciado_em: datetime | None
     concluido_em: datetime | None
+    # Preenchido só quando a execução espera a cota diária da YouTube API renovar: é a
+    # hora em que a coleta volta sozinha (ADR-015). Nulo no resto.
+    retoma_em: datetime | None = None

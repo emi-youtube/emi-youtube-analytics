@@ -41,6 +41,8 @@ class ModeloNoPainel(BaseModel):
     ultima_execucao_em: datetime | None
     motivo_da_falha: str | None
     id_execucao_concluida: int | None
+    # A execução está esperando a cota do YouTube renovar; é a hora em que volta (ADR-015).
+    retoma_em: datetime | None = None
 
 
 class TotaisUsuario(BaseModel):
@@ -54,10 +56,11 @@ class TotaisUsuario(BaseModel):
 class CotaYoutube(BaseModel):
     """Cartão "Cota do YouTube hoje".
 
-    NÃO sai de tabela nenhuma: o consumo é contabilizado pela YouTube Data API
-    contra a chave do projeto, e o worker de coleta não registra o que gastou.
-    Enquanto ninguém registrar, o endpoint devolve `null` e a tela esconde o
-    cartão — o que é melhor que estampar um número inventado num painel.
+    O consumo é o que o worker de coleta registrou em `uso_cota_youtube` (ADR-015), de
+    TODAS as empresas: a cota é do projeto e a chave é uma só, então é esse total que
+    decide se uma coleta espera. É um agregado, sem dado de empresa nenhuma. Pode ficar
+    um pouco abaixo do que o Google contabiliza (chamadas feitas por fora), e por isso
+    o app guarda uma reserva.
     """
 
     unidades_usadas: int

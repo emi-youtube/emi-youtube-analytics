@@ -73,7 +73,12 @@
                       · executando agora
                     }
                     @case ('pendente') {
-                      · aguardando na fila
+                      @if (modelo.retoma_em) {
+                        · aguardando a cota do YouTube renovar, volta
+                        {{ dataHoraLegivel(modelo.retoma_em) }}
+                      } @else {
+                        · aguardando na fila
+                      }
                     }
                     @case ('concluida') {
                       · última coleta {{ dataLegivel(modelo.ultima_execucao_em) }}
@@ -145,10 +150,11 @@
               {{ cota.unidades_usadas.toLocaleString('pt-BR') }} de
               {{ cota.unidades_limite.toLocaleString('pt-BR') }} unidades
             </span>
-            <span class="muted">renova à 0h</span>
+            <span class="muted">renova {{ dataHoraLegivel(cota.renova_em) }}</span>
           </p>
           <p class="bloco__nota muted">
-            Cada execução consome cota conforme o número de vídeos e comentários.
+            Cada execução consome cota conforme o número de vídeos e comentários. Se o dia
+            acabar, a análise espera a renovação e segue sozinha.
           </p>
         </section>
       }

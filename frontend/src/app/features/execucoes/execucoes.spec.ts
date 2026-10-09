@@ -69,6 +69,22 @@ describe('Execucoes', () => {
     vi.useRealTimers();
   });
 
+  it('mostra quando a coleta volta se ela espera a cota do YouTube renovar', () => {
+    carregarCom([{ ...execucao('pendente'), retoma_em: '2026-10-10T07:00:00Z' }]);
+    fixture.detectChanges();
+
+    const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(texto).toContain('aguardando a cota do YouTube');
+  });
+
+  it('execução comum na fila não fala de cota', () => {
+    carregarCom([execucao('pendente')]);
+    fixture.detectChanges();
+
+    const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(texto).not.toContain('cota');
+  });
+
   it('não faz polling quando nada está ativo', () => {
     carregarCom([execucao('concluida')]);
 

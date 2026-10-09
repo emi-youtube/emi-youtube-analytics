@@ -38,7 +38,7 @@ async def criar(dados: ExecucaoCreate, usuario: UsuarioAtual, db: Sessao) -> Exe
 
 @router.get("", response_model=list[ExecucaoResponse])
 async def listar(usuario: UsuarioAtual, db: Sessao) -> list[Execucao]:
-    return list(await service.list_for_user(db, usuario))
+    return list(await service.anexar_espera(db, await service.list_for_user(db, usuario)))
 
 
 # ATENÇÃO À ORDEM: esta rota literal vem ANTES de `/{id_execucao}`. O FastAPI
@@ -53,7 +53,9 @@ async def listar_resultados(usuario: UsuarioAtual, db: Sessao) -> list[Resultado
 
 @router.get("/{id_execucao}", response_model=ExecucaoResponse)
 async def detalhar(id_execucao: int, usuario: UsuarioAtual, db: Sessao) -> Execucao:
-    return await service.get_owned(db, usuario, id_execucao)
+    execucao = await service.get_owned(db, usuario, id_execucao)
+    await service.anexar_espera(db, [execucao])
+    return execucao
 
 
 @router.get("/{id_execucao}/resultado", response_model=ResultadoExecucao)
