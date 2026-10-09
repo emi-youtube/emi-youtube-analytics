@@ -17,6 +17,7 @@ import { ResultadosService } from '../../core/api/resultados.service';
 import { dataLegivel } from '../../core/format/datas';
 import { mensagemDeErro } from '../../core/http/api-error';
 import { SeloDemo } from '../painel/selo-demo';
+import { GuardaComentarios } from '../resultados/guarda-comentarios';
 
 /** Abaixo disto a tela sugere conferência humana (design/Comentarios.png). */
 const CONFIANCA_MINIMA = 0.6;
@@ -26,7 +27,7 @@ const SENTIMENTOS: readonly Sentimento[] = ['positivo', 'neutro', 'negativo'];
 /** Tela Comentários de uma execução (design/Comentarios.png). */
 @Component({
   selector: 'app-comentarios',
-  imports: [FormsModule, RouterLink, SeloDemo],
+  imports: [FormsModule, RouterLink, SeloDemo, GuardaComentarios],
   templateUrl: './comentarios.html',
   styleUrls: ['../painel/painel.css', './comentarios.css'],
 })

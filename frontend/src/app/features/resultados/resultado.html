@@ -31,6 +31,13 @@
     </a>
   </header>
 
+  <!-- Prazo dos comentários: 30 dias pelas políticas do YouTube (ADR-015) -->
+  <app-guarda-comentarios
+    [disponiveisAte]="r.comentarios_disponiveis_ate"
+    [apagadosEm]="r.comentarios_apagados_em"
+    [idModelo]="r.id_modelo"
+  />
+
   <!-- Recorte: de onde saem os números (filtros que valeram + data da coleta) -->
   <section class="card painel recorte" aria-labelledby="recorte-titulo">
     <h2 class="painel__titulo" id="recorte-titulo">Recorte dos dados</h2>
@@ -172,10 +179,10 @@
                   [routerLink]="['/resultados', r.id_execucao, 'comentarios']"
                   [queryParams]="{ video: item.video.id_video }"
                 >
-                  {{ item.video.titulo }}
+                  {{ item.video.titulo || 'Título apagado · ' + item.video.youtube_video_id }}
                 </a>
                 <span class="tabela__sub muted">
-                  {{ item.video.canal }}
+                  {{ item.video.canal || 'vídeo fora do ar ou dados vencidos' }}
                   @if (foraDaCurva(item)) {
                     <span class="tabela__alerta">· {{ rotuloForaDaCurva(item) }}</span>
                   }

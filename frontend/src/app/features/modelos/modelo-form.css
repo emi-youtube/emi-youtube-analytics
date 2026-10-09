@@ -82,6 +82,38 @@
   border-top: 1px solid var(--border);
 }
 
+/* Prazo dos comentários (ADR-015): perto dos botões, para ser lido antes de executar. */
+.prazo {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.prazo p {
+  margin: 0;
+}
+
+.prazo strong {
+  color: var(--ink);
+}
+
+.prazo__icone {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 @media (max-width: 1000px) {
   .pagina {
     grid-template-columns: 1fr;

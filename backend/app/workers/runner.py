@@ -16,6 +16,11 @@ consulta a cada `worker_reaper_intervalo_segundos` que devolve à fila o job que
 um worker morto deixou em `processando` (`workers/fila.devolver_presos`). Em
 produção worker morrendo é questão de quando, não de se.
 
+**O expurgo também roda no laço** (`workers/expurgo.py`), a cada
+`worker_expurgo_intervalo_segundos`: apaga o texto dos comentários antes dos 30 dias
+que as políticas do YouTube permitem e atualiza o título dos vídeos (ADR-015). Falha
+dele é registrada e não impede o ciclo de pegar jobs.
+
 **O classificador é carregado ANTES do laço.** É onde o portão da regra 5 do CLAUDE.md
 e as conferências de sha256 acontecem. O BERTimbau é o classificador de produção; se
 ele não sobe, o léxico assume (`montar_classificador`). Se nem o léxico está lá, o
@@ -39,7 +44,7 @@ from app.inferencia.base import Classificador, ClassificadorIndisponivel
 from app.inferencia.bertimbau import ClassificadorBertimbau
 from app.inferencia.lexico import ClassificadorLexico
 from app.inferencia.versao import ativar_versao
-from app.workers import coleta, fila, inferencia, topicos
+from app.workers import coleta, expurgo, fila, inferencia, topicos
 from app.workers.youtube import ClienteYouTube
 
 logger = logging.getLogger(__name__)
@@ -84,6 +89,25 @@ async def montar_classificador(db: AsyncSession) -> Classificador:
     return classificador
 
 
+async def _expurgar(db: AsyncSession, cliente: ClienteYouTube) -> None:
+    """Uma passada do expurgo. Nunca derruba o ciclo: tenta de novo no próximo intervalo."""
+    try:
+        resumo = await expurgo.executar(db, cliente)
+    except Exception:
+        await db.rollback()
+        logger.exception("expurgo falhou; tentando de novo no proximo intervalo")
+        return
+    if resumo.fez_algo:
+        logger.info(
+            "expurgo concluido textos_apagados=%s videos_atualizados=%s videos_apagados=%s "
+            "execucoes_apagadas=%s",
+            resumo.execucoes_com_texto_apagado,
+            resumo.videos_atualizados,
+            resumo.videos_apagados,
+            resumo.execucoes_apagadas,
+        )
+
+
 async def _ciclo(parar: asyncio.Event, cliente: ClienteYouTube, classificador: Classificador):
     """Consome a fila até esvaziar, depois dorme o intervalo de polling.
 
@@ -92,6 +116,7 @@ async def _ciclo(parar: asyncio.Event, cliente: ClienteYouTube, classificador: C
     etapa de baixo encurta o tempo total da execução que o usuário está esperando.
     """
     proximo_reaper = 0.0
+    proximo_expurgo = 0.0
 
     while not parar.is_set():
         try:
@@ -108,6 +133,10 @@ async def _ciclo(parar: asyncio.Event, cliente: ClienteYouTube, classificador: C
                     )
                     if devolvidos:
                         logger.warning("reaper tratou %s job(s) preso(s)", devolvidos)
+
+                if agora >= proximo_expurgo:
+                    proximo_expurgo = agora + settings.worker_expurgo_intervalo_segundos
+                    await _expurgar(db, cliente)
 
                 trabalhou = await coleta.executar_proximo(db, cliente)
                 if not trabalhou:
@@ -153,13 +182,14 @@ async def main() -> None:
 
     logger.info(
         "workers iniciados etapas=coleta,inferencia,topicos classificador=%s %s intervalo=%ss "
-        "max_tentativas=%s reaper=a cada %ss com limite de %smin",
+        "max_tentativas=%s reaper=a cada %ss com limite de %smin expurgo=a cada %ss",
         classificador.descritor.nome_modelo,
         classificador.descritor.versao,
         settings.worker_poll_interval_seconds,
         settings.worker_max_retries,
         settings.worker_reaper_intervalo_segundos,
         settings.worker_timeout_job_minutos,
+        settings.worker_expurgo_intervalo_segundos,
     )
 
     async with httpx.AsyncClient(timeout=settings.youtube_timeout_seconds) as http:

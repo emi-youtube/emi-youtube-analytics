@@ -65,9 +65,9 @@ EMPRESAS(id_empresa PK, nome, criada_em)                       -- unidade de iso
 USUARIOS(id_usuario PK, id_empresa FK, nome, email UK, senha_hash, papel CK, papel_empresa CK, criado_em)
 CONVITES(id_convite PK, id_empresa FK, email, token_hash UK, papel_empresa CK, criado_por FK, expira_em, usado_em, criado_em)
 MODELOS_ANALISE(id_modelo PK, id_empresa FK, id_usuario FK (autor), nome, termo_pesquisa, filtros JSONB, criado_em)
-EXECUCOES(id_execucao PK, id_modelo FK, status CK, iniciado_em, concluido_em)
-VIDEOS(id_video PK, id_execucao FK, youtube_video_id UK, titulo, canal, publicado_em, visualizacoes, curtidas)
-COMENTARIOS(id_comentario PK, id_video FK, youtube_comment_id UK, autor_hash, texto, publicado_em)
+EXECUCOES(id_execucao PK, id_modelo FK, status CK, iniciado_em, concluido_em, comentarios_apagados_em)
+VIDEOS(id_video PK, id_execucao FK, youtube_video_id UK, titulo, canal, publicado_em, visualizacoes, curtidas, metadados_em)
+COMENTARIOS(id_comentario PK, id_video FK, youtube_comment_id UK NULL, autor_hash NULL, texto NULL, publicado_em)   -- NULL = apagado pelo expurgo de 30 dias (ADR-015)
 ANALISES_SENTIMENTO(id_analise PK, id_comentario FK+UK, id_versao_modelo FK, sentimento CK, tema, justificativa, processado_em)
 VERSOES_MODELO(id_versao PK, nome_modelo, versao, metricas_avaliacao JSONB, status CK)
 EXEMPLOS_TREINAMENTO(id_exemplo PK, id_comentario FK NULL, texto, rotulo_fraco, rotulo_humano, split CK)
@@ -132,6 +132,7 @@ O `POST /execucoes` **responde 202 Accepted imediatamente** — nunca processa n
 
 1. **Nunca commitar segredos.** `.env` está no `.gitignore`. Se precisar de exemplo, crie `.env.example` com valores vazios.
 2. **Anonimizar autor de comentário.** Nunca persista nome/ID do autor — só `autor_hash` (SHA-256). Exigência de LGPD, documentada e defendida na banca.
+   **E nada que vem do YouTube fica mais de 30 dias** (políticas dos YouTube API Services, III.E.4.d): o expurgo (`backend/app/workers/expurgo.py`, ADR-015) apaga o texto dos comentários no 29º dia e atualiza ou apaga título e canal dos vídeos. Código novo que leia `comentarios.texto` precisa aceitar NULO; recurso novo que guarde dado da API precisa entrar no expurgo.
 3. **A Gemini NÃO roda em produção.** Ela só aparece em `ml/rotulagem/`, offline. O backend em produção não tem chave de LLM.
    **Exceção prevista como TRABALHO FUTURO, não implementar:** a análise da campanha sob demanda (Seção 11, fase 4).
 4. **Nunca chame `search.list` da YouTube API** — desde 1º/06/2026 ele tem cota própria de **100 chamadas por dia para o projeto inteiro** (antes custava 100 unidades da cota geral, contra 1 de `commentThreads.list`): dividido entre todas as empresas, não sustenta nem uma busca por análise. Os vídeos são curados manualmente; use os IDs direto. A cota diária (10.000 unidades, uma chave para todas as empresas) é contada e repartida por empresa; sem cota a coleta ESPERA a renovação, não falha (ADR-015, `services/cota.py`).
