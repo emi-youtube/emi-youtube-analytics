@@ -9,8 +9,17 @@ responde **404**, como um id que não existe.
 
 ## Rodar e testar
 
+A instalação roda **da raiz do repositório**, não de `backend/`: o `requirements.txt`
+instala `preprocessamento/` e `lexico/` por caminho relativo (`-e ./preprocessamento`),
+e o pip resolve esse caminho a partir da pasta atual. De dentro de `backend/` ele falha
+com `./preprocessamento is not a valid editable requirement`.
+
 ```bash
-pip install -r requirements.txt -r requirements-dev.txt
+# na raiz do repositório
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+
+# o resto, de dentro de backend/
+cd backend
 uvicorn app.main:app --reload            # API em http://localhost:8000
 pytest                                    # SQLite em memória
 ruff check . && ruff format --check app tests
