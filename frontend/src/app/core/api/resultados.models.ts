@@ -199,6 +199,16 @@ export interface ResultadoExecucao {
   /** MODELOS_ANALISE.nome — o título da tela. */
   nome_modelo_analise: string;
   concluido_em: string | null;
+  /**
+   * Até quando o texto dos comentários fica disponível (ADR-015): as políticas do
+   * YouTube não deixam guardá-lo por mais de 30 dias. Nulo se a execução não começou.
+   */
+  comentarios_disponiveis_ate?: string | null;
+  /**
+   * Quando o expurgo apagou o texto. Preenchido = as listas de comentários vêm
+   * vazias; percentuais, temas e indicadores continuam.
+   */
+  comentarios_apagados_em?: string | null;
   distribuicao: DistribuicaoSentimento;
   alcance: AlcanceExecucao;
   recorte: RecorteColeta;

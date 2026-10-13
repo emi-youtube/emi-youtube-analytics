@@ -171,9 +171,9 @@
             @for (item of r.videos; track item.video.id_video) {
               <tr class="bloco">
                 <td>
-                  <span class="video__titulo">{{ item.video.titulo }}</span>
+                  <span class="video__titulo">{{ item.video.titulo || 'Título apagado' }}</span>
                   <span class="video__sub muted">
-                    {{ item.video.canal }} ·
+                    {{ item.video.canal || 'dados do vídeo vencidos' }} ·
                     <span class="codigo">{{ item.video.youtube_video_id }}</span>
                   </span>
                 </td>
@@ -341,6 +341,17 @@
           erro do classificador: não afirmam além dos números.
         </li>
         <li>Os autores dos comentários não são identificados neste relatório nem no sistema.</li>
+        <li>
+          Pelas políticas da API do YouTube, o texto dos comentários é apagado em até 30 dias depois
+          da coleta.
+          @if (r.comentarios_apagados_em) {
+            Nesta execução isso já aconteceu em {{ dataCompleta(r.comentarios_apagados_em) }}: os
+            números continuam valendo, mas o relatório não traz mais comentários de exemplo.
+          } @else if (r.comentarios_disponiveis_ate) {
+            Nesta execução, os comentários de exemplo ficam disponíveis até
+            {{ dataCompleta(r.comentarios_disponiveis_ate) }}.
+          }
+        </li>
       </ul>
     </section>
 

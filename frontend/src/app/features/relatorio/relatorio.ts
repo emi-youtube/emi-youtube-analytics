@@ -6,7 +6,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DistribuicaoSentimento, Sentimento, percentuais } from '../../core/api/dominio.models';
 import { FatoInsight, ResultadoExecucao } from '../../core/api/resultados.models';
 import { ResultadosService } from '../../core/api/resultados.service';
-import { dataHoraCompleta } from '../../core/format/datas';
+import { dataCompleta, dataHoraCompleta } from '../../core/format/datas';
 import { mensagemDeErro, statusDoErro } from '../../core/http/api-error';
 import { BarraSentimento } from '../painel/barra-sentimento';
 import { SeloDemo } from '../painel/selo-demo';
@@ -49,6 +49,7 @@ export class Relatorio {
   protected readonly geradoEm = signal<Date | null>(null);
 
   protected readonly dataHoraCompleta = dataHoraCompleta;
+  protected readonly dataCompleta = dataCompleta;
   protected readonly minimoTemas = MINIMO_COMENTARIOS_TEMAS;
 
   protected readonly percentuaisGerais = computed(() => {

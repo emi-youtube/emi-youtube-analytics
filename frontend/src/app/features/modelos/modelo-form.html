@@ -132,6 +132,19 @@
         </div>
       </div>
 
+      <!-- ADR-015: a empresa fica sabendo do prazo ANTES de executar. -->
+      <aside class="prazo" data-testid="aviso-prazo-comentarios">
+        <svg class="prazo__icone" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 7.5v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+        <p>
+          <strong>Os comentários coletados ficam disponíveis por até 30 dias.</strong>
+          As políticas da API do YouTube não permitem guardar o texto por mais tempo: depois disso
+          ele é apagado, e a análise continua com os percentuais, os temas e os indicadores. Para
+          ler os comentários de novo, basta executar o modelo outra vez.
+        </p>
+      </aside>
+
       <div class="acoes">
         <button
           class="botao"
@@ -192,8 +205,8 @@
           Privacidade
         </h2>
         <p>
-          Nenhum nome ou perfil de quem comentou é guardado. Só o texto do comentário e um código
-          irreversível.
+          Nenhum nome ou perfil de quem comentou é guardado. Só o texto do comentário, por até 30
+          dias, e um código irreversível.
         </p>
       </section>
     </aside>

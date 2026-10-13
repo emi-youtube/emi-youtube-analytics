@@ -285,7 +285,7 @@ depois da exclusão da conta ou da empresa e não é publicado com identificaç�
 
 ### Bases legais por dado
 
-Transcritas da seção 4 dos termos vigentes (`termos-v1.1.md`), que é a fonte oficial: se um dia
+Transcritas da seção 4 dos termos vigentes (`termos-v1.2.md`), que é a fonte oficial: se um dia
 divergirem, vale o texto dos termos e esta tabela é corrigida. A coluna "No sistema"
 diz onde cada dado mora.
 
@@ -293,7 +293,7 @@ diz onde cada dado mora.
 |---|---|---|---|
 | e-mail, senha e nome da empresa | execução do serviço solicitado (V) | `USUARIOS`, `EMPRESAS`; senha só como hash bcrypt | enquanto a conta existir |
 | termos aceitos (versão e data) | cumprimento de obrigação / legítimo interesse | `ACEITES_TERMOS` | sai com a conta |
-| comentários públicos do YouTube | legítimo interesse acadêmico; dado tornado público (§4º) | `COMENTARIOS`, autor **pseudonimizado** (SHA-256) | até 3 meses após a execução — ver pendência abaixo |
+| comentários públicos do YouTube | legítimo interesse acadêmico; dado tornado público (§4º) | `COMENTARIOS`, autor **pseudonimizado** (SHA-256) | texto e autor: até 30 dias após a coleta; resultados: até 36 meses — ver abaixo |
 | registros técnicos (logs, tentativas de login) | legítimo interesse (IX) | `TENTATIVAS_LOGIN` (hash do e-mail) | 24 h (regra 7) |
 | respostas da validação humana | consentimento (I), pelo TCLE | fora deste banco | documento próprio |
 
@@ -303,13 +303,13 @@ pseudonimizado (art. 13, §4º) continua sendo dado pessoal — só o anonimizad
 alcance da lei (art. 12). O texto dos termos diz isso ("pseudonimização, não
 anonimização completa").
 
-### Pendência conhecida: expurgo automático das execuções
+### Expurgo automático das execuções (resolvido no ADR-015)
 
-A seção 6 dos termos prevê excluir comentários e resultados até **3 meses** após a
-execução. **O expurgo automático AINDA NÃO existe**: hoje a execução fica até a empresa ser excluída,
-e os termos dizem isso ("até lá, a exclusão é feita sob pedido"). Quando for feito, o
-caminho natural é a mesma ordem de `_apagar_empresa`, aplicada às execuções vencidas, e
-uma linha nova neste ADR.
+Até a versão 1.1, os termos previam excluir comentários e resultados em **3 meses**, sem
+expurgo automático. A versão 1.2 seguiu as políticas dos YouTube API Services: o texto
+dos comentários sai em até **30 dias** e os resultados em até **36 meses**, pelo
+`workers/expurgo.py`, que usa para os 36 meses a mesma ordem de `_apagar_empresa`. Ver o
+item "Conformidade com as políticas da API" do ADR-015.
 
 ### Tabela nova e classificação
 
@@ -530,22 +530,34 @@ são configuração, com os padrões acima.
 - **Chave própria por empresa foi descartada:** as políticas mandam usar só as credenciais
   atribuídas ao próprio projeto e não compartilhá-las (III.D.1.d). Fica como trabalho
   futuro o reaproveitamento de coletas recentes do mesmo vídeo.
-- **Pendências de conformidade com as políticas da API**, que valem para o uso atual e são
-  condição da auditoria de ampliação (decisão da equipe, nada disso foi implementado):
-  1. **Termos e privacidade (III.A.1 e III.A.2):** os termos precisam exibir o link para os
-     Termos de Serviço do YouTube e dizer que o usuário concorda com eles; a política de
-     privacidade precisa avisar que o app usa os YouTube API Services e linkar a Política de
-     Privacidade do Google. A versão 1.1 cita a YouTube Data API entre os operadores, mas não
-     traz esses links.
-  2. **Guarda do texto (III.E.4.d):** comentário público obtido com a chave, sem login do
-     autor, é *Non-Authorized Data*: no máximo **30 dias**, depois apagar ou atualizar. Hoje
-     fica sem prazo (o expurgo previsto nos termos era de 3 meses).
-  3. **Métrica derivada (III.E.4.h e III.L):** em regra é proibido criar dados ou métricas
-     derivados dos dados da API. A *derived metrics policy* admite explicitamente análise de
-     sentimento por PLN sobre comentários, desde que o desenvolvedor aceite essa política no
-     próprio formulário (caso de uso "Analytics & Reporting") e não infira atributos
-     protegidos. Com o aceite, métricas derivadas (os resultados de sentimento e temas) podem
-     ficar até 36 meses; o texto dos comentários continua nos 30 dias.
+- **Conformidade com as políticas da API** (condição também da auditoria de ampliação):
+  1. **Termos e privacidade (III.A.1 e III.A.2) — feito na versão 1.2 dos termos
+     (13/10/2026):** link para os Termos de Serviço do YouTube com a declaração de que o
+     usuário concorda com eles; aviso de que o app usa os YouTube API Services; link para a
+     Política de Privacidade do Google; armazenamento no navegador; prazo de 7 dias para
+     pedidos de exclusão (III.E.4.g). O link para os termos fica no menu de todas as telas.
+  2. **Guarda do texto (III.E.4.d) — feito, migração 0015 e `workers/expurgo.py`:**
+     comentário público obtido com a chave, sem login do autor, é *Non-Authorized Data*: no
+     máximo **30 dias**, depois apagar ou atualizar. O expurgo roda no laço do runner de hora
+     em hora e, a partir do 29º dia contado de `execucoes.iniciado_em`, anula `texto`,
+     `autor_hash`, `youtube_comment_id` e a `justificativa` da análise, e marca
+     `execucoes.comentarios_apagados_em`. A linha do comentário, a análise e o tema ficam: são
+     o resultado. Título, canal e data dos vídeos são atualizados por `videos.list` a partir do
+     25º dia (`videos.metadados_em`, 1 unidade a cada 50 vídeos, da cota da empresa); vídeo
+     que não volta ou que chega ao prazo sem atualizar tem esses campos apagados. Visualizações
+     e curtidas não são atualizadas: são o retrato da coleta que a comparação entre coletas usa.
+     Execuções com mais de 36 meses saem inteiras. A tela avisa o prazo na criação do modelo e
+     no resultado, e oferece refazer a análise depois do expurgo.
+  3. **Métrica derivada (III.E.4.h e III.L) — pendente, não é código:** em regra é proibido
+     criar dados ou métricas derivados dos dados da API. A *derived metrics policy* admite
+     explicitamente análise de sentimento por PLN sobre comentários, desde que o desenvolvedor
+     aceite essa política no próprio formulário (caso de uso "Analytics & Reporting") e não
+     infira atributos protegidos. Com o aceite, métricas derivadas (os resultados de
+     sentimento e temas) e as estatísticas da coleta podem ficar até 36 meses; o texto dos
+     comentários continua nos 30 dias. Os 36 meses do expurgo já supõem esse aceite.
+  4. **Corpus de pesquisa — pendente:** `exemplos_treinamento` tem cópia própria do texto e
+     o expurgo não o toca. Os termos 1.2 dizem que ele é excluído ao fim do TCC e não é
+     publicado; até lá, é limitação declarada do protótipo acadêmico.
 - Mais uma tabela de infraestrutura: o banco passa a ter 20 (12 de domínio e 8 de
   infraestrutura). `jobs` ganha `disponivel_em` e `motivo_espera`. As linhas com mais de
   35 dias saem na própria escrita (regra 7).

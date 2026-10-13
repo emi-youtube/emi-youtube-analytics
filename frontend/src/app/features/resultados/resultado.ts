@@ -8,6 +8,7 @@ import { ResultadosService } from '../../core/api/resultados.service';
 import { dataHoraLegivel } from '../../core/format/datas';
 import { mensagemDeErro, statusDoErro } from '../../core/http/api-error';
 import { BarraSentimento } from '../painel/barra-sentimento';
+import { GuardaComentarios } from './guarda-comentarios';
 import { SeloDemo } from '../painel/selo-demo';
 
 /** Acima disto o vídeo é destacado como fora da curva (design/Dashboard.png). */
@@ -23,7 +24,7 @@ export const MINIMO_COMENTARIOS_PARA_TEMAS = 100;
 /** Tela Resultados de uma execução (design/Dashboard.png). */
 @Component({
   selector: 'app-resultado',
-  imports: [RouterLink, BarraSentimento, SeloDemo],
+  imports: [RouterLink, BarraSentimento, SeloDemo, GuardaComentarios],
   templateUrl: './resultado.html',
   styleUrls: ['../painel/painel.css', './resultado.css'],
 })

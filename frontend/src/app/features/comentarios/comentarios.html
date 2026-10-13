@@ -21,6 +21,15 @@
   </div>
 </header>
 
+<!-- Prazo dos comentários: 30 dias pelas políticas do YouTube (ADR-015) -->
+<app-guarda-comentarios
+  [disponiveisAte]="
+    pagina()?.comentarios_disponiveis_ate ?? resultado()?.comentarios_disponiveis_ate
+  "
+  [apagadosEm]="pagina()?.comentarios_apagados_em ?? resultado()?.comentarios_apagados_em"
+  [idModelo]="resultado()?.id_modelo ?? null"
+/>
+
 <!-- Filtros -->
 <section class="card filtros">
   <div class="filtros__linha">
@@ -61,7 +70,9 @@
       >
         <option value="">Todos os vídeos</option>
         @for (item of resultado()?.videos ?? []; track item.video.id_video) {
-          <option [value]="item.video.id_video">{{ item.video.titulo }}</option>
+          <option [value]="item.video.id_video">
+            {{ item.video.titulo || 'Título apagado · ' + item.video.youtube_video_id }}
+          </option>
         }
       </select>
     </div>
@@ -103,7 +114,15 @@
 @if (carregando()) {
   <div class="card estado"><p class="muted">Carregando os comentários…</p></div>
 } @else if (pagina(); as p) {
-  @if (p.itens.length === 0) {
+  @if (p.itens.length === 0 && p.comentarios_apagados_em) {
+    <div class="card estado">
+      <p class="estado__titulo">Não há comentários para mostrar</p>
+      <p class="muted">
+        O texto foi apagado dentro do prazo de 30 dias depois da coleta. As contagens acima
+        continuam valendo.
+      </p>
+    </div>
+  } @else if (p.itens.length === 0) {
     <div class="card estado">
       <p class="estado__titulo">Nenhum comentário com estes filtros</p>
       <p class="muted">Tente limpar a busca ou escolher outro tema.</p>
@@ -118,7 +137,8 @@
                 {{ rotuloSentimento(item.analise.sentimento) }}
               </span>
               <span class="comentario__origem muted">
-                {{ item.video.titulo }} · {{ dataLegivel(item.comentario.publicado_em) }}
+                {{ item.video.titulo || item.video.youtube_video_id }} ·
+                {{ dataLegivel(item.comentario.publicado_em) }}
               </span>
               @if (revisaoSugerida(item.analise.confianca)) {
                 <span class="revisao">
@@ -190,6 +210,6 @@
   <p>
     Quem escreveu cada comentário não é identificável aqui. O sistema guarda apenas o texto e um
     código irreversível, que serve só para reconhecer comentários da mesma pessoa dentro de uma
-    execução.
+    execução, e apaga os dois em até 30 dias depois da coleta.
   </p>
 </aside>

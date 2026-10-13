@@ -32,6 +32,11 @@ class Execucao(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pendente")
     iniciado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     concluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Quando o expurgo de 30 dias apagou o texto dos comentários (ADR-015). Nulo
+    # enquanto eles ainda estão disponíveis; os resultados continuam depois disso.
+    comentarios_apagados_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # NÃO é coluna. Quando o job da coleta está adiado esperando a cota da YouTube
     # renovar (ADR-015), o serviço preenche esta hora antes de responder; fora disso

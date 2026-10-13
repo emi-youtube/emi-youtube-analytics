@@ -33,6 +33,9 @@ export interface PaginaComentarios {
    * eles precisam continuar visíveis depois de escolher um deles.
    */
   contagem_por_sentimento: DistribuicaoSentimento;
+  /** Os mesmos campos de `ResultadoExecucao` (ADR-015). */
+  comentarios_disponiveis_ate?: string | null;
+  comentarios_apagados_em?: string | null;
 }
 
 export const TAMANHO_PAGINA_PADRAO = 5;

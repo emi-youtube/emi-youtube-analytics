@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import BigInteger, DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -25,3 +25,10 @@ class Video(Base):
     publicado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     visualizacoes: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
     curtidas: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    # Quando título, canal e data vieram da API. O expurgo atualiza antes de completar
+    # 30 dias; nulo = apagados (vídeo fora do ar ou atualização impossível a tempo), e
+    # aí `titulo` e `canal` ficam vazios (ADR-015). Visualizações e curtidas NÃO são
+    # atualizadas: são o retrato da coleta, e é ele que a comparação entre coletas usa.
+    metadados_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, server_default=func.now()
+    )

@@ -67,6 +67,7 @@ from app.schemas.resultado import (
 )
 from app.services import escopo
 from app.services.execucao import get_owned
+from app.services.guarda import comentarios_disponiveis_ate
 from app.topicos.modelo import MINIMO_CARACTERES_REPRESENTATIVO
 from app.workers.coleta import CHAVE_RECORTE
 from app.workers.coleta import TIPO_JOB as TIPO_JOB_COLETA
@@ -321,7 +322,9 @@ async def agregados(db: AsyncSession, ids: Sequence[int]) -> dict[int, Agregados
                 VideoAgregado(
                     id_video=video.id_video,
                     youtube_video_id=video.youtube_video_id,
-                    titulo=video.titulo,
+                    # Vazio depois do expurgo (vídeo fora do ar, ADR-015): a frase do
+                    # insight precisa de algum nome, e o ID é o que sobra do vídeo.
+                    titulo=video.titulo or f"ID {video.youtube_video_id}",
                     distribuicao=_para_motor(por_video.get(video.id_video, {})),
                 )
                 for video in videos.get(execucao.id_execucao, [])
@@ -490,7 +493,8 @@ async def representantes_dos_temas(
         )
         .join(Comentario, Comentario.id_comentario == ComentarioTema.id_comentario)
         .join(Tema, Tema.id_tema == ComentarioTema.id_tema)
-        .where(Tema.id_execucao == id_execucao)
+        # Depois do expurgo de 30 dias não há texto para mostrar (ADR-015).
+        .where(Tema.id_execucao == id_execucao, Comentario.texto.is_not(None))
         .subquery()
     )
 
@@ -557,7 +561,8 @@ async def comentarios_representativos(
         select(Comentario.id_comentario.label("id_comentario"), posicao, total)
         .join(Video, Video.id_video == Comentario.id_video)
         .join(AnaliseSentimento, AnaliseSentimento.id_comentario == Comentario.id_comentario)
-        .where(Video.id_execucao == id_execucao)
+        # Depois do expurgo de 30 dias não há texto para mostrar (ADR-015).
+        .where(Video.id_execucao == id_execucao, Comentario.texto.is_not(None))
         .subquery()
     )
 
@@ -642,6 +647,9 @@ async def pagina_de_comentarios(
 
     if sentimento is not None:
         condicoes.append(AnaliseSentimento.sentimento == sentimento)
+    # A lista só traz comentário com texto: depois do expurgo de 30 dias (ADR-015) ela
+    # fica vazia, mas as contagens acima continuam, porque o resultado continua.
+    condicoes.append(Comentario.texto.is_not(None))
 
     total = await db.scalar(
         select(func.count())
@@ -764,6 +772,8 @@ async def resultado_da_execucao(
         id_modelo=execucao.id_modelo,
         nome_modelo_analise=modelo.nome if modelo is not None else "",
         concluido_em=execucao.concluido_em,
+        comentarios_disponiveis_ate=comentarios_disponiveis_ate(execucao.iniciado_em),
+        comentarios_apagados_em=execucao.comentarios_apagados_em,
         distribuicao=distribuicao_de(
             {
                 "positivo": desta.distribuicao.positivo,
@@ -849,6 +859,9 @@ async def resultados_disponiveis(db: AsyncSession, usuario: Usuario) -> list[Res
 async def pagina_da_execucao(
     db: AsyncSession, usuario: Usuario, id_execucao: int, **filtros
 ) -> PaginaComentarios:
-    """`pagina_de_comentarios` com o portão de dono na frente."""
-    await get_owned(db, usuario, id_execucao)
-    return await pagina_de_comentarios(db, id_execucao, **filtros)
+    """`pagina_de_comentarios` com o portão de dono na frente e o prazo do expurgo."""
+    execucao = await get_owned(db, usuario, id_execucao)
+    pagina = await pagina_de_comentarios(db, id_execucao, **filtros)
+    pagina.comentarios_disponiveis_ate = comentarios_disponiveis_ate(execucao.iniciado_em)
+    pagina.comentarios_apagados_em = execucao.comentarios_apagados_em
+    return pagina
