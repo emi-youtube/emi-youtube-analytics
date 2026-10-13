@@ -24,7 +24,9 @@ Abaixo de três palavras ("kkkk", "top", "lol") não há sinal para decidir, e f
 
 Numa amostra escrita para o teste (`tests/test_idioma.py`: 50 comentários informais em
 português, 20 em espanhol e 15 em inglês), nenhum português foi descartado; saíram 17
-dos 20 em espanhol e todos os 13 em inglês com três palavras ou mais.
+dos 20 em espanhol e todos os 13 em inglês com três palavras ou mais. Nos 334
+comentários reais do gabarito humano (Capítulo 5), o filtro descartaria 7 (2,1%), todos
+de fato estrangeiros: 2 em espanhol e 5 em inglês; nenhum em português.
 """
 
 import re
