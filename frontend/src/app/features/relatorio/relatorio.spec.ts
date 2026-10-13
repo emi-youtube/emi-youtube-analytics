@@ -215,6 +215,15 @@ describe('Relatorio', () => {
     expect(ficha).toMatch(/Data da coleta \d{2}\/\d{2}\/2026 às \d{2}:\d{2}/);
   });
 
+  it('avisa que sentimento e temas são do Emi, não do YouTube', () => {
+    montar();
+    const aviso = texto(
+      responder(resultado()).querySelector('[data-testid="aviso-origem-metricas"]'),
+    );
+
+    expect(aviso).toContain('não são métricas do YouTube');
+  });
+
   it('traz contagens e percentuais do sentimento geral', () => {
     montar();
     const linhas = [

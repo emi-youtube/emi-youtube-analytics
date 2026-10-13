@@ -548,13 +548,17 @@ são configuração, com os padrões acima.
      e curtidas não são atualizadas: são o retrato da coleta que a comparação entre coletas usa.
      Execuções com mais de 36 meses saem inteiras. A tela avisa o prazo na criação do modelo e
      no resultado, e oferece refazer a análise depois do expurgo.
-  3. **Métrica derivada (III.E.4.h e III.L) — pendente, não é código:** em regra é proibido
-     criar dados ou métricas derivados dos dados da API. A *derived metrics policy* admite
-     explicitamente análise de sentimento por PLN sobre comentários, desde que o desenvolvedor
-     aceite essa política no próprio formulário (caso de uso "Analytics & Reporting") e não
-     infira atributos protegidos. Com o aceite, métricas derivadas (os resultados de
-     sentimento e temas) e as estatísticas da coleta podem ficar até 36 meses; o texto dos
-     comentários continua nos 30 dias. Os 36 meses do expurgo já supõem esse aceite.
+  3. **Métrica derivada (III.E.4.h e III.L) — aviso na tela feito; aceite pendente:** em
+     regra é proibido criar dados ou métricas derivados dos dados da API. A *derived metrics
+     policy* admite explicitamente análise de sentimento por PLN sobre comentários, desde que
+     o desenvolvedor aceite essa política no próprio formulário (caso de uso "Analytics &
+     Reporting"), não infira atributos protegidos e separe o que calcula do que vem do
+     YouTube. A separação está na tela: Início, Resultado e relatório dizem que sentimento,
+     temas, insights e comentários por mil visualizações são do Emi, e não métricas do
+     YouTube (`data-testid="aviso-origem-metricas"`). Com o aceite, métricas derivadas (os
+     resultados de sentimento e temas) e as estatísticas da coleta podem ficar até 36 meses; o
+     texto dos comentários continua nos 30 dias. Os 36 meses do expurgo já supõem esse aceite,
+     que é só o envio do formulário, sem código.
   4. **Corpus de pesquisa — pendente:** `exemplos_treinamento` tem cópia própria do texto e
      o expurgo não o toca. Os termos 1.2 dizem que ele é excluído ao fim do TCC e não é
      publicado; até lá, é limitação declarada do protótipo acadêmico.

@@ -52,6 +52,13 @@
   color: var(--ink-on-dark-muted);
 }
 
+/* Políticas dos YouTube API Services (III.E.4.h): o sentimento é métrica derivada. */
+.destaque__origem {
+  margin-top: var(--space-2);
+  font-size: 12px;
+  color: var(--ink-on-dark-muted);
+}
+
 .destaque__seta {
   font-size: 26px;
   color: var(--ink-on-dark-muted);
