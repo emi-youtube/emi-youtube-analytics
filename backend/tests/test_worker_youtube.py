@@ -362,6 +362,30 @@ async def test_filtro_de_texto_descarta_e_o_limite_conta_so_os_aceitos():
     assert all(c.url.params["maxResults"] == "100" for c in chamadas)
 
 
+async def test_filtro_de_idioma_descarta_conta_e_vem_depois_do_termo():
+    itens = [
+        item_comentario("pt", texto="que propaganda linda, chorei"),
+        item_comentario("es", texto="me gustó mucho el comercial"),
+        item_comentario("en", texto="this ad is amazing"),
+        item_comentario("termo", texto="this is not about shoes at all"),
+    ]
+    cliente, chamadas = cliente_com(
+        lambda _: httpx.Response(200, json=resposta_comentarios(itens=itens))
+    )
+
+    lote = await cliente.listar_comentarios(
+        VIDEO_ID,
+        limite=10,
+        aceitar_texto=lambda texto: "shoes" not in texto,
+        aceitar_idioma=lambda texto: texto.startswith("que"),
+    )
+
+    assert [c.youtube_comment_id for c in lote.comentarios] == ["pt"]
+    assert lote.descartados_por_idioma == 2
+    assert lote.descartados_por_termo == 1, "quem cai nos dois conta como termo"
+    assert chamadas[0].url.params["maxResults"] == "100", "com filtro, a página vai cheia"
+
+
 async def test_teto_de_leitura_protege_a_cota_quando_o_filtro_descarta_tudo():
     cliente, chamadas = cliente_com(
         paginas_infinitas(lambda p: [item_comentario(f"p{p}c{n}") for n in range(100)])

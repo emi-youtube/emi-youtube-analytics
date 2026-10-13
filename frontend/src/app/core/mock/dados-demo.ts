@@ -1166,6 +1166,7 @@ export function montarResultado(semente: SementeExecucao): ResultadoExecucao {
       comentarios_coletados: geral.total,
       descartados_por_data: 0,
       descartados_por_termo: 0,
+      descartados_por_idioma: 0,
       limite_atingido: false,
     },
     videos: porVideo,

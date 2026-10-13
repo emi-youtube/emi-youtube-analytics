@@ -101,6 +101,9 @@ class Settings(BaseSettings):
     # coleta paginar o vídeo inteiro. 20.000 lidos = 200 unidades de cota, no máximo.
     worker_max_comentarios_lidos_por_execucao: int = 20000
     youtube_timeout_seconds: int = 30
+    # Só comentário em português entra na análise (`workers/idioma.py`): o classificador
+    # foi treinado e avaliado só em português. Desligar volta a gravar qualquer idioma.
+    coleta_filtrar_idioma: bool = True
 
     # --- Cota diária da YouTube Data API (ADR-015 de docs/BANCO.md) ---------------
     # O Google dá 10.000 unidades por dia por projeto, e a chave é uma só: todas as

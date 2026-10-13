@@ -178,6 +178,9 @@ class RecorteColeta(BaseModel):
     comentarios_coletados: int
     descartados_por_data: int | None
     descartados_por_termo: int | None
+    # Comentários em outro idioma que a coleta descartou (`workers/idioma.py`). Nulo na
+    # coleta anterior ao filtro: ali todo idioma entrou.
+    descartados_por_idioma: int | None = None
     # O limite cortou a coleta: havia mais comentários dentro do recorte do que foi
     # coletado. Sem isso a PME leria "500 comentários" como "o vídeo tem 500".
     limite_atingido: bool

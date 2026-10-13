@@ -282,6 +282,7 @@ async def _recorte(db: AsyncSession, execucao: Execucao, coletados: int) -> Reco
         comentarios_coletados=coletados,
         descartados_por_data=registro.get("descartados_por_data"),
         descartados_por_termo=registro.get("descartados_por_termo"),
+        descartados_por_idioma=registro.get("descartados_por_idioma"),
         limite_atingido=bool(limite_aplicado) and coletados >= limite_aplicado,
     )
 

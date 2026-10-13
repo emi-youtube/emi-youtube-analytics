@@ -118,6 +118,7 @@ class LoteComentarios:
     lidos: int = 0
     descartados_por_data: int = 0
     descartados_por_termo: int = 0
+    descartados_por_idioma: int = 0
     # Paginação interrompida ao passar da data mínima (ordem do mais novo para o
     # mais antigo), e não por fim de vídeo ou por limite.
     parou_na_data: bool = False
@@ -266,6 +267,7 @@ class ClienteYouTube:
         *,
         publicado_apos: datetime | None = None,
         aceitar_texto: Callable[[str], bool] | None = None,
+        aceitar_idioma: Callable[[str], bool] | None = None,
         max_lidos: int | None = None,
     ) -> LoteComentarios:
         """Comentários de topo do vídeo, paginando até `limite` ACEITOS.
@@ -276,6 +278,8 @@ class ClienteYouTube:
           comentário anterior à data encerra a paginação: as páginas seguintes só
           teriam comentários mais antigos e custariam cota à toa.
         - `aceitar_texto`: filtro local sobre o texto (o termo de pesquisa).
+        - `aceitar_idioma`: filtro local de idioma (`workers/idioma.aceitar`). Vem depois
+          do termo, que é mais barato; quem cai nos dois conta como termo.
         - `max_lidos`: teto do que sai da API, aceito ou não — protege a cota quando
           o filtro de texto descarta quase tudo.
 
@@ -287,7 +291,9 @@ class ClienteYouTube:
         teto_leitura = max_lidos if max_lidos is not None else float("inf")
         # Sem filtro, pedir só o que falta poupa transferência; com filtro, a página
         # cheia custa a mesma unidade de cota e rende mais candidatos.
-        filtra = publicado_apos is not None or aceitar_texto is not None
+        filtra = (
+            publicado_apos is not None or aceitar_texto is not None or aceitar_idioma is not None
+        )
 
         while len(lote.comentarios) < limite and lote.lidos < teto_leitura:
             faltam = MAX_COMENTARIOS_POR_PAGINA if filtra else limite - len(lote.comentarios)
@@ -326,6 +332,9 @@ class ClienteYouTube:
                     continue
                 if aceitar_texto is not None and not aceitar_texto(texto):
                     lote.descartados_por_termo += 1
+                    continue
+                if aceitar_idioma is not None and not aceitar_idioma(texto):
+                    lote.descartados_por_idioma += 1
                     continue
 
                 lote.comentarios.append(

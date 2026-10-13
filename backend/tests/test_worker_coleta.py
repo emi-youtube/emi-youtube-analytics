@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.security import hash_token
 from app.models.comentario import Comentario
@@ -83,6 +83,7 @@ class ClienteFalso:
         *,
         publicado_apos=None,
         aceitar_texto=None,
+        aceitar_idioma=None,
         max_lidos=None,
     ) -> LoteComentarios:
         """Aplica os filtros como o cliente real (a paginação é testada lá)."""
@@ -111,6 +112,9 @@ class ClienteFalso:
                 continue
             if aceitar_texto is not None and not aceitar_texto(item.texto):
                 lote.descartados_por_termo += 1
+                continue
+            if aceitar_idioma is not None and not aceitar_idioma(item.texto):
+                lote.descartados_por_idioma += 1
                 continue
             lote.comentarios.append(item)
         return lote
@@ -782,7 +786,47 @@ async def test_recorte_aplicado_fica_registrado_no_job_sem_mexer_no_pedido(sessa
         "comentarios_coletados": 1,
         "descartados_por_data": 1,
         "descartados_por_termo": 1,
+        "descartados_por_idioma": 0,
     }
+
+
+async def test_coleta_descarta_outro_idioma_e_registra_no_recorte(sessao):
+    job = await montar_job(sessao)
+    cliente = ClienteFalso(
+        videos=[video()],
+        comentarios={
+            VIDEO_A: [
+                comentario("pt", texto="que propaganda linda, chorei"),
+                comentario("es", texto="me gustó mucho el comercial"),
+                comentario("en", texto="this is the best ad I have seen this year"),
+                comentario("curto", texto="lol"),
+            ]
+        },
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+    await sessao.refresh(job)
+
+    textos = (
+        await sessao.scalars(select(Comentario.texto).order_by(Comentario.id_comentario))
+    ).all()
+    assert textos == ["que propaganda linda, chorei", "lol"]
+    assert job.payload[coleta.CHAVE_RECORTE]["descartados_por_idioma"] == 2
+
+
+async def test_filtro_de_idioma_desligado_grava_tudo_e_registra_nulo(sessao, monkeypatch):
+    monkeypatch.setattr(coleta.settings, "coleta_filtrar_idioma", False)
+    job = await montar_job(sessao)
+    cliente = ClienteFalso(
+        videos=[video()],
+        comentarios={VIDEO_A: [comentario("es", texto="me gustó mucho el comercial")]},
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+    await sessao.refresh(job)
+
+    assert await sessao.scalar(select(func.count()).select_from(Comentario)) == 1
+    assert job.payload[coleta.CHAVE_RECORTE]["descartados_por_idioma"] is None
 
 
 async def test_teto_de_leitura_e_da_execucao(sessao, monkeypatch):

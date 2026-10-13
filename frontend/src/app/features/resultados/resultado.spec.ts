@@ -73,6 +73,26 @@ describe('Resultado', () => {
     expect(conteudo).not.toContain('Comentários representativos');
   });
 
+  it('o recorte diz que só português entra e quantos saíram por idioma', () => {
+    const base = RESULTADOS_DEMO.get(12)!;
+    const tela = renderizar({ ...base, recorte: { ...base.recorte, descartados_por_idioma: 7 } });
+
+    const recorte = tela.querySelector('.recorte')!.textContent!.replace(/\s+/g, ' ');
+    expect(recorte).toContain('só português · 7 em outros idiomas descartados');
+  });
+
+  it('coleta anterior ao filtro de idioma diz que todos os idiomas entraram', () => {
+    const base = RESULTADOS_DEMO.get(12)!;
+    const tela = renderizar({
+      ...base,
+      recorte: { ...base.recorte, descartados_por_idioma: null },
+    });
+
+    expect(tela.querySelector('.recorte')!.textContent).toContain(
+      'todos (coleta anterior ao filtro)',
+    );
+  });
+
   it('com temas, não mostra a nota', () => {
     const tela = renderizar(RESULTADOS_DEMO.get(12)!);
 
