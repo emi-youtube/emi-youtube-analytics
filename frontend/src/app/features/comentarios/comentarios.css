@@ -174,3 +174,9 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Políticas dos YouTube API Services (III.E.4.h): sentimento e tema são do Emi. */
+.cabecalho__origem {
+  margin-top: 4px;
+  font-size: 13px;
+}

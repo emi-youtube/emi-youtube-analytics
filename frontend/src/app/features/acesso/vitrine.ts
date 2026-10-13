@@ -14,7 +14,7 @@ import { Component } from '@angular/core';
       <svg class="vitrine__icone" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 15v5M9.33 10v10M14.67 13v7M20 4v16" />
       </svg>
-      <span>Emi YouTube Analytics</span>
+      <span>Emi Analytics</span>
     </div>
 
     <div class="vitrine__discurso">
