@@ -60,6 +60,28 @@ reduções muda entre execuções. O ambiente CUDA de cada sessão não foi regi
 a causa não pode ser isolada além disso. A consequência para o TCC: diferenças de
 validação abaixo de ~1 ponto entre configurações da grade não separam uma da outra.
 
+## Diagnóstico por vídeo (13/10/2026)
+
+Quanto o BERTimbau cai em vídeo que nunca viu, com as mesmas dobras por vídeo do TF-IDF
+(`validacao_por_video_bertimbau.json`, seção 10 do Colab, configuração oficial: 5e-5,
+4 épocas, semente 42, última época). Mede contra o **rótulo fraco** da Gemini, nos 2.200
+exemplos de treino e validação: é a QUEDA em vídeo novo, não o acerto contra humano, e o
+teste humano não participa.
+
+| Medida (F1 macro fora da dobra) | Dobras aleatórias | Dobras por vídeo | Queda |
+|---|---|---|---|
+| Todos os exemplos | 0,777 [0,759; 0,795] | 0,740 [0,721; 0,758] | 3,7 pontos |
+| Sem gêmeos (regra pré-registrada) | 0,771 [0,751; 0,789] | 0,736 [0,716; 0,755] | **3,5 pontos** |
+| Média das dobras | 0,777 (desvio 0,013) | 0,720 (desvio 0,040) | 5,8 pontos |
+| TF-IDF, mesmas dobras (fora da dobra / média) | | | 8,1 / 10,0 pontos |
+
+Pela regra fixada antes de rodar (queda fora da dobra, sem gêmeos, a partir de 3 pontos é
+relevante), a queda é **relevante**: 3,5 pontos. É menos da metade da do TF-IDF. As dobras
+mais fracas são as dos vídeos {1, 6, 8} (0,670) e {2, 4, 5} (0,682). Leitura: o modelo
+generaliza para vídeo novo bem melhor que o clássico, mas a diferença existe e vai para
+as limitações do Capítulo 5; o caminho para reduzi-la é mais vídeos no corpus e validação
+por vídeo na escolha de hiperparâmetros.
+
 ## Rodada 2
 
 Ainda não treinada. A regra que vai decidir se o modelo novo substitui o de produção

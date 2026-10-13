@@ -1,0 +1,172 @@
+{
+  "aviso": "rotulo FRACO (Gemini): mede a QUEDA em video inedito, nao o acerto contra humano. Nada daqui vai para o Capitulo 5 como acerto; o teste humano nao participa.",
+  "data_utc": "2026-10-13T19:13:56.383991+00:00",
+  "id_execucao": 4,
+  "reduzido": false,
+  "dados": {
+    "exemplos": 2200,
+    "videos": 14,
+    "ordem": "dividir_estratificado (semente 42): treino + validacao, como no TF-IDF",
+    "texto": "texto_modelo (preparar_texto)"
+  },
+  "configuracao": {
+    "modelo_base": "neuralmind/bert-base-portuguese-cased",
+    "taxa_aprendizado": 5e-05,
+    "epocas": 4,
+    "lote": 16,
+    "semente": 42,
+    "epoca_avaliada": "a ultima (sem escolher epoca pela dobra de fora)"
+  },
+  "dobras": {
+    "aleatoria_estratificada": "estratificadas pelo rotulo, semente 42, sorteio proprio (stdlib)",
+    "por_video": "as mesmas do TF-IDF (ml/baseline/saida/busca_baseline.json)",
+    "gemeos": "ml/avaliacao/gemeos.py, limiar 0.8"
+  },
+  "aleatoria_estratificada": {
+    "f1_macro_media_das_dobras": 0.7772015876113403,
+    "f1_macro_desvio_das_dobras": 0.013291556436598254,
+    "fora_da_dobra": {
+      "n": 2200,
+      "f1_macro": 0.7770338282092591,
+      "ic95_f1_macro": [
+        0.759223699980677,
+        0.7945775100013264
+      ]
+    },
+    "fora_da_dobra_sem_gemeos": {
+      "n": 2091,
+      "f1_macro": 0.7707193801232574,
+      "ic95_f1_macro": [
+        0.751369923320497,
+        0.7893203413001323
+      ]
+    },
+    "dobras": [
+      {
+        "dobra": 1,
+        "n": 440,
+        "n_sem_gemeo": 424,
+        "videos": null,
+        "f1_macro": 0.7576015913611821
+      },
+      {
+        "dobra": 2,
+        "n": 440,
+        "n_sem_gemeo": 415,
+        "videos": null,
+        "f1_macro": 0.7721329313896286
+      },
+      {
+        "dobra": 3,
+        "n": 440,
+        "n_sem_gemeo": 408,
+        "videos": null,
+        "f1_macro": 0.7905450439285026
+      },
+      {
+        "dobra": 4,
+        "n": 440,
+        "n_sem_gemeo": 425,
+        "videos": null,
+        "f1_macro": 0.7880906998554057
+      },
+      {
+        "dobra": 5,
+        "n": 440,
+        "n_sem_gemeo": 419,
+        "videos": null,
+        "f1_macro": 0.7776376715219827
+      }
+    ]
+  },
+  "por_video": {
+    "f1_macro_media_das_dobras": 0.7196451827395373,
+    "f1_macro_desvio_das_dobras": 0.039998984123964784,
+    "fora_da_dobra": {
+      "n": 2200,
+      "f1_macro": 0.7397032917638424,
+      "ic95_f1_macro": [
+        0.721278751566792,
+        0.7576141393647704
+      ]
+    },
+    "fora_da_dobra_sem_gemeos": {
+      "n": 2154,
+      "f1_macro": 0.736034322231632,
+      "ic95_f1_macro": [
+        0.7159942993469297,
+        0.7554384313890784
+      ]
+    },
+    "dobras": [
+      {
+        "dobra": 1,
+        "n": 453,
+        "n_sem_gemeo": 441,
+        "videos": [
+          3,
+          7,
+          10
+        ],
+        "f1_macro": 0.7474434952153723
+      },
+      {
+        "dobra": 2,
+        "n": 448,
+        "n_sem_gemeo": 437,
+        "videos": [
+          1,
+          6,
+          8
+        ],
+        "f1_macro": 0.6701983551040156
+      },
+      {
+        "dobra": 3,
+        "n": 448,
+        "n_sem_gemeo": 438,
+        "videos": [
+          9,
+          11,
+          14
+        ],
+        "f1_macro": 0.7550592776399228
+      },
+      {
+        "dobra": 4,
+        "n": 421,
+        "n_sem_gemeo": 413,
+        "videos": [
+          12,
+          13
+        ],
+        "f1_macro": 0.7430364434212969
+      },
+      {
+        "dobra": 5,
+        "n": 430,
+        "n_sem_gemeo": 425,
+        "videos": [
+          2,
+          4,
+          5
+        ],
+        "f1_macro": 0.6824883423170788
+      }
+    ]
+  },
+  "queda_em_video_inedito": {
+    "media_das_dobras": 0.057556404871803024,
+    "fora_da_dobra": 0.03733053644541673,
+    "fora_da_dobra_sem_gemeos": 0.03468505789162535
+  },
+  "queda_do_tfidf": {
+    "media_das_dobras": 0.1004914787843697,
+    "fora_da_dobra": 0.08062792546015318
+  },
+  "regra_de_leitura": {
+    "medida": "queda fora da dobra, sem gemeos",
+    "limiar": 0.03,
+    "leitura": "relevante: 3.5 pontos, a partir de 3; vale a rodada 3 (mais videos, validacao por video, teste humano de videos ineditos)"
+  }
+}
