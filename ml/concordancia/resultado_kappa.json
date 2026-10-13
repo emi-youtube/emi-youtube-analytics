@@ -1,0 +1,166 @@
+{
+  "data_utc": "2026-10-13T19:27:10.729206+00:00",
+  "total_comentarios": 334,
+  "avaliadores": [
+    "avaliador_1",
+    "avaliador_2",
+    "avaliador_3"
+  ],
+  "kappa_fleiss": 0.6581611051036416,
+  "kappa_fleiss_indefinido": null,
+  "faixa_landis_koch": "substancial",
+  "meta_kappa": 0.6,
+  "atingiu_meta": true,
+  "kappa_cohen_por_par": {
+    "avaliador_1 x avaliador_2": 0.6512228634240176,
+    "avaliador_1 x avaliador_3": 0.683111954459203,
+    "avaliador_2 x avaliador_3": 0.6421428571428572
+  },
+  "kappa_cohen_medio": 0.6588258916753592,
+  "kappa_fleiss_por_classe": {
+    "positivo": 0.7005114820349828,
+    "negativo": 0.7493910395824273,
+    "neutro": 0.5440127591706538
+  },
+  "matriz_divergencia": {
+    "positivo": {
+      "positivo": 314,
+      "negativo": 10,
+      "neutro": 132
+    },
+    "negativo": {
+      "positivo": 10,
+      "negativo": 196,
+      "neutro": 82
+    },
+    "neutro": {
+      "positivo": 132,
+      "negativo": 82,
+      "neutro": 268
+    }
+  },
+  "matriz_confusao_por_par": {
+    "avaliador_1 x avaliador_2": {
+      "positivo": {
+        "positivo": 100,
+        "negativo": 0,
+        "neutro": 13
+      },
+      "negativo": {
+        "positivo": 3,
+        "negativo": 63,
+        "neutro": 20
+      },
+      "neutro": {
+        "positivo": 37,
+        "negativo": 3,
+        "neutro": 95
+      }
+    },
+    "avaliador_1 x avaliador_3": {
+      "positivo": {
+        "positivo": 99,
+        "negativo": 3,
+        "neutro": 11
+      },
+      "negativo": {
+        "positivo": 2,
+        "negativo": 74,
+        "neutro": 10
+      },
+      "neutro": {
+        "positivo": 31,
+        "negativo": 13,
+        "neutro": 91
+      }
+    },
+    "avaliador_2 x avaliador_3": {
+      "positivo": {
+        "positivo": 115,
+        "negativo": 2,
+        "neutro": 23
+      },
+      "negativo": {
+        "positivo": 0,
+        "negativo": 59,
+        "neutro": 7
+      },
+      "neutro": {
+        "positivo": 17,
+        "negativo": 29,
+        "neutro": 82
+      }
+    }
+  },
+  "distribuicao_por_avaliador": {
+    "avaliador_1": {
+      "neutro": 135,
+      "positivo": 113,
+      "negativo": 86
+    },
+    "avaliador_2": {
+      "positivo": 140,
+      "negativo": 66,
+      "neutro": 128
+    },
+    "avaliador_3": {
+      "neutro": 112,
+      "positivo": 132,
+      "negativo": 90
+    }
+  },
+  "gabarito": {
+    "unanimes": 225,
+    "maioria_simples": 103,
+    "empates": 6,
+    "duvidas_coletivas": 39
+  },
+  "ids_para_desempate": [
+    137,
+    290,
+    339,
+    706,
+    798,
+    820,
+    918,
+    936,
+    1004,
+    1016,
+    1115,
+    1127,
+    1218,
+    1279,
+    1281,
+    1344,
+    1410,
+    1492,
+    1552,
+    1619,
+    1775,
+    1926,
+    2210,
+    2262,
+    2288,
+    2304,
+    2337,
+    2338,
+    2352,
+    2356,
+    2378,
+    2427,
+    2452,
+    2491,
+    2518,
+    2528,
+    2534,
+    2562,
+    2565,
+    2588,
+    2623,
+    2633,
+    2700,
+    2726,
+    2739
+  ],
+  "normalizacoes": []
+}
