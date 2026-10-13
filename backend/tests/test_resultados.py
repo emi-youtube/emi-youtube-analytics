@@ -926,6 +926,7 @@ async def test_recorte_mostra_os_filtros_aplicados_e_a_data_da_coleta(cliente, s
                 "comentarios_coletados": 6,
                 "descartados_por_data": 10,
                 "descartados_por_termo": 24,
+                "descartados_por_idioma": 7,
             },
         },
     )
@@ -943,6 +944,7 @@ async def test_recorte_mostra_os_filtros_aplicados_e_a_data_da_coleta(cliente, s
         "comentarios_coletados": 6,  # o que está no banco
         "descartados_por_data": 10,
         "descartados_por_termo": 24,
+        "descartados_por_idioma": 7,
         "limite_atingido": True,
     }
 

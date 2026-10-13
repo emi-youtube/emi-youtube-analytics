@@ -35,6 +35,10 @@ tzdata==2025.2
 # Arrasta numpy e scipy. O torch do classificador entra no fim do arquivo, por
 # outra decisao (o BERTimbau); tópicos nao depende dele.
 scikit-learn==1.9.1
+# Detector de idioma da coleta (`app/workers/idioma.py`): só comentário em português
+# entra na análise. Port do langid.py, modelo de 4,5 MB embutido, sem rede; usa o numpy
+# que o scikit-learn já traz (numpy>=2).
+py3langid==0.4.0
 
 # Classificador lexico COMPARTILHADO com o ml/ (pacote proprio na raiz do repo).
 # E a primeira implementacao do worker de inferencia, enquanto o BERTimbau oficial

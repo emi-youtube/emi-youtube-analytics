@@ -30,7 +30,7 @@ from app.models.job import Job
 from app.models.modelo_analise import ModeloAnalise
 from app.models.video import Video
 from app.services import cota
-from app.workers import fila
+from app.workers import fila, idioma
 from app.workers.youtube import (
     ClienteYouTube,
     ComentariosDesabilitados,
@@ -246,6 +246,7 @@ async def _coletar_video(
                 limite,
                 publicado_apos=recorte.inicio,
                 aceitar_texto=contem_termo(recorte.termo) if recorte.termo else None,
+                aceitar_idioma=idioma.aceitar if settings.coleta_filtrar_idioma else None,
                 max_lidos=max_lidos,
             ),
             f"comentarios do video {coletado.youtube_video_id}",
@@ -338,7 +339,7 @@ async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
     # ordem em que a API os devolveu.
     restante = recorte.limite_aplicado
     leitura_restante = settings.worker_max_comentarios_lidos_por_execucao
-    total = lidos = por_data = por_termo = 0
+    total = lidos = por_data = por_termo = por_idioma = 0
 
     for coletado in videos:
         if restante <= 0 or leitura_restante <= 0:
@@ -360,6 +361,7 @@ async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
         lidos += lote.lidos
         por_data += lote.descartados_por_data
         por_termo += lote.descartados_por_termo
+        por_idioma += lote.descartados_por_idioma
 
     # O recorte que de fato valeu, ao lado do pedido congelado: é o que a tela de
     # resultados mostra para deixar claro de onde saem os números. Reatribuição (e não
@@ -376,6 +378,9 @@ async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
             "comentarios_coletados": total,
             "descartados_por_data": por_data,
             "descartados_por_termo": por_termo,
+            # Nulo quando o filtro está desligado: "0 descartados" afirmaria um filtro
+            # que não rodou.
+            "descartados_por_idioma": por_idioma if settings.coleta_filtrar_idioma else None,
         },
     }
 
@@ -385,13 +390,14 @@ async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
 
     logger.info(
         "coleta finalizada id_execucao=%s videos=%s comentarios=%s lidos=%s "
-        "descartados_por_data=%s descartados_por_termo=%s",
+        "descartados_por_data=%s descartados_por_termo=%s descartados_por_idioma=%s",
         job.id_execucao,
         len(videos),
         total,
         lidos,
         por_data,
         por_termo,
+        por_idioma,
     )
     return total
 

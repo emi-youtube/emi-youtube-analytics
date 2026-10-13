@@ -57,6 +57,19 @@
         </dd>
       </div>
       <div class="recorte__item">
+        <dt>Idioma</dt>
+        <dd>
+          @if (r.recorte.descartados_por_idioma == null) {
+            todos (coleta anterior ao filtro)
+          } @else {
+            só português
+            @if (r.recorte.descartados_por_idioma > 0) {
+              · {{ numero(r.recorte.descartados_por_idioma) }} em outros idiomas descartados
+            }
+          }
+        </dd>
+      </div>
+      <div class="recorte__item">
         <dt>Publicados a partir de</dt>
         <dd>
           {{ r.recorte.publicado_apos ? dataCivil(r.recorte.publicado_apos) : 'sem data mínima' }}

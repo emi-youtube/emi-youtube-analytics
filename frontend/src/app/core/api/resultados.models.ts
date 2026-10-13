@@ -86,6 +86,11 @@ export interface RecorteColeta {
   comentarios_coletados: number;
   descartados_por_data: number | null;
   descartados_por_termo: number | null;
+  /**
+   * Comentários em outro idioma descartados pela coleta: só português entra na análise.
+   * Nulo na coleta anterior ao filtro, quando todo idioma entrava.
+   */
+  descartados_por_idioma?: number | null;
   /** O limite cortou a coleta: havia mais comentários no recorte do que o coletado. */
   limite_atingido: boolean;
 }
