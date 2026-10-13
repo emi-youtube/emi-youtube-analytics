@@ -93,6 +93,15 @@ describe('Resultado', () => {
     );
   });
 
+  it('separa o que o Emi calcula do que vem do YouTube (políticas da API, III.E.4.h)', () => {
+    const tela = renderizar(RESULTADOS_DEMO.get(12)!);
+
+    const aviso = tela.querySelector('[data-testid="aviso-origem-metricas"]')!.textContent!;
+    expect(aviso.replace(/\s+/g, ' ')).toContain(
+      'calculados pelo Emi e não são métricas do YouTube',
+    );
+  });
+
   it('com temas, não mostra a nota', () => {
     const tela = renderizar(RESULTADOS_DEMO.get(12)!);
 
