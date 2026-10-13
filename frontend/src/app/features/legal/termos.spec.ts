@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
-import texto from '../../../assets/legal/termos-v1.2.md';
+import texto from '../../../assets/legal/termos-v1.3.md';
 import { ANCORA_PRIVACIDADE, ancora, renderizarMarkdown } from './markdown';
 import { Termos } from './termos';
 
@@ -31,6 +31,11 @@ describe('texto vigente (políticas dos YouTube API Services)', () => {
   it('liga os Termos de Serviço do YouTube e diz que o usuário concorda com eles (III.A.1)', () => {
     expect(html).toContain('href="https://www.youtube.com/t/terms"');
     expect(texto).toContain('Ao usar o Emi, você concorda em seguir os');
+  });
+
+  it('o nome do app não leva "YouTube" (diretrizes de marca do YouTube)', () => {
+    expect(texto.split('\n')[0]).toBe('# Emi Analytics — Termos de Uso e Política de Privacidade');
+    expect(texto).toContain('O Emi Analytics é um sistema acadêmico');
   });
 
   it('avisa do uso dos YouTube API Services e liga a Política do Google (III.A.2)', () => {

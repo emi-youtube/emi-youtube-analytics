@@ -21,7 +21,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Emi YouTube Analytics API", lifespan=lifespan)
+app = FastAPI(title="Emi Analytics API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

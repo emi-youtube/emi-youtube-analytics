@@ -285,7 +285,7 @@ depois da exclusão da conta ou da empresa e não é publicado com identificaç�
 
 ### Bases legais por dado
 
-Transcritas da seção 4 dos termos vigentes (`termos-v1.2.md`), que é a fonte oficial: se um dia
+Transcritas da seção 4 dos termos vigentes (`termos-v1.3.md`), que é a fonte oficial: se um dia
 divergirem, vale o texto dos termos e esta tabela é corrigida. A coluna "No sistema"
 diz onde cada dado mora.
 
@@ -561,7 +561,13 @@ são configuração, com os padrões acima.
      que é só o envio do formulário, sem código.
   4. **Corpus de pesquisa — pendente:** `exemplos_treinamento` tem cópia própria do texto e
      o expurgo não o toca. Os termos 1.2 dizem que ele é excluído ao fim do TCC e não é
-     publicado; até lá, é limitação declarada do protótipo acadêmico.
+     publicado; até lá, é limitação declarada do protótipo acadêmico. Por isso o formulário
+     de auditoria (que traz o aceite do item 3) só vai depois da banca, junto com a exclusão.
+  5. **Marca (diretrizes de marca do YouTube) — nome feito; domínio e selo pendentes:** o
+     nome do app não pode levar "YouTube". Desde os termos 1.3 o nome exibido é **Emi
+     Analytics** (o título do TCC é outra coisa e pode ficar). Faltam um domínio da Vercel
+     sem "youtube" e o selo oficial "Developed with YouTube", clicável e com link para o
+     conteúdo no YouTube, na tela de login e onde os dados da API aparecem.
 - Mais uma tabela de infraestrutura: o banco passa a ter 20 (12 de domínio e 8 de
   infraestrutura). `jobs` ganha `disponivel_em` e `motivo_espera`. As linhas com mais de
   35 dias saem na própria escrita (regra 7).
