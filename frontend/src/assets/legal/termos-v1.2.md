@@ -1,6 +1,6 @@
 # Emi YouTube Analytics — Termos de Uso e Política de Privacidade
 
-Versão 1.2 — vigente a partir de 10/10/2026. Projeto acadêmico (TCC) da Universidade Paulista (UNIP).
+Versão 1.2 — vigente a partir de 13/10/2026. Projeto acadêmico (TCC) da Universidade Paulista (UNIP).
 
 O Emi é uma plataforma que coleta os comentários dos seus vídeos publicitários, mostra a divisão entre positivo, negativo e neutro e descobre os temas que mais se repetem.
 
@@ -96,4 +96,4 @@ Por ser um protótipo acadêmico, o sistema pode ficar indisponível ou ser desa
 
 Mudanças nestes termos geram nova versão e novo aceite. Dúvidas: emi.youtube.analytics@gmail.com.
 
-Histórico de versões: 1.0 (06/10/2026), versão inicial; 1.1 (07/10/2026), inclusão do Resend entre os operadores (seção 5), da confirmação do e-mail no cadastro e do envio de e-mails entre as finalidades (seção 4) e do prazo dos cadastros não confirmados (seção 6); 1.2 (10/10/2026), adequação às políticas dos YouTube API Services: concordância com os Termos de Serviço do YouTube (seções 1 e 2), referência à Política de Privacidade do Google, dados dos vídeos, resultados e armazenamento no navegador (seções 3 a 5), prazos de guarda de 30 dias e 36 meses com exclusão automática (seção 6), exclusão do corpus de pesquisa ao fim do TCC (seção 6) e prazo de 7 dias para pedidos de exclusão (seção 7).
+Histórico de versões: 1.0 (06/10/2026), versão inicial; 1.1 (07/10/2026), inclusão do Resend entre os operadores (seção 5), da confirmação do e-mail no cadastro e do envio de e-mails entre as finalidades (seção 4) e do prazo dos cadastros não confirmados (seção 6); 1.2 (13/10/2026), adequação às políticas dos YouTube API Services: concordância com os Termos de Serviço do YouTube (seções 1 e 2), referência à Política de Privacidade do Google, dados dos vídeos, resultados e armazenamento no navegador (seções 3 a 5), prazos de guarda de 30 dias e 36 meses com exclusão automática (seção 6), exclusão do corpus de pesquisa ao fim do TCC (seção 6) e prazo de 7 dias para pedidos de exclusão (seção 7).

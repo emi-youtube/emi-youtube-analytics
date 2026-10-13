@@ -285,7 +285,7 @@ depois da exclusão da conta ou da empresa e não é publicado com identificaç�
 
 ### Bases legais por dado
 
-Transcritas da seção 4 dos termos vigentes (`termos-v1.1.md`), que é a fonte oficial: se um dia
+Transcritas da seção 4 dos termos vigentes (`termos-v1.2.md`), que é a fonte oficial: se um dia
 divergirem, vale o texto dos termos e esta tabela é corrigida. A coluna "No sistema"
 diz onde cada dado mora.
 
@@ -293,7 +293,7 @@ diz onde cada dado mora.
 |---|---|---|---|
 | e-mail, senha e nome da empresa | execução do serviço solicitado (V) | `USUARIOS`, `EMPRESAS`; senha só como hash bcrypt | enquanto a conta existir |
 | termos aceitos (versão e data) | cumprimento de obrigação / legítimo interesse | `ACEITES_TERMOS` | sai com a conta |
-| comentários públicos do YouTube | legítimo interesse acadêmico; dado tornado público (§4º) | `COMENTARIOS`, autor **pseudonimizado** (SHA-256) | até 3 meses após a execução — ver pendência abaixo |
+| comentários públicos do YouTube | legítimo interesse acadêmico; dado tornado público (§4º) | `COMENTARIOS`, autor **pseudonimizado** (SHA-256) | texto e autor: até 30 dias após a coleta; resultados: até 36 meses — ver abaixo |
 | registros técnicos (logs, tentativas de login) | legítimo interesse (IX) | `TENTATIVAS_LOGIN` (hash do e-mail) | 24 h (regra 7) |
 | respostas da validação humana | consentimento (I), pelo TCLE | fora deste banco | documento próprio |
 
@@ -303,13 +303,13 @@ pseudonimizado (art. 13, §4º) continua sendo dado pessoal — só o anonimizad
 alcance da lei (art. 12). O texto dos termos diz isso ("pseudonimização, não
 anonimização completa").
 
-### Pendência conhecida: expurgo automático das execuções
+### Expurgo automático das execuções (resolvido no ADR-015)
 
-A seção 6 dos termos prevê excluir comentários e resultados até **3 meses** após a
-execução. **O expurgo automático AINDA NÃO existe**: hoje a execução fica até a empresa ser excluída,
-e os termos dizem isso ("até lá, a exclusão é feita sob pedido"). Quando for feito, o
-caminho natural é a mesma ordem de `_apagar_empresa`, aplicada às execuções vencidas, e
-uma linha nova neste ADR.
+Até a versão 1.1, os termos previam excluir comentários e resultados em **3 meses**, sem
+expurgo automático. A versão 1.2 seguiu as políticas dos YouTube API Services: o texto
+dos comentários sai em até **30 dias** e os resultados em até **36 meses**, pelo
+`workers/expurgo.py`, que usa para os 36 meses a mesma ordem de `_apagar_empresa`. Ver o
+item "Conformidade com as políticas da API" do ADR-015.
 
 ### Tabela nova e classificação
 
@@ -532,7 +532,7 @@ são configuração, com os padrões acima.
   futuro o reaproveitamento de coletas recentes do mesmo vídeo.
 - **Conformidade com as políticas da API** (condição também da auditoria de ampliação):
   1. **Termos e privacidade (III.A.1 e III.A.2) — feito na versão 1.2 dos termos
-     (09/10/2026):** link para os Termos de Serviço do YouTube com a declaração de que o
+     (13/10/2026):** link para os Termos de Serviço do YouTube com a declaração de que o
      usuário concorda com eles; aviso de que o app usa os YouTube API Services; link para a
      Política de Privacidade do Google; armazenamento no navegador; prazo de 7 dias para
      pedidos de exclusão (III.E.4.g). O link para os termos fica no menu de todas as telas.
