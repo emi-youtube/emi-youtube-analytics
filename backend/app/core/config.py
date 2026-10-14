@@ -70,17 +70,8 @@ class Settings(BaseSettings):
     # "log": não envia; em desenvolvimento escreve a mensagem (com o link) no log do
     # servidor, e em produção só avisa que NÃO enviou — link de redefinição em log
     # de produção seria credencial exposta. "resend": envia pela API do Resend.
-    # "smtp": envia por um servidor SMTP com login, como a conta Gmail do projeto com
-    # senha de app. Sem domínio próprio, é o que entrega para qualquer destinatário.
     email_provedor: str = "log"
     resend_api_key: str = ""
-    # SMTP (EMAIL_PROVEDOR=smtp). No Gmail: smtp.gmail.com, porta 587 (STARTTLS), o
-    # endereço da conta e uma senha de app, que exige a verificação em duas etapas.
-    # O remetente é sempre o próprio usuário SMTP: o Gmail não envia em nome de outro.
-    smtp_host: str = ""
-    smtp_porta: int = 587
-    smtp_usuario: str = ""
-    smtp_senha: str = ""
     # Remetente verificado no Resend. O domínio de testes dele só entrega para o
     # e-mail da própria conta: para convidar de verdade, verifique um domínio.
     email_remetente: str = "Emi Analytics <onboarding@resend.dev>"
@@ -178,10 +169,6 @@ AVISO_FRONTEND_URL_LOCAL = (
     "redefinição de senha ficarão inválidos. Configure FRONTEND_URL com o domínio "
     "da Vercel (https, sem barra no fim)."
 )
-AVISO_FRONTEND_URL_SEM_HTTPS = (
-    "FRONTEND_URL não começa com https:// em produção: os links dos e-mails não vão "
-    "abrir. Configure FRONTEND_URL como https://<domínio da Vercel>, sem barra no fim."
-)
 
 
 def avisar_configuracao_suspeita(config: Settings) -> bool:
@@ -194,14 +181,10 @@ def avisar_configuracao_suspeita(config: Settings) -> bool:
     """
     if config.app_env != "production":
         return False
-    if any(host in config.frontend_url for host in HOSTS_LOCAIS):
-        logger.warning(AVISO_FRONTEND_URL_LOCAL)
-        return True
-    # Já aconteceu também: "ttps://..." digitado no portal, e todo link de e-mail quebrado.
-    if not config.frontend_url.strip().startswith("https://"):
-        logger.warning(AVISO_FRONTEND_URL_SEM_HTTPS)
-        return True
-    return False
+    if not any(host in config.frontend_url for host in HOSTS_LOCAIS):
+        return False
+    logger.warning(AVISO_FRONTEND_URL_LOCAL)
+    return True
 
 
 @lru_cache
