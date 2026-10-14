@@ -82,6 +82,12 @@
             colar o endereço inteiro também funciona.
           </p>
         }
+        <!-- Políticas dos YouTube API Services, III.E.2: o worker de coleta recusa vídeos
+             de canais diferentes na mesma análise. Sempre visível, também com erro no campo. -->
+        <p class="campo__dica" data-testid="aviso-um-canal">
+          Todos os vídeos precisam ser do <strong>mesmo canal</strong>: as regras da API do YouTube
+          não permitem juntar canais diferentes numa análise. Para outro canal, crie outro modelo.
+        </p>
       </div>
 
       <div class="campo">

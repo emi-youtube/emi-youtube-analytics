@@ -335,6 +335,19 @@ async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
             sorted(ausentes),
         )
 
+    # Políticas dos YouTube API Services, III.E.2: dados de canais de donos diferentes
+    # não podem ser combinados num mesmo resultado. Uma análise é de um canal só, e a
+    # conferência vem antes de qualquer página de comentários, para não gastar cota.
+    # A mensagem não leva o nome dos canais: ela fica na DLQ, e nome de canal é dado da
+    # API, que não pode passar de 30 dias.
+    canais = {v.id_canal for v in videos if v.id_canal}
+    if len(canais) > 1:
+        raise FalhaColeta(
+            f"Os vídeos são de {len(canais)} canais diferentes. Pelas políticas da API do "
+            "YouTube (III.E.2), uma análise só junta vídeos de um mesmo canal: crie um "
+            "modelo de análise para cada canal."
+        )
+
     # O limite e o teto de leitura são da EXECUÇÃO, repartidos entre os vídeos na
     # ordem em que a API os devolveu.
     restante = recorte.limite_aplicado

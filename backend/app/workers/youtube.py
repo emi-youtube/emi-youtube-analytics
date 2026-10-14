@@ -96,6 +96,9 @@ class VideoColetado:
     publicado_em: datetime | None
     visualizacoes: int
     curtidas: int
+    # Só para conferir que a análise é de um canal só (coleta, III.E.2); não é gravado:
+    # é dado da API e não tem por que entrar no expurgo.
+    id_canal: str = ""
 
 
 @dataclass(frozen=True)
@@ -255,6 +258,7 @@ class ClienteYouTube:
                         publicado_em=_para_datetime(snippet.get("publishedAt")),
                         visualizacoes=_para_int(estatisticas.get("viewCount")),
                         curtidas=_para_int(estatisticas.get("likeCount")),
+                        id_canal=snippet.get("channelId", ""),
                     )
                 )
 

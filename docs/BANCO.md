@@ -568,6 +568,11 @@ são configuração, com os padrões acima.
      Analytics** (o título do TCC é outra coisa e pode ficar). Faltam um domínio da Vercel
      sem "youtube" e o selo oficial "Developed with YouTube", clicável e com link para o
      conteúdo no YouTube, na tela de login e onde os dados da API aparecem.
+  6. **Agregação (III.E.2) — feito:** dados de canais de donos diferentes não podem ser
+     combinados num mesmo resultado. A coleta confere o `channelId` dos vídeos antes de ler
+     comentários e recusa (DLQ, execução em `erro`) a análise com mais de um canal, sem
+     gastar cota com comentários; o formulário do modelo avisa. O `channelId` não é gravado,
+     e a mensagem da DLQ não leva o nome dos canais, que é dado da API.
 - Mais uma tabela de infraestrutura: o banco passa a ter 20 (12 de domínio e 8 de
   infraestrutura). `jobs` ganha `disponivel_em` e `motivo_espera`. As linhas com mais de
   35 dias saem na própria escrita (regra 7).

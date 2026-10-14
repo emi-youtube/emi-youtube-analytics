@@ -127,6 +127,7 @@ def video(youtube_video_id: str = VIDEO_A, **campos) -> VideoColetado:
         "publicado_em": None,
         "visualizacoes": 1000,
         "curtidas": 50,
+        "id_canal": "UC-loja-exemplo",
     }
     return VideoColetado(youtube_video_id=youtube_video_id, **{**padrao, **campos})
 
@@ -337,6 +338,37 @@ async def test_varios_videos_na_mesma_execucao(sessao):
 
     assert len((await sessao.scalars(select(Video))).all()) == 2
     assert len((await sessao.scalars(select(Comentario))).all()) == 3
+
+
+async def test_videos_de_canais_diferentes_vao_para_a_dlq_sem_ler_comentarios(sessao):
+    """III.E.2: dados de donos diferentes não se combinam; uma análise é de um canal só."""
+    job = await montar_job(sessao, filtros={"videos": [VIDEO_A, VIDEO_B]})
+    cliente = ClienteFalso(
+        videos=[video(VIDEO_A), video(VIDEO_B, id_canal="UC-concorrente", canal="Concorrente")],
+        comentarios={VIDEO_A: [comentario("a1")], VIDEO_B: [comentario("b1")]},
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+
+    dlq = await sessao.scalar(select(JobDlq))
+    assert dlq.id_job == job.id_job
+    assert "2 canais diferentes" in dlq.erro
+    # O nome do canal é dado da API: não pode ficar guardado na DLQ.
+    assert "Concorrente" not in dlq.erro
+    assert (await sessao.get(Execucao, job.id_execucao)).status == "erro"
+    assert (await sessao.scalars(select(Comentario))).all() == []
+
+
+async def test_videos_do_mesmo_canal_seguem_juntos(sessao):
+    await montar_job(sessao, filtros={"videos": [VIDEO_A, VIDEO_B]})
+    cliente = ClienteFalso(
+        videos=[video(VIDEO_A), video(VIDEO_B)],
+        comentarios={VIDEO_A: [comentario("a1")], VIDEO_B: [comentario("b1")]},
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+
+    assert len((await sessao.scalars(select(Comentario))).all()) == 2
 
 
 # --------------------------------------------------------------------------- payload congelado
