@@ -113,6 +113,25 @@ describe('Resultado', () => {
     expect(selo.querySelector('img')!.getAttribute('alt')).toBe('Developed with YouTube');
   });
 
+  it('mostra o F1 do teste com gabarito humano, e não o da validação', () => {
+    const base = RESULTADOS_DEMO.get(12)!;
+    const tela = renderizar({
+      ...base,
+      versao_modelo: {
+        ...base.versao_modelo!,
+        metricas_avaliacao: { f1_macro: 0.7313, acuracia: 0.7365, exemplos_teste: 334 },
+      },
+    });
+
+    const linha = tela.querySelector('[data-testid="f1-gabarito-humano"]')!;
+    expect(linha.querySelector('dt')!.textContent).toContain(
+      'F1 macro (teste com gabarito humano)',
+    );
+    expect(linha.querySelector('dd')!.textContent!.trim()).toBe('0,73');
+    expect(tela.textContent).toContain('334 comentários rotulados por pessoas');
+    expect(tela.textContent).not.toContain('(validação)');
+  });
+
   it('com temas, não mostra a nota', () => {
     const tela = renderizar(RESULTADOS_DEMO.get(12)!);
 

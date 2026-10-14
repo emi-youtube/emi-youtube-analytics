@@ -107,11 +107,12 @@ class TemaResponse(BaseModel):
 
 
 class MetricasAvaliacao(BaseModel):
-    """O recorte de `VERSOES_MODELO.metricas_avaliacao` que a tela sabe ler.
+    """A avaliação da versão contra o gabarito HUMANO (Capítulo 5), que a tela mostra.
 
-    `f1_macro` é obrigatório: é a métrica que importa no projeto (CLAUDE.md
-    regra 8) e o que distingue "versão avaliada" de "versão que só tem
-    proveniência". Um JSONB sem ela não vira este objeto — vira `None`.
+    Vem de `VERSOES_MODELO.metricas_avaliacao`, no topo ou dentro da proveniência
+    (`services/resultado._avaliacao_humana`). `f1_macro` é obrigatório: é a métrica
+    que importa no projeto (CLAUDE.md regra 8) e o que distingue "versão avaliada"
+    de "versão que só tem proveniência". Sem ela, o campo vem `None`.
     """
 
     f1_macro: float

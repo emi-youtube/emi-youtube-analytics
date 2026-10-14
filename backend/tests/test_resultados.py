@@ -420,6 +420,61 @@ async def test_versao_com_f1_registrado_devolve_as_metricas(cliente, sessao):
     assert corpo["versao_modelo"]["metricas_avaliacao"]["f1_macro"] == pytest.approx(0.81)
 
 
+async def test_avaliacao_humana_dentro_da_proveniencia_aparece_na_resposta(cliente, sessao):
+    """Como o BERTimbau grava: o resultado do Capítulo 5 vem no cartão, dentro da
+    proveniência. Antes, a tela dizia "sem avaliação registrada" com ele no banco."""
+    dados = await montar_cenario(
+        cliente,
+        sessao,
+        email="d11@exemplo.com",
+        metricas={
+            "proveniencia": {
+                "metodo": "BERTimbau fine-tuned, pytorch float32",
+                "avaliacao_gabarito_humano": {
+                    "fonte": "ml/avaliacao/saida/resultado_avaliacao.json",
+                    "total_avaliado": 334,
+                    "f1_macro": 0.7313726152097715,
+                    "acuracia": 0.7365269461077845,
+                    "f1_por_classe": {"positivo": 0.789, "negativo": 0.7, "neutro": 0.705},
+                },
+            },
+            # Validação com rótulo fraco: nunca pode aparecer como a métrica da versão.
+            "metricas_validacao": {"f1_macro": 0.99},
+        },
+    )
+    cabecalho = dados["cabecalho"]
+
+    corpo = (
+        await cliente.get(
+            f"/api/v1/execucoes/{dados['execucao'].id_execucao}/resultado", headers=cabecalho
+        )
+    ).json()
+
+    metricas = corpo["versao_modelo"]["metricas_avaliacao"]
+    assert metricas["f1_macro"] == pytest.approx(0.7314, abs=1e-4)
+    assert metricas["acuracia"] == pytest.approx(0.7365, abs=1e-4)
+    assert metricas["exemplos_teste"] == 334
+    assert metricas["f1_por_classe"]["positivo"] == pytest.approx(0.789)
+
+
+async def test_proveniencia_sem_avaliacao_humana_continua_nula(cliente, sessao):
+    dados = await montar_cenario(
+        cliente,
+        sessao,
+        email="d12@exemplo.com",
+        metricas={"proveniencia": {"metodo": "BERTimbau", "avaliacao_gabarito_humano": None}},
+    )
+    cabecalho = dados["cabecalho"]
+
+    corpo = (
+        await cliente.get(
+            f"/api/v1/execucoes/{dados['execucao'].id_execucao}/resultado", headers=cabecalho
+        )
+    ).json()
+
+    assert corpo["versao_modelo"]["metricas_avaliacao"] is None
+
+
 async def test_confianca_vem_nula_porque_a_coluna_nao_existe(cliente, sessao):
     dados = await montar_cenario(cliente, sessao, email="d10@exemplo.com")
     cabecalho = dados["cabecalho"]
