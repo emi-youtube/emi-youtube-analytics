@@ -99,6 +99,7 @@ async def test_listar_videos_converte_metadados():
         "snippet": {
             "title": "Campanha de verão",
             "channelTitle": "Loja Exemplo",
+            "channelId": "UC-loja-exemplo",
             "publishedAt": "2026-02-10T08:30:00Z",
         },
         "statistics": {"viewCount": "15230", "likeCount": "412"},
@@ -110,6 +111,7 @@ async def test_listar_videos_converte_metadados():
     assert len(videos) == 1
     assert videos[0].titulo == "Campanha de verão"
     assert videos[0].canal == "Loja Exemplo"
+    assert videos[0].id_canal == "UC-loja-exemplo"
     assert videos[0].visualizacoes == 15230
     assert videos[0].curtidas == 412
     assert videos[0].publicado_em.year == 2026

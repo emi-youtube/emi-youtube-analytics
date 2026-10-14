@@ -107,6 +107,13 @@ describe('ModeloForm (edição de modelo de colega)', () => {
     expect(aviso).toContain('percentuais, os temas e os indicadores');
   });
 
+  it('avisa que a análise aceita vídeos de um canal só (III.E.2)', () => {
+    const tela: HTMLElement = montar(true).nativeElement;
+
+    const aviso = tela.querySelector('[data-testid="aviso-um-canal"]')?.textContent ?? '';
+    expect(aviso.replace(/\s+/g, ' ')).toContain('mesmo canal');
+  });
+
   it('com permissão: formulário livre', () => {
     const fixture = montar(true);
     const tela: HTMLElement = fixture.nativeElement;
