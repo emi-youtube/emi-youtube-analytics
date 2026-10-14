@@ -215,3 +215,9 @@
 .legal a {
   color: inherit;
 }
+
+.selo-youtube {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-3);
+}

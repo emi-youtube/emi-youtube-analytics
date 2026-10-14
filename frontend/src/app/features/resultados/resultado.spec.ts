@@ -102,6 +102,17 @@ describe('Resultado', () => {
     );
   });
 
+  it('mostra o selo do YouTube com link para o vídeo analisado (diretrizes de marca)', () => {
+    const base = RESULTADOS_DEMO.get(12)!;
+    const tela = renderizar(base);
+
+    const selo = tela.querySelector<HTMLAnchorElement>('[data-testid="selo-youtube"]')!;
+    expect(selo.getAttribute('href')).toBe(
+      `https://www.youtube.com/watch?v=${base.videos[0].video.youtube_video_id}`,
+    );
+    expect(selo.querySelector('img')!.getAttribute('alt')).toBe('Developed with YouTube');
+  });
+
   it('com temas, não mostra a nota', () => {
     const tela = renderizar(RESULTADOS_DEMO.get(12)!);
 

@@ -71,4 +71,15 @@ describe('Shell', () => {
     const links = Array.from(tela.querySelectorAll('.legal a')).map((a) => a.getAttribute('href'));
     expect(links).toEqual(['/termos', '/privacidade']);
   });
+
+  it('mostra o selo oficial do YouTube, versão para fundo escuro, no pé da nav', () => {
+    const tela = montar(false);
+
+    const selo = tela.querySelector<HTMLAnchorElement>('.conta [data-testid="selo-youtube"]')!;
+    expect(selo.getAttribute('href')).toBe('https://www.youtube.com');
+    expect(selo.getAttribute('target')).toBe('_blank');
+    expect(selo.querySelector('img')!.getAttribute('src')).toBe(
+      '/marca/developed-with-youtube-branco.png',
+    );
+  });
 });

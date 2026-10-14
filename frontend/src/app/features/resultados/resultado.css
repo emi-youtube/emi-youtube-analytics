@@ -346,3 +346,12 @@
 .recorte__nota {
   margin: var(--space-3) 0 0;
 }
+
+/* Contagem de vídeos e selo do YouTube, à direita do título da tabela. */
+.painel__lado {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}

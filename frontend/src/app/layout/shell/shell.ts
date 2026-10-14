@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 
 import { AuthService } from '../../core/auth/auth.service';
 import { AceiteTermos } from '../aceite-termos/aceite-termos';
+import { SeloYoutube } from '../selo-youtube';
 
 interface NavItem {
   rotulo: string;
@@ -25,7 +26,7 @@ const PAPEIS_EMPRESA: Record<string, string> = {
  */
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, AceiteTermos],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, AceiteTermos, SeloYoutube],
   templateUrl: './shell.html',
   styleUrl: './shell.css',
 })
