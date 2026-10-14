@@ -114,6 +114,32 @@ describe('ModeloForm (edição de modelo de colega)', () => {
     expect(aviso.replace(/\s+/g, ' ')).toContain('mesmo canal');
   });
 
+  it('canais diferentes: mostra a recusa do servidor embaixo do campo dos vídeos', () => {
+    const fixture = montar(true);
+    const tela: HTMLElement = fixture.nativeElement;
+    const mensagem =
+      'Os vídeos são de 2 canais diferentes: Apple (1 vídeo: dQw4w9WgXcQ) e Outra (1 vídeo: kJQP7kiw5Fk).';
+
+    fixture.componentInstance['form'].controls.videos.setValue('dQw4w9WgXcQ\nkJQP7kiw5Fk');
+    (fixture.componentInstance as unknown as { salvar: (e: boolean) => void }).salvar(false);
+    httpMock.expectOne({ method: 'PATCH', url: `${URL}/5` }).flush(
+      {
+        detail: [{ loc: ['body', 'filtros', 'videos'], msg: mensagem, type: 'canais_diferentes' }],
+      },
+      { status: 422, statusText: 'Unprocessable Content' },
+    );
+    fixture.detectChanges();
+
+    expect(tela.querySelector('[data-testid="erro-canais"]')?.textContent).toContain(mensagem);
+    expect(tela.querySelector('.falha[role="alert"]')).toBeNull();
+    expect(tela.querySelector('#videos')?.classList).toContain('campo__entrada--invalido');
+
+    // Mexer na lista apaga a recusa: ela valia para os vídeos de antes.
+    fixture.componentInstance['form'].controls.videos.setValue('dQw4w9WgXcQ');
+    fixture.detectChanges();
+    expect(tela.querySelector('[data-testid="erro-canais"]')).toBeNull();
+  });
+
   it('com permissão: formulário livre', () => {
     const fixture = montar(true);
     const tela: HTMLElement = fixture.nativeElement;

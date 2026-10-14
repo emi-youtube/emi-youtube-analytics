@@ -18,7 +18,8 @@ from app.models.execucao import Execucao
 from app.models.modelo_analise import ModeloAnalise
 from app.models.usuario import Usuario
 from app.schemas.modelo_analise import FiltrosModelo, ModeloAnaliseCreate, ModeloAnaliseUpdate
-from app.services import escopo, permissao
+from app.services import canal, escopo, permissao
+from app.workers.youtube import ClienteYouTube
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +54,20 @@ def _filtros_para_banco(filtros: FiltrosModelo | None) -> dict | None:
     return filtros.model_dump(mode="json", exclude_none=True) if filtros is not None else None
 
 
-async def create(db: AsyncSession, usuario: Usuario, dados: ModeloAnaliseCreate) -> ModeloAnalise:
+def _videos(filtros: dict | None) -> list[str]:
+    return list((filtros or {}).get("videos") or [])
+
+
+async def create(
+    db: AsyncSession,
+    usuario: Usuario,
+    dados: ModeloAnaliseCreate,
+    youtube: ClienteYouTube | None = None,
+) -> ModeloAnalise:
     filtros = _filtros_para_banco(dados.filtros)
     _validar_escopo(filtros)
+    # III.E.2: um canal por análise, conferido já no salvamento (ver services/canal.py).
+    await canal.conferir_um_canal(db, youtube, usuario.id_empresa, _videos(filtros))
 
     modelo = ModeloAnalise(
         id_usuario=usuario.id_usuario,
@@ -112,7 +124,11 @@ async def get_alteravel(db: AsyncSession, usuario: Usuario, id_modelo: int) -> M
 
 
 async def update(
-    db: AsyncSession, usuario: Usuario, id_modelo: int, dados: ModeloAnaliseUpdate
+    db: AsyncSession,
+    usuario: Usuario,
+    id_modelo: int,
+    dados: ModeloAnaliseUpdate,
+    youtube: ClienteYouTube | None = None,
 ) -> ModeloAnalise:
     modelo = await get_alteravel(db, usuario, id_modelo)
     alteracoes = dados.model_dump(exclude_unset=True)
@@ -124,6 +140,11 @@ async def update(
     # Revalida o estado final: sem isso um PATCH conseguiria deixar o registro na
     # mesma situação que o POST recusa.
     _validar_escopo(alteracoes.get("filtros", modelo.filtros))
+
+    # Só confere o canal quando a lista de vídeos muda: renomear o modelo não gasta cota.
+    videos_novos = _videos(alteracoes.get("filtros", modelo.filtros))
+    if set(videos_novos) != set(_videos(modelo.filtros)):
+        await canal.conferir_um_canal(db, youtube, usuario.id_empresa, videos_novos)
 
     for campo, valor in alteracoes.items():
         setattr(modelo, campo, valor)

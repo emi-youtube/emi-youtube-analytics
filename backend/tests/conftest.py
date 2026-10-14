@@ -54,6 +54,7 @@ from app.models.uso_cota_youtube import UsoCotaYoutube
 from app.models.usuario import Usuario
 from app.models.versao_modelo import VersaoModelo
 from app.models.video import Video
+from app.services import canal
 from app.services import email as email_service
 
 TABELAS_TESTADAS = [
@@ -242,7 +243,13 @@ async def cliente(engine_teste):
         async with fabrica() as sessao:
             yield sessao
 
+    async def _sem_youtube():
+        # Nenhum teste da API toca a YouTube API real; quem precisa dela troca isto
+        # por um cliente sobre `httpx.MockTransport` (test_modelos_canal.py).
+        return None
+
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[canal.get_cliente_youtube] = _sem_youtube
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://teste") as c:
         yield c
     app.dependency_overrides.clear()
