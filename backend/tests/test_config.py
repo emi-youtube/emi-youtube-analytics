@@ -5,7 +5,11 @@ import logging
 import pytest
 
 from app.core import config
-from app.core.config import AVISO_FRONTEND_URL_LOCAL, avisar_configuracao_suspeita
+from app.core.config import (
+    AVISO_FRONTEND_URL_LOCAL,
+    AVISO_FRONTEND_URL_SEM_HTTPS,
+    avisar_configuracao_suspeita,
+)
 from app.main import app, lifespan
 
 
@@ -21,6 +25,18 @@ def test_producao_com_frontend_url_local_avisa(url, caplog):
     avisos = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert [r.getMessage() for r in avisos] == [AVISO_FRONTEND_URL_LOCAL]
     assert "localhost em produção" in AVISO_FRONTEND_URL_LOCAL
+
+
+@pytest.mark.parametrize("url", ["ttps://emi-analytics.vercel.app", "http://emi.vercel.app"])
+def test_producao_com_frontend_url_sem_https_avisa(url, caplog):
+    # O caso real: "ttps://..." digitado no portal do Azure quebrou os links dos e-mails.
+    cfg = config.settings.model_copy(update={"app_env": "production", "frontend_url": url})
+
+    with caplog.at_level(logging.WARNING, logger="app.core.config"):
+        assert avisar_configuracao_suspeita(cfg) is True
+
+    avisos = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert avisos == [AVISO_FRONTEND_URL_SEM_HTTPS]
 
 
 def test_producao_com_dominio_real_nao_avisa(caplog):
