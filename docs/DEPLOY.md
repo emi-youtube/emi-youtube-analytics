@@ -229,8 +229,7 @@ painéis.
    | `APP_ENV` | `production` |
    | `CORS_ORIGINS` | o domínio da Vercel, ex.: `https://emi-youtube-analytics.vercel.app` |
    | `FRONTEND_URL` | **obrigatória.** O domínio da Vercel com `https://` e **sem barra no fim**, ex.: `https://emi-youtube-analytics.vercel.app`. É a base dos links de convite e de redefinição de senha; o padrão do código é `http://localhost:4200`, e esquecê-la não dá erro — o e-mail sai com um link para localhost. Com `APP_ENV=production` e localhost aqui, a API registra um WARNING no arranque |
-   | `EMAIL_PROVEDOR` | `smtp` (Gmail do projeto, sem domínio próprio), `resend` (com domínio verificado) ou `log` — ver passo B.2 |
-   | `SMTP_HOST`, `SMTP_PORTA`, `SMTP_USUARIO`, `SMTP_SENHA` | só com `EMAIL_PROVEDOR=smtp`: `smtp.gmail.com`, `587`, o Gmail do projeto e a **senha de app** dele — a senha é segredo |
+   | `EMAIL_PROVEDOR` | `resend` (ou `log` enquanto não houver conta — ver passo B.2) |
    | `RESEND_API_KEY` | a chave da API do Resend — é segredo |
    | `EMAIL_REMETENTE` | ex.: `Emi Analytics <nao-responda@seu-dominio>` (domínio verificado no Resend) |
    | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `1` |
@@ -445,18 +444,6 @@ por dia — sobra para o projeto), chamado por HTTP direto, sem SDK.
    remetente desse domínio em `EMAIL_REMETENTE`.
 3. No App Service: `EMAIL_PROVEDOR=resend`, `RESEND_API_KEY`, `EMAIL_REMETENTE` e
    `FRONTEND_URL` (tabela do passo A6).
-
-**Sem domínio próprio: SMTP do Gmail do projeto.** O domínio de testes do Resend só
-entrega para o e-mail da conta dele, então o cadastro de empresa nova não funciona para
-mais ninguém. Sem domínio, o caminho é enviar pela conta Gmail do projeto:
-
-1. Na conta Google do projeto, com a verificação em duas etapas ativa, gere uma
-   **senha de app** (Conta do Google → Segurança → Senhas de app).
-2. No App Service: `EMAIL_PROVEDOR=smtp`, `SMTP_HOST=smtp.gmail.com`, `SMTP_PORTA=587`,
-   `SMTP_USUARIO=<gmail do projeto>` e `SMTP_SENHA=<senha de app>`. O remetente sai
-   como `Emi Analytics <gmail do projeto>`; `EMAIL_REMETENTE` não é usado.
-3. O Gmail aceita cerca de 500 envios por dia, o que sobra para o projeto. Com um domínio
-   próprio no futuro, volte para o Resend com o domínio verificado.
 
 **Sem provedor** (`EMAIL_PROVEDOR=log`, o padrão): em desenvolvimento o e-mail inteiro,
 com o link, vai para o log do servidor — é assim que se testa o fluxo localmente. Em
