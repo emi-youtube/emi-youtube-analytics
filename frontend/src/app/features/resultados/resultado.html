@@ -370,24 +370,26 @@
             <dd>{{ v.nome_modelo }} {{ v.versao }}</dd>
           </div>
           @if (v.metricas_avaliacao; as m) {
-            <div class="procedencia__linha">
-              <dt>F1 macro (validação)</dt>
+            <!-- A avaliação contra o gabarito humano (Capítulo 5), nunca a validação com
+                 rótulo fraco: o backend só preenche este campo com ela. -->
+            <div class="procedencia__linha" data-testid="f1-gabarito-humano">
+              <dt>F1 macro (teste com gabarito humano)</dt>
               <dd>{{ m.f1_macro.toFixed(2).replace('.', ',') }}</dd>
             </div>
             @if (m.exemplos_teste) {
               <div class="procedencia__linha">
                 <dt>Conjunto de teste</dt>
-                <dd>{{ numero(m.exemplos_teste) }} exemplos humanos</dd>
+                <dd>{{ numero(m.exemplos_teste) }} comentários rotulados por pessoas</dd>
               </div>
             }
           } @else {
             <!--
-              Versão sem avaliação registrada. É o caso do classificador léxico,
-              que é a linha de base: ele nunca foi medido contra o gabarito
-              humano, e inventar um número aqui seria pior que admitir a ausência.
+              Versão sem avaliação registrada na linha de VERSOES_MODELO. É o caso do
+              classificador léxico, a contingência: inventar um número aqui seria pior
+              que admitir a ausência.
             -->
             <div class="procedencia__linha">
-              <dt>F1 macro (validação)</dt>
+              <dt>F1 macro (teste com gabarito humano)</dt>
               <dd class="muted">sem avaliação registrada para esta versão</dd>
             </div>
           }

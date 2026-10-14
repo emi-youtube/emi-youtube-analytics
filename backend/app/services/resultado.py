@@ -391,18 +391,49 @@ def versao_para_resposta(
     )
 
 
-def _metricas(bruto: dict | None) -> MetricasAvaliacao | None:
-    """Só devolve métrica quando existe AVALIAÇÃO — e `f1_macro` é o que a marca.
+def _avaliacao_humana(bruto: dict) -> dict | None:
+    """Onde a avaliação contra o gabarito humano está guardada, se estiver.
 
-    O classificador léxico grava `{"proveniencia": {...}}`: sha256 do recurso,
-    contagem de entradas, papel. Isso não é avaliação — ele nunca foi medido
-    contra o gabarito humano, que é o único válido (CLAUDE.md regra 6). Sem
-    `f1_macro`, a resposta é nula e a tela mostra "sem métrica registrada".
+    Dois lugares, nesta ordem:
+
+    - no topo de `metricas_avaliacao` (`f1_macro` ao lado de `proveniencia`), se um
+      dia a avaliação for gravada diretamente na linha;
+    - dentro da proveniência do BERTimbau (`proveniencia.avaliacao_gabarito_humano`):
+      o `model_card.json` exportado pelo `ml/` traz o resultado do Capítulo 5, e o
+      classificador o copia para a linha ao registrar a versão. É o caso da
+      `bertimbau-emi 1.0.0` em produção. Antes desta leitura, a tela dizia "sem
+      avaliação registrada" com o número já no banco.
+
+    O cartão chama o tamanho do conjunto de `total_avaliado`; a resposta, de
+    `exemplos_teste`.
     """
-    if not bruto or "f1_macro" not in bruto:
+    if "f1_macro" in bruto:
+        return bruto
+    proveniencia = bruto.get("proveniencia")
+    avaliacao = (
+        proveniencia.get("avaliacao_gabarito_humano") if isinstance(proveniencia, dict) else None
+    )
+    if not isinstance(avaliacao, dict) or "f1_macro" not in avaliacao:
+        return None
+    return {**avaliacao, "exemplos_teste": avaliacao.get("total_avaliado")}
+
+
+def _metricas(bruto: dict | None) -> MetricasAvaliacao | None:
+    """Só devolve métrica quando existe AVALIAÇÃO contra o gabarito humano.
+
+    O classificador léxico grava só `{"proveniencia": {...}}`: sha256 do recurso,
+    contagem de entradas, papel. Isso não é avaliação registrada na linha, e a
+    resposta é nula ("sem avaliação registrada"). Métrica de validação com rótulo
+    fraco (Gemini) nunca entra aqui (CLAUDE.md regra 6): o cartão do BERTimbau a
+    guarda em `metricas_validacao`, que esta leitura ignora.
+    """
+    if not bruto:
+        return None
+    avaliacao = _avaliacao_humana(bruto)
+    if avaliacao is None:
         return None
     try:
-        return MetricasAvaliacao.model_validate(bruto)
+        return MetricasAvaliacao.model_validate(avaliacao)
     except ValueError:
         logger.warning("metricas_avaliacao presente mas ilegivel; tratando como ausente")
         return None

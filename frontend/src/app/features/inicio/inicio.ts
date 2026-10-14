@@ -44,8 +44,8 @@ export class Inicio {
   });
 
   /**
-   * "lexico-sentilex 1.0.0, em uso desde 24 set." — e, quando a versão tiver
-   * avaliação, " F1 macro de 0,79 na validação." no fim.
+   * "bertimbau-emi 1.0.0, em uso desde 14 out." — e, quando a versão tiver
+   * avaliação, " F1 macro de 0,73 no teste com gabarito humano." no fim.
    *
    * O nome sai da versão registrada na análise, nunca fixo aqui: o léxico é o
    * que está em produção hoje e o BERTimbau entra sem esta tela mudar.
@@ -58,7 +58,7 @@ export class Inicio {
 
     const desde = versao.em_uso_desde ? `, em uso desde ${dataLegivel(versao.em_uso_desde)}` : '';
     const f1 = versao.metricas_avaliacao
-      ? ` F1 macro de ${versao.metricas_avaliacao.f1_macro.toFixed(2).replace('.', ',')} na validação.`
+      ? ` F1 macro de ${versao.metricas_avaliacao.f1_macro.toFixed(2).replace('.', ',')} no teste com gabarito humano.`
       : '';
     return `${versao.nome_modelo} ${versao.versao}${desde}.${f1}`;
   });
