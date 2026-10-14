@@ -113,3 +113,24 @@ export function mensagemDeErro(
   // é o que cabe aqui — o usuário não tem o que corrigir.
   return padrao;
 }
+
+/**
+ * A mensagem que o backend prendeu a um campo (`loc` terminando em `campo`), ou `null`.
+ *
+ * Serve para a tela pôr o erro embaixo do campo certo, e não no topo: o backend
+ * usa o formato da validação (`{loc, msg, type}`) também em regras que dependem de
+ * consulta externa, como a conferência de canal dos vídeos do modelo.
+ */
+export function mensagemDoCampo(erro: unknown, campo: string): string | null {
+  if (!(erro instanceof HttpErrorResponse) || erro.status !== 422) {
+    return null;
+  }
+  const detail = (erro.error as { detail?: unknown } | null)?.detail;
+  if (!Array.isArray(detail)) {
+    return null;
+  }
+  const issue = (detail as ValidationIssue[]).find(
+    (item) => item?.loc?.at(-1) === campo && typeof item.msg === 'string',
+  );
+  return issue ? traduzir(issue.msg).texto : null;
+}

@@ -1,5 +1,6 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormBuilder,
@@ -13,7 +14,7 @@ import { Observable } from 'rxjs';
 import { ExecucoesService } from '../../core/api/execucoes.service';
 import { FiltrosModelo, ModeloAnalise } from '../../core/api/modelos.models';
 import { ModelosService } from '../../core/api/modelos.service';
-import { mensagemDeErro, statusDoErro } from '../../core/http/api-error';
+import { mensagemDeErro, mensagemDoCampo, statusDoErro } from '../../core/http/api-error';
 import { escreverVideos, lerVideos } from './videos';
 
 /** Teto por execução do worker (`worker_max_comentarios_por_execucao`). */
@@ -83,9 +84,20 @@ export class ModeloForm {
   /** Linhas do textarea que não são um ID nem um endereço de vídeo. */
   protected readonly linhasInvalidas = signal<string[]>([]);
 
+  /**
+   * Recusa do servidor presa ao campo dos vídeos: hoje, vídeos de canais diferentes
+   * (III.E.2), que só o backend descobre, porque precisa consultar a API do YouTube.
+   * Some quando o usuário mexe na lista.
+   */
+  protected readonly erroDosVideos = signal<string | null>(null);
+
   protected readonly ocupado = computed(() => this.salvando() !== 'nenhum');
 
   constructor() {
+    this.form.controls.videos.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.erroDosVideos.set(null));
+
     if (this.idModelo !== null && this.isBrowser) {
       this.carregarModelo(this.idModelo);
     } else if (this.idModelo !== null) {
@@ -181,6 +193,7 @@ export class ModeloForm {
 
     this.salvando.set(executarDepois ? 'executar' : 'salvar');
     this.falha.set(null);
+    this.erroDosVideos.set(null);
     this.conflitoDeExecucao.set(false);
 
     const requisicao: Observable<ModeloAnalise> =
@@ -196,6 +209,11 @@ export class ModeloForm {
       },
       error: (erro: unknown) => {
         this.salvando.set('nenhum');
+        const doCampo = mensagemDoCampo(erro, 'videos');
+        if (doCampo) {
+          this.erroDosVideos.set(doCampo);
+          return;
+        }
         this.falha.set(mensagemDeErro(erro, 'Não foi possível salvar este modelo.'));
       },
     });

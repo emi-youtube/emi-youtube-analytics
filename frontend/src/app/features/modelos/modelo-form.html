@@ -65,10 +65,14 @@
           rows="6"
           spellcheck="false"
           placeholder="dQw4w9WgXcQ&#10;kJQP7kiw5Fk"
-          [class.campo__entrada--invalido]="invalido('videos') || linhasInvalidas().length > 0"
+          [class.campo__entrada--invalido]="
+            invalido('videos') || linhasInvalidas().length > 0 || erroDosVideos() !== null
+          "
         ></textarea>
 
-        @if (linhasInvalidas().length > 0) {
+        @if (erroDosVideos(); as mensagem) {
+          <p class="campo__ajuda" role="alert" data-testid="erro-canais">{{ mensagem }}</p>
+        } @else if (linhasInvalidas().length > 0) {
           <p class="campo__ajuda">
             Não reconheci
             {{ linhasInvalidas().length === 1 ? 'esta linha' : 'estas linhas' }}:
@@ -86,7 +90,8 @@
              de canais diferentes na mesma análise. Sempre visível, também com erro no campo. -->
         <p class="campo__dica" data-testid="aviso-um-canal">
           Todos os vídeos precisam ser do <strong>mesmo canal</strong>: as regras da API do YouTube
-          não permitem juntar canais diferentes numa análise. Para outro canal, crie outro modelo.
+          não permitem juntar canais diferentes numa análise. Ao salvar, o Emi confere o canal de
+          cada vídeo. Para outro canal, crie outro modelo.
         </p>
       </div>
 

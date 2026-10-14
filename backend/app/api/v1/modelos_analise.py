@@ -12,8 +12,9 @@ from app.schemas.modelo_analise import (
     ModeloAnaliseResponse,
     ModeloAnaliseUpdate,
 )
+from app.services import canal, permissao
 from app.services import modelo_analise as service
-from app.services import permissao
+from app.workers.youtube import ClienteYouTube
 
 # A dependency no router inteiro: nenhuma rota nova entra aqui sem autenticação.
 router = APIRouter(
@@ -23,6 +24,8 @@ router = APIRouter(
 
 UsuarioAtual = Annotated[Usuario, Depends(get_usuario_atual)]
 Sessao = Annotated[AsyncSession, Depends(get_db)]
+# Para conferir, ao salvar, que os vídeos são de um canal só (services/canal.py).
+YouTube = Annotated[ClienteYouTube | None, Depends(canal.get_cliente_youtube)]
 
 
 def _resposta(modelo: ModeloAnalise, usuario: Usuario) -> ModeloAnaliseResponse:
@@ -42,9 +45,9 @@ def _resposta(modelo: ModeloAnalise, usuario: Usuario) -> ModeloAnaliseResponse:
 
 @router.post("", response_model=ModeloAnaliseResponse, status_code=status.HTTP_201_CREATED)
 async def criar(
-    dados: ModeloAnaliseCreate, usuario: UsuarioAtual, db: Sessao
+    dados: ModeloAnaliseCreate, usuario: UsuarioAtual, db: Sessao, youtube: YouTube
 ) -> ModeloAnaliseResponse:
-    return _resposta(await service.create(db, usuario, dados), usuario)
+    return _resposta(await service.create(db, usuario, dados, youtube), usuario)
 
 
 @router.get("", response_model=list[ModeloAnaliseResponse])
@@ -59,9 +62,9 @@ async def detalhar(id_modelo: int, usuario: UsuarioAtual, db: Sessao) -> ModeloA
 
 @router.patch("/{id_modelo}", response_model=ModeloAnaliseResponse)
 async def atualizar(
-    id_modelo: int, dados: ModeloAnaliseUpdate, usuario: UsuarioAtual, db: Sessao
+    id_modelo: int, dados: ModeloAnaliseUpdate, usuario: UsuarioAtual, db: Sessao, youtube: YouTube
 ) -> ModeloAnaliseResponse:
-    return _resposta(await service.update(db, usuario, id_modelo, dados), usuario)
+    return _resposta(await service.update(db, usuario, id_modelo, dados, youtube), usuario)
 
 
 @router.delete("/{id_modelo}", status_code=status.HTTP_204_NO_CONTENT)
