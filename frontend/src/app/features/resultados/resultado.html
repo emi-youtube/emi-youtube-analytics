@@ -177,7 +177,11 @@
   <section class="card painel">
     <div class="painel__cabecalho">
       <h2 class="painel__titulo">Vídeo a vídeo</h2>
-      <span class="muted">{{ r.videos.length }} vídeos</span>
+      <div class="painel__lado">
+        <span class="muted">{{ r.videos.length }} vídeos</span>
+        <!-- Diretrizes de marca: o selo fica junto dos dados da API e leva ao vídeo analisado. -->
+        <app-selo-youtube [href]="linkDoSelo()" />
+      </div>
     </div>
 
     <div class="tabela__caixa">

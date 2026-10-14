@@ -563,11 +563,14 @@ são configuração, com os padrões acima.
      o expurgo não o toca. Os termos 1.2 dizem que ele é excluído ao fim do TCC e não é
      publicado; até lá, é limitação declarada do protótipo acadêmico. Por isso o formulário
      de auditoria (que traz o aceite do item 3) só vai depois da banca, junto com a exclusão.
-  5. **Marca (diretrizes de marca do YouTube) — nome feito; domínio e selo pendentes:** o
-     nome do app não pode levar "YouTube". Desde os termos 1.3 o nome exibido é **Emi
-     Analytics** (o título do TCC é outra coisa e pode ficar). Faltam um domínio da Vercel
-     sem "youtube" e o selo oficial "Developed with YouTube", clicável e com link para o
-     conteúdo no YouTube, na tela de login e onde os dados da API aparecem.
+  5. **Marca (diretrizes de marca do YouTube) — feito:** o nome do app não pode levar
+     "YouTube": desde os termos 1.3 o nome exibido é **Emi Analytics** (o título do TCC é
+     outra coisa e pode ficar). O domínio de produção passa a ser `emi-analytics.vercel.app`
+     (o antigo, com "youtube", fica no `allowedHosts` só durante a transição). O selo oficial
+     "Developed with YouTube" (`frontend/public/marca/`, os arquivos oficiais com a margem
+     transparente reduzida) aparece clicável no painel escuro do login e do cadastro, no pé
+     do menu de todas as telas logadas e ao lado da tabela de vídeos do resultado, onde leva
+     ao vídeo analisado (`layout/selo-youtube.ts`).
   6. **Agregação (III.E.2) — feito:** dados de canais de donos diferentes não podem ser
      combinados num mesmo resultado. A coleta confere o `channelId` dos vídeos antes de ler
      comentários e recusa (DLQ, execução em `erro`) a análise com mais de um canal, sem

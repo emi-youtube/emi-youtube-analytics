@@ -1,5 +1,7 @@
 import { Component } from '@angular/core';
 
+import { SeloYoutube } from '../../layout/selo-youtube';
+
 /**
  * Painel escuro à esquerda das telas de acesso (design/Main.png).
  *
@@ -9,6 +11,7 @@ import { Component } from '@angular/core';
  */
 @Component({
   selector: 'app-vitrine',
+  imports: [SeloYoutube],
   template: `
     <div class="vitrine__marca">
       <svg class="vitrine__icone" viewBox="0 0 24 24" aria-hidden="true">
@@ -33,6 +36,8 @@ import { Component } from '@angular/core';
         A identidade de quem comenta nunca é armazenada — apenas um código irreversível, em
         conformidade com a LGPD.
       </p>
+      <!-- Diretrizes de marca dos YouTube API Services: selo oficial, clicável. -->
+      <app-selo-youtube class="vitrine__selo" fundo="escuro" />
     </div>
   `,
   styles: `
@@ -96,6 +101,10 @@ import { Component } from '@angular/core';
       color: var(--accent);
       font-size: 28px;
       margin-right: var(--space-2);
+    }
+
+    .vitrine__selo {
+      margin-top: var(--space-4);
     }
 
     .vitrine__lgpd {

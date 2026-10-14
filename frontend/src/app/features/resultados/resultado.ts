@@ -10,6 +10,7 @@ import { mensagemDeErro, statusDoErro } from '../../core/http/api-error';
 import { BarraSentimento } from '../painel/barra-sentimento';
 import { GuardaComentarios } from './guarda-comentarios';
 import { SeloDemo } from '../painel/selo-demo';
+import { SeloYoutube, YOUTUBE } from '../../layout/selo-youtube';
 
 /** Acima disto o vídeo é destacado como fora da curva (design/Dashboard.png). */
 const FATOR_NEGATIVIDADE_ALTA = 2;
@@ -24,7 +25,7 @@ export const MINIMO_COMENTARIOS_PARA_TEMAS = 100;
 /** Tela Resultados de uma execução (design/Dashboard.png). */
 @Component({
   selector: 'app-resultado',
-  imports: [RouterLink, BarraSentimento, SeloDemo, GuardaComentarios],
+  imports: [RouterLink, BarraSentimento, SeloDemo, GuardaComentarios, SeloYoutube],
   templateUrl: './resultado.html',
   styleUrls: ['../painel/painel.css', './resultado.css'],
 })
@@ -41,6 +42,12 @@ export class Resultado {
 
   protected readonly dataHoraLegivel = dataHoraLegivel;
   protected readonly minimoParaTemas = MINIMO_COMENTARIOS_PARA_TEMAS;
+
+  /** O selo do YouTube leva ao primeiro vídeo da análise (diretrizes de marca). */
+  protected readonly linkDoSelo = computed(() => {
+    const id = this.resultado()?.videos[0]?.video.youtube_video_id;
+    return id ? `https://www.youtube.com/watch?v=${encodeURIComponent(id)}` : YOUTUBE;
+  });
 
   protected readonly percentuaisGerais = computed(() => {
     const r = this.resultado();
