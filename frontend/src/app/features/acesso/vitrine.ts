@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 
+import { AVISO_ACADEMICO } from '../../layout/aviso-academico';
 import { SeloYoutube } from '../../layout/selo-youtube';
 
 /**
@@ -38,6 +39,7 @@ import { SeloYoutube } from '../../layout/selo-youtube';
       </p>
       <!-- Diretrizes de marca dos YouTube API Services: selo oficial, clicável. -->
       <app-selo-youtube class="vitrine__selo" fundo="escuro" />
+      <p class="vitrine__academico" data-testid="aviso-academico">{{ avisoAcademico }}</p>
     </div>
   `,
   styles: `
@@ -113,6 +115,12 @@ import { SeloYoutube } from '../../layout/selo-youtube';
       color: var(--ink-on-dark-muted);
     }
 
+    .vitrine__academico {
+      margin-top: var(--space-3);
+      font-size: 12px;
+      color: var(--ink-on-dark-muted);
+    }
+
     @media (max-width: 860px) {
       :host {
         gap: var(--space-5);
@@ -126,4 +134,6 @@ import { SeloYoutube } from '../../layout/selo-youtube';
     }
   `,
 })
-export class Vitrine {}
+export class Vitrine {
+  protected readonly avisoAcademico = AVISO_ACADEMICO;
+}

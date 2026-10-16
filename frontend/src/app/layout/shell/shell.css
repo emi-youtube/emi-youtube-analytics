@@ -221,3 +221,12 @@
   justify-content: center;
   margin-top: var(--space-3);
 }
+
+/* Natureza do sistema (protótipo acadêmico), no mesmo tom discreto dos links legais. */
+.aviso-academico {
+  margin-top: var(--space-2);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--ink-on-dark-muted);
+}

@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { environment } from '../../../environments/environment';
 import { ResultadoExecucao } from '../../core/api/resultados.models';
 import { ResultadosHttpService, ResultadosService } from '../../core/api/resultados.service';
+import { AVISO_ACADEMICO } from '../../layout/aviso-academico';
 import { Relatorio } from './relatorio';
 
 const URL_RESULTADO = `${environment.apiBaseUrl}/execucoes/12/resultado`;
@@ -191,6 +192,13 @@ describe('Relatorio', () => {
     // 7: o rodapé vem depois de todas as seções.
     expect(el.querySelector('article > footer.rodape')).not.toBeNull();
     expect(el.querySelector('article')?.lastElementChild?.classList).toContain('rodape');
+  });
+
+  it('o rodapé impresso diz que o sistema é um protótipo acadêmico, sem fins comerciais', () => {
+    montar();
+    const rodape = responder(resultado()).querySelector('footer.rodape')!;
+
+    expect(texto(rodape.querySelector('[data-testid="aviso-academico"]'))).toBe(AVISO_ACADEMICO);
   });
 
   it('identifica campanha, execução e o recorte que valeu', () => {

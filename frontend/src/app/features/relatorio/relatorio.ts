@@ -8,6 +8,7 @@ import { FatoInsight, ResultadoExecucao } from '../../core/api/resultados.models
 import { ResultadosService } from '../../core/api/resultados.service';
 import { dataCompleta, dataHoraCompleta } from '../../core/format/datas';
 import { mensagemDeErro, statusDoErro } from '../../core/http/api-error';
+import { AVISO_ACADEMICO } from '../../layout/aviso-academico';
 import { BarraSentimento } from '../painel/barra-sentimento';
 import { SeloDemo } from '../painel/selo-demo';
 
@@ -50,6 +51,7 @@ export class Relatorio {
 
   protected readonly dataHoraCompleta = dataHoraCompleta;
   protected readonly dataCompleta = dataCompleta;
+  protected readonly avisoAcademico = AVISO_ACADEMICO;
   protected readonly minimoTemas = MINIMO_COMENTARIOS_TEMAS;
 
   protected readonly percentuaisGerais = computed(() => {

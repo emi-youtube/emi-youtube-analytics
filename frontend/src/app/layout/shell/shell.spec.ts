@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
+import { AVISO_ACADEMICO } from '../aviso-academico';
 import { Shell } from './shell';
 
 const AUTH = `${environment.apiBaseUrl}/auth`;
@@ -81,5 +82,11 @@ describe('Shell', () => {
     expect(selo.querySelector('img')!.getAttribute('src')).toBe(
       '/marca/developed-with-youtube-branco.png',
     );
+  });
+
+  it('diz no pé da nav que o sistema é um protótipo acadêmico, sem fins comerciais', () => {
+    const aviso = montar(false).querySelector('.conta [data-testid="aviso-academico"]');
+
+    expect(aviso?.textContent?.trim()).toBe(AVISO_ACADEMICO);
   });
 });
