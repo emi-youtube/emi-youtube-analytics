@@ -102,7 +102,7 @@ async def test_listar_videos_converte_metadados():
             "channelId": "UC-loja-exemplo",
             "publishedAt": "2026-02-10T08:30:00Z",
         },
-        "statistics": {"viewCount": "15230", "likeCount": "412"},
+        "statistics": {"viewCount": "15230", "likeCount": "412", "commentCount": "389"},
     }
     cliente, _ = cliente_com(lambda _: httpx.Response(200, json={"items": [item]}))
 
@@ -114,6 +114,7 @@ async def test_listar_videos_converte_metadados():
     assert videos[0].id_canal == "UC-loja-exemplo"
     assert videos[0].visualizacoes == 15230
     assert videos[0].curtidas == 412
+    assert videos[0].comentarios_total == 389
     assert videos[0].publicado_em.year == 2026
 
 
@@ -126,6 +127,8 @@ async def test_contadores_ocultos_viram_zero():
 
     assert videos[0].visualizacoes == 0
     assert videos[0].curtidas == 0
+    # Escondido não é zero: a coleta põe esse vídeo por último na divisão do limite.
+    assert videos[0].comentarios_total is None
 
 
 async def test_listar_videos_quebra_em_lotes_de_50():

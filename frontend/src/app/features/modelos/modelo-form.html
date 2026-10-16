@@ -136,7 +136,7 @@
             placeholder="5000"
             [class.campo__entrada--invalido]="invalido('limite_comentarios')"
           />
-          <p class="campo__dica">Total da execução, somando todos os vídeos.</p>
+          <p class="campo__dica">Total da execução, dividido por igual entre os vídeos.</p>
           @if (invalido('limite_comentarios')) {
             <p class="campo__ajuda">Informe um número inteiro entre 1 e {{ limiteMaximo }}.</p>
           }

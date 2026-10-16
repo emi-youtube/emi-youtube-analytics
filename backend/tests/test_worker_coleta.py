@@ -701,7 +701,7 @@ async def _textos_gravados(sessao) -> list[str]:
 
 
 async def test_limite_informado_vale_para_a_execucao_inteira(sessao):
-    """O limite é da execução, repartido entre os vídeos — não por vídeo."""
+    """O limite é da execução, dividido por igual entre os vídeos — não por vídeo."""
     await montar_job(sessao, filtros={"videos": [VIDEO_A, VIDEO_B], "limite_comentarios": 4})
     cliente = ClienteFalso(
         videos=[video(VIDEO_A), video(VIDEO_B)],
@@ -716,10 +716,100 @@ async def test_limite_informado_vale_para_a_execucao_inteira(sessao):
     assert await _textos_gravados(sessao) == [
         "texto de a0",
         "texto de a1",
-        "texto de a2",
         "texto de b0",
+        "texto de b1",
     ]
-    assert [p["limite"] for p in cliente.pedidos_de_comentario] == [4, 1]
+    assert [p["limite"] for p in cliente.pedidos_de_comentario] == [2, 2]
+
+
+async def test_dois_videos_grandes_dividem_o_limite_meio_a_meio(sessao):
+    """Antes da divisão, o primeiro vídeo grande enchia o limite e o segundo sumia."""
+    await montar_job(sessao, filtros={"videos": [VIDEO_A, VIDEO_B], "limite_comentarios": 10})
+    cliente = ClienteFalso(
+        videos=[video(VIDEO_A, comentarios_total=50), video(VIDEO_B, comentarios_total=50)],
+        comentarios={
+            VIDEO_A: [comentario(f"a{n}") for n in range(50)],
+            VIDEO_B: [comentario(f"b{n}") for n in range(50)],
+        },
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+
+    por_video = dict(
+        (
+            await sessao.execute(
+                select(Video.youtube_video_id, func.count(Comentario.id_comentario))
+                .join(Comentario, Comentario.id_video == Video.id_video)
+                .group_by(Video.youtube_video_id)
+            )
+        ).all()
+    )
+    assert por_video == {VIDEO_A: 5, VIDEO_B: 5}
+
+
+async def test_sobra_do_video_pequeno_passa_para_o_grande(sessao):
+    """O vídeo com menos comentários é coletado primeiro; o que ele não usa vai ao outro."""
+    job = await montar_job(sessao, filtros={"videos": [VIDEO_B, VIDEO_A], "limite_comentarios": 8})
+    cliente = ClienteFalso(
+        # A API devolve o grande primeiro; a coleta começa pelo pequeno mesmo assim.
+        videos=[video(VIDEO_B, comentarios_total=40), video(VIDEO_A, comentarios_total=2)],
+        comentarios={
+            VIDEO_A: [comentario(f"a{n}") for n in range(2)],
+            VIDEO_B: [comentario(f"b{n}") for n in range(40)],
+        },
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+    await sessao.refresh(job)
+
+    assert [(p["video"], p["limite"]) for p in cliente.pedidos_de_comentario] == [
+        (VIDEO_A, 4),
+        (VIDEO_B, 6),
+    ]
+    assert len(await _textos_gravados(sessao)) == 8
+    # A ordem de gravação (e do painel) continua a da API.
+    ids = (await sessao.scalars(select(Video.youtube_video_id).order_by(Video.id_video))).all()
+    assert list(ids) == [VIDEO_B, VIDEO_A]
+    assert job.payload[coleta.CHAVE_RECORTE]["comentarios_coletados"] == 8
+
+
+async def test_contador_escondido_vai_por_ultimo(sessao):
+    await montar_job(sessao, filtros={"videos": [VIDEO_A, VIDEO_B], "limite_comentarios": 6})
+    cliente = ClienteFalso(
+        videos=[video(VIDEO_A, comentarios_total=None), video(VIDEO_B, comentarios_total=1)],
+        comentarios={
+            VIDEO_A: [comentario(f"a{n}") for n in range(10)],
+            VIDEO_B: [comentario("b0")],
+        },
+    )
+
+    await coleta.executar_proximo(sessao, cliente)
+
+    assert [(p["video"], p["limite"]) for p in cliente.pedidos_de_comentario] == [
+        (VIDEO_B, 3),
+        (VIDEO_A, 5),
+    ]
+
+
+async def test_limite_menor_que_o_numero_de_videos_registra_todos(sessao, caplog):
+    """Um vídeo sem parcela fica no resultado com zero comentários, sem gastar cota."""
+    await montar_job(sessao, filtros={"videos": [VIDEO_A, VIDEO_B], "limite_comentarios": 1})
+    cliente = ClienteFalso(
+        videos=[video(VIDEO_A), video(VIDEO_B)],
+        comentarios={
+            VIDEO_A: [comentario("a0")],
+            VIDEO_B: [comentario("b0")],
+        },
+    )
+
+    with caplog.at_level(logging.WARNING):
+        await coleta.executar_proximo(sessao, cliente)
+
+    assert cliente.chamadas_de_comentario == 1
+    assert await _textos_gravados(sessao) == ["texto de a0"]
+    ids = (await sessao.scalars(select(Video.youtube_video_id).order_by(Video.id_video))).all()
+    assert list(ids) == [VIDEO_A, VIDEO_B]
+    assert "video registrado sem comentarios" in caplog.text
 
 
 async def test_limite_acima_do_teto_vale_o_teto(sessao, monkeypatch):
@@ -874,7 +964,8 @@ async def test_teto_de_leitura_e_da_execucao(sessao, monkeypatch):
 
     await coleta.executar_proximo(sessao, cliente)
 
-    assert [p["max_lidos"] for p in cliente.pedidos_de_comentario] == [5, 2]
+    # 5 de teto em dois vídeos: 3 para o primeiro; o que ele leu sai do total do segundo.
+    assert [p["max_lidos"] for p in cliente.pedidos_de_comentario] == [3, 2]
 
 
 @pytest.mark.parametrize(
