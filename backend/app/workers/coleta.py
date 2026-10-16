@@ -214,16 +214,13 @@ async def _com_retry(db: AsyncSession, job: Job, operacao, descricao: str):
             raise FalhaColeta(f"{descricao}: {erro}") from erro
 
 
-async def _coletar_video(
-    db: AsyncSession,
-    job: Job,
-    cliente: ClienteYouTube,
-    coletado: VideoColetado,
-    recorte: Recorte,
-    limite: int,
-    max_lidos: int,
-) -> LoteComentarios:
-    """Persiste o vídeo e seus comentários. Devolve o lote (gravados e contagens)."""
+async def _registrar_video(db: AsyncSession, job: Job, coletado: VideoColetado) -> Video:
+    """Grava o vídeo na execução, antes de qualquer comentário.
+
+    Todos os vídeos da análise são registrados, na ordem em que a API os devolveu,
+    mesmo os que ficarem sem comentário: o vídeo faz parte do resultado da campanha,
+    e um vídeo que sumisse do painel esconderia da empresa que ele foi pedido.
+    """
     video = Video(
         id_execucao=job.id_execucao,
         youtube_video_id=coletado.youtube_video_id,
@@ -236,6 +233,28 @@ async def _coletar_video(
     db.add(video)
     # flush para o banco atribuir o id_video que os comentários referenciam.
     await db.flush()
+    return video
+
+
+async def _coletar_comentarios(
+    db: AsyncSession,
+    job: Job,
+    cliente: ClienteYouTube,
+    coletado: VideoColetado,
+    video: Video,
+    recorte: Recorte,
+    limite: int,
+    max_lidos: int,
+) -> LoteComentarios:
+    """Coleta e persiste os comentários de um vídeo já registrado."""
+    if limite <= 0 or max_lidos <= 0:
+        # Parcela zerada (limite menor que o número de vídeos): nem chama a API.
+        logger.warning(
+            "limite esgotado, video registrado sem comentarios id_execucao=%s video=%s",
+            job.id_execucao,
+            coletado.youtube_video_id,
+        )
+        return LoteComentarios()
 
     try:
         lote = await _com_retry(
@@ -274,6 +293,16 @@ async def _coletar_video(
         )
 
     return lote
+
+
+def _parcela(total: int, partes: int) -> int:
+    """Divisão por igual, arredondada para cima: 5.000 em 3 vídeos dá 1.667."""
+    return -(-total // partes) if total > 0 else 0
+
+
+def _ordem_de_coleta(coletado: VideoColetado) -> tuple[bool, int]:
+    """Quem tem menos comentários vai primeiro; contador escondido vai por último."""
+    return (coletado.comentarios_total is None, coletado.comentarios_total or 0)
 
 
 async def _apagar_coleta_da_execucao(db: AsyncSession, id_execucao: int) -> int:
@@ -348,25 +377,31 @@ async def processar(db: AsyncSession, job: Job, cliente: ClienteYouTube) -> int:
             "modelo de análise para cada canal."
         )
 
-    # O limite e o teto de leitura são da EXECUÇÃO, repartidos entre os vídeos na
-    # ordem em que a API os devolveu.
+    # O limite e o teto de leitura são da EXECUÇÃO e se dividem por igual entre os
+    # vídeos: com dois vídeos e limite de 5.000, cada um tem até 2.500. A coleta vai do
+    # vídeo com menos comentários para o com mais, e a parcela de cada um é o que resta
+    # dividido pelos vídeos que faltam; assim, a sobra de um vídeo pequeno passa para os
+    # seguintes. Sem a divisão, o primeiro vídeo grande enchia o limite sozinho e os
+    # outros ficavam de fora da análise.
     restante = recorte.limite_aplicado
     leitura_restante = settings.worker_max_comentarios_lidos_por_execucao
     total = lidos = por_data = por_termo = por_idioma = 0
 
-    for coletado in videos:
-        if restante <= 0 or leitura_restante <= 0:
-            logger.warning(
-                "limite atingido, videos restantes ignorados id_execucao=%s "
-                "limite_aplicado=%s lidos=%s teto_leitura=%s",
-                job.id_execucao,
-                recorte.limite_aplicado,
-                lidos,
-                settings.worker_max_comentarios_lidos_por_execucao,
-            )
-            break
+    registros = [await _registrar_video(db, job, coletado) for coletado in videos]
+    ordem = sorted(range(len(videos)), key=lambda i: _ordem_de_coleta(videos[i]))
 
-        lote = await _coletar_video(db, job, cliente, coletado, recorte, restante, leitura_restante)
+    for posicao, i in enumerate(ordem):
+        faltam = len(ordem) - posicao
+        lote = await _coletar_comentarios(
+            db,
+            job,
+            cliente,
+            videos[i],
+            registros[i],
+            recorte,
+            _parcela(restante, faltam),
+            _parcela(leitura_restante, faltam),
+        )
         gravados = len(lote.comentarios)
         restante -= gravados
         leitura_restante -= lote.lidos

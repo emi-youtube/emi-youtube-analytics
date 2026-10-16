@@ -99,6 +99,10 @@ class VideoColetado:
     # Só para conferir que a análise é de um canal só (coleta, III.E.2); não é gravado:
     # é dado da API e não tem por que entrar no expurgo.
     id_canal: str = ""
+    # `statistics.commentCount`: só ordena a coleta (quem tem menos comentários vai
+    # primeiro, para a sobra passar aos outros); não é gravado. Inclui respostas e
+    # some quando o dono esconde o contador: nesse caso, None.
+    comentarios_total: int | None = None
 
 
 @dataclass(frozen=True)
@@ -143,6 +147,14 @@ def _para_int(valor: str | int | None) -> int:
         return int(valor)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return 0
+
+
+def _para_int_ou_none(valor: str | int | None) -> int | None:
+    """Como `_para_int`, mas distingue "zero" de "escondido" (None)."""
+    try:
+        return int(valor)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
 
 
 def _motivo_do_erro(resposta: httpx.Response) -> str:
@@ -259,6 +271,7 @@ class ClienteYouTube:
                         visualizacoes=_para_int(estatisticas.get("viewCount")),
                         curtidas=_para_int(estatisticas.get("likeCount")),
                         id_canal=snippet.get("channelId", ""),
+                        comentarios_total=_para_int_ou_none(estatisticas.get("commentCount")),
                     )
                 )
 
