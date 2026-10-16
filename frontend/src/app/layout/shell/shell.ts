@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 
 import { AuthService } from '../../core/auth/auth.service';
 import { AceiteTermos } from '../aceite-termos/aceite-termos';
+import { AVISO_ACADEMICO } from '../aviso-academico';
 import { SeloYoutube } from '../selo-youtube';
 
 interface NavItem {
@@ -35,6 +36,7 @@ export class Shell {
   private readonly router = inject(Router);
 
   protected readonly usuario = this.auth.usuario;
+  protected readonly avisoAcademico = AVISO_ACADEMICO;
 
   private readonly itensBase: NavItem[] = [
     {
