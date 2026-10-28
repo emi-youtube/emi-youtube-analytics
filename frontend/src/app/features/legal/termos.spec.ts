@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
-import texto from '../../../assets/legal/termos-v1.3.md';
+import texto from '../../../assets/legal/termos-v1.4.md';
 import { ANCORA_PRIVACIDADE, ancora, renderizarMarkdown } from './markdown';
 import { Termos } from './termos';
 
@@ -44,8 +44,33 @@ describe('texto vigente (políticas dos YouTube API Services)', () => {
   });
 
   it('declara os prazos que o expurgo cumpre (III.E.4.d)', () => {
-    expect(texto).toContain('apagado em até 30 dias depois da coleta');
+    expect(texto).toContain('apagados em até 30 dias depois da coleta');
     expect(texto).toContain('até 36 meses');
+  });
+
+  // Itens apontados pela revisão de conformidade de 27/10/2026 (termos 1.4).
+  it('explica o que acessa, guarda e descarta dos dados do YouTube (III.A.2.d)', () => {
+    expect(texto).toContain('O que acessamos de cada vídeo');
+    expect(texto).toContain('O que acessamos de cada comentário');
+    expect(texto).toContain('O que guardamos:');
+    expect(texto).toContain('O que não guardamos:');
+  });
+
+  it('explica uso e compartilhamento com partes internas e externas (III.A.2.e)', () => {
+    expect(texto).toContain('## 5. Como usamos e processamos os dados');
+    expect(texto).toContain('Dentro do Emi (partes internas)');
+    expect(texto).toContain('Fora do Emi (operadores');
+    expect(texto).toContain('Não vendemos');
+  });
+
+  it('explica como apagar os dados e liga a página de segurança do Google (III.A.2.h)', () => {
+    expect(texto).toContain('## 8. Como apagar seus dados');
+    expect(html).toContain('href="https://myaccount.google.com/connections?filters=3,4');
+  });
+
+  it('diz como falar com a equipe sobre privacidade (III.A.2.i)', () => {
+    expect(texto).toContain('dúvidas sobre privacidade');
+    expect(texto).toContain('emi.youtube.analytics@gmail.com');
   });
 });
 

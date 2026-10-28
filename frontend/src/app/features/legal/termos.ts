@@ -10,15 +10,15 @@ import {
 import { DomSanitizer } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 
-import texto from '../../../assets/legal/termos-v1.3.md';
+import texto from '../../../assets/legal/termos-v1.4.md';
 import { ANCORA_PRIVACIDADE, renderizarMarkdown } from './markdown';
 
 /**
  * Termos de Uso e Política de Privacidade (ADR-012). Pública: quem ainda não tem
  * conta precisa ler antes de aceitar no cadastro.
  *
- * Uma página só, com âncoras: o texto é um documento único (`termos-v1.3.md`), e a
- * Política é a seção 4 em diante. `/privacidade` é esta mesma página rolada até
+ * Uma página só, com âncoras: o texto é um documento único (`termos-v1.4.md`), e a
+ * Política vai da seção 4 à 11. `/privacidade` é esta mesma página rolada até
  * ela — dois arquivos obrigariam a manter a numeração e a versão em dobro.
  *
  * O markdown entra no bundle como texto (loader `.md` no angular.json): o SSR já
