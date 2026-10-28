@@ -1,0 +1,52 @@
+{
+  "data_utc": "2026-10-28T15:49:37.685233+00:00",
+  "aviso": "so numeros: nenhum texto de comentario",
+  "previsoes": "previsoes_bertimbau.csv",
+  "criterio": "cada avaliador e o modelo contra o consenso dos outros dois avaliadores, nos comentarios em que esses dois concordam; F1 macro com denominador 3",
+  "total_comentarios": 334,
+  "por_avaliador": [
+    {
+      "avaliador": "avaliador_1",
+      "comentarios_com_consenso_dos_outros_dois": 256,
+      "humano": {
+        "f1_macro": 0.8855353711835807,
+        "kappa_cohen": 0.8146444003269883
+      },
+      "modelo": {
+        "f1_macro": 0.7720747295968534,
+        "kappa_cohen": 0.6688149785952863
+      }
+    },
+    {
+      "avaliador": "avaliador_2",
+      "comentarios_com_consenso_dos_outros_dois": 264,
+      "humano": {
+        "f1_macro": 0.851888738898702,
+        "kappa_cohen": 0.7753338570306363
+      },
+      "modelo": {
+        "f1_macro": 0.8052307879673609,
+        "kappa_cohen": 0.7139823622456717
+      }
+    },
+    {
+      "avaliador": "avaliador_3",
+      "comentarios_com_consenso_dos_outros_dois": 258,
+      "humano": {
+        "f1_macro": 0.8716468156998364,
+        "kappa_cohen": 0.8052161976664379
+      },
+      "modelo": {
+        "f1_macro": 0.7861287970175904,
+        "kappa_cohen": 0.6885335520021867
+      }
+    }
+  ],
+  "media": {
+    "humano_f1_macro": 0.8696903085940396,
+    "humano_kappa_cohen": 0.7983981516746875,
+    "modelo_f1_macro": 0.787811438193935,
+    "modelo_kappa_cohen": 0.690443630947715,
+    "razao_f1_modelo_sobre_humano": 0.9058528425682105
+  }
+}
