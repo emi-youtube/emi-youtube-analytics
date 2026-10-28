@@ -12,6 +12,7 @@ medida: sai das datas da tabela `jobs` e de `execucoes.concluido_em` em produç�
 
 A medição de 30/09/2026 rodou sobre a pasta local `bertimbau-2026-09-30`, treinada naquele dia
 com a semente 42, antes de o cartão receber o número da versão publicada. Por isso o campo
-`modelo.versao` diz `0.1.0-ensaio`. Os pesos são os da versão 1.0.0: o próprio relatório
-confere as 334 previsões do teste contra as publicadas, e as 334 são iguais
+`modelo.versao` diz `0.1.0-ensaio`. É o mesmo treino da versão 1.0.0: o `treinado_em_utc` do
+relatório (2026-09-30T13:44:17.996958) é o do `model_card_bertimbau-emi-1.0.0.json`, e o próprio
+relatório confere as 334 previsões do teste contra as publicadas, todas iguais
 (`conferencia_dos_pesos`). O arquivo fica como foi gerado, sem edição à mão.
