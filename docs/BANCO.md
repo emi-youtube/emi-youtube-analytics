@@ -280,18 +280,18 @@ banco volta exatamente à fotografia da outra.
 **`EXEMPLOS_TREINAMENTO` fica.** A FK para `COMENTARIOS` é `SET NULL`: o exemplo
 perde a referência e mantém o texto. O corpus de treino é do projeto, não da empresa,
 e o texto é de um autor do YouTube, não do titular que excluiu a conta. A decisão está
-declarada aos usuários na seção 6 dos termos ("Corpus de pesquisa"): o texto permanece
+declarada aos usuários na seção 7 dos termos ("Corpus de pesquisa"): o texto permanece
 depois da exclusão da conta ou da empresa e não é publicado com identificação do autor.
 
 ### Bases legais por dado
 
-Transcritas da seção 4 dos termos vigentes (`termos-v1.3.md`), que é a fonte oficial: se um dia
+Transcritas da seção 4 dos termos vigentes (`termos-v1.4.md`), que é a fonte oficial: se um dia
 divergirem, vale o texto dos termos e esta tabela é corrigida. A coluna "No sistema"
 diz onde cada dado mora.
 
 | Dado | Base legal (LGPD, art. 7º), como nos termos | No sistema | Retenção |
 |---|---|---|---|
-| e-mail, senha e nome da empresa | execução do serviço solicitado (V) | `USUARIOS`, `EMPRESAS`; senha só como hash bcrypt | enquanto a conta existir |
+| nome, e-mail, senha e nome da empresa | execução do serviço solicitado (V) | `USUARIOS`, `EMPRESAS`; senha só como hash bcrypt | enquanto a conta existir |
 | termos aceitos (versão e data) | cumprimento de obrigação / legítimo interesse | `ACEITES_TERMOS` | sai com a conta |
 | comentários públicos do YouTube | legítimo interesse acadêmico; dado tornado público (§4º) | `COMENTARIOS`, autor **pseudonimizado** (SHA-256) | texto e autor: até 30 dias após a coleta; resultados: até 36 meses — ver abaixo |
 | registros técnicos (logs, tentativas de login) | legítimo interesse (IX) | `TENTATIVAS_LOGIN` (hash do e-mail) | 24 h (regra 7) |
