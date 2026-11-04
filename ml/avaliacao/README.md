@@ -191,3 +191,37 @@ gêmeos antes de treinar.
 
 O JSON (`saida_vazamento/resultado_vazamento.json`) guarda contagens, os pares por id e
 as métricas — nenhum texto. Os exemplos de cada nível saem só no console (`--exemplos`).
+
+## Sensibilidade a três escolhas do protocolo (`sensibilidade.py`)
+
+O número do capítulo não muda; a análise mede quanto ele depende de três escolhas, como
+pediu o parecer de 19/10/2026 (M05 e M06):
+
+- **estratos do sorteio**: a amostra humana saiu ~1/3 por classe do rótulo fraco, e o corpus
+  não é assim; ponderar pelo peso de cada estrato estima o desempenho sobre o corpus;
+- **vídeos**: o bootstrap sorteia vídeos inteiros, e não comentários, porque comentários do
+  mesmo vídeo se parecem;
+- **filtro de idioma**: refaz as métricas sem os 7 comentários de teste que o filtro da coleta
+  descartaria (`saida_sensibilidade/descartados_idioma.csv`, só os ids). A lista saiu de
+  `aceitar()` do `backend/app/workers/idioma.py` aplicado ao texto dos 334 comentários das
+  planilhas dos avaliadores, em 28/10/2026; o `ml/` não importa o backend, por isso o arquivo
+  é versionado em vez de recalculado.
+
+Entra um CSV do banco sem texto (consulta Q7: `id_comentario, id_video, rotulo_fraco,
+rotulo_humano, split` de todo o corpus) e as previsões de cada método:
+
+```
+python -m ml.avaliacao.sensibilidade --exemplos exemplos.csv \
+    --previsoes lexico=ml/dados/previsoes_lexico.csv \
+    --previsoes tfidf_logreg=ml/dados/previsoes_baseline.csv \
+    --previsoes bertimbau=ml/dados/previsoes_bertimbau.csv
+```
+
+A saída (`saida_sensibilidade/`) tem o JSON completo e uma tabela em Markdown.
+
+## Referência do nível humano (`ml/concordancia/referencia_humana.py`)
+
+Cada avaliador e o modelo são medidos contra o consenso dos outros dois avaliadores, nos
+comentários em que esses dois concordam. Resultado de 28/10/2026
+(`ml/concordancia/resultado_referencia_humana.json`): humano 0,870 de F1 macro (kappa
+0,80), BERTimbau 0,788 (kappa 0,69), 90,6% do nível humano. É o número da Seção 5.2.2.
